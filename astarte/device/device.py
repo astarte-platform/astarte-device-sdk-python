@@ -303,7 +303,14 @@ class Device:
 
         self.__is_connected = True
         client.subscribe(self.__get_base_topic())
-        client.subscribe(f'{self.__get_base_topic()}/#')
+        for k, v in self.__interfaces.items():
+            try:
+                if v['ownership'] == 'server':
+                    client.subscribe(f'{self.__get_base_topic()}/{k}')
+                    client.subscribe(f'{self.__get_base_topic()}/{k}/#')
+            except:
+                # Default is device
+                pass
 
         # Send the introspection
         self.__send_introspection()
@@ -336,8 +343,14 @@ class Device:
                 f'Received unexpected message on topic {msg.topic}, {msg.payload}'
             )
             return
+        if msg.topic == self.__get_base_topic():
+            print("received control message")
+            return
 
-        real_topic = topic.replace(f'{self.__get_base_topic()}/', '')
+        if not self.on_data_received:
+            return
+
+        real_topic = msg.topic.replace(f'{self.__get_base_topic()}/', '')
         topic_tokens = real_topic.split('/')
         interface_name = topic_tokens[0]
         if interface_name not in self.__interfaces:
