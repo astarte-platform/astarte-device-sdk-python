@@ -16,11 +16,11 @@ class AstarteError(Exception):
     """Base class for Astarte Errors."""
     pass
 
-class DeviceAlreadyRegisteredError(Error):
+class DeviceAlreadyRegisteredError(AstarteError):
     """Exception raised in case a Device being registered has already been registered.
     """
 
-class AuthorizationError(Error):
+class AuthorizationError(AstarteError):
     """Exception raised when Astarte APIs refuse authentication.
 
     Attributes:
@@ -30,7 +30,7 @@ class AuthorizationError(Error):
     def __init__(self, body):
         self.body = body
 
-class APIError(Error):
+class APIError(AstarteError):
     """Exception raised when Astarte APIs throw unhandled errors.
 
     Attributes:
