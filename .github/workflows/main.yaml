@@ -1,0 +1,38 @@
+name: Build and Test
+
+on:
+  # Run when pushing to stable branches
+  push:
+  # Run on branch/tag creation
+  create:
+  # Run on pull requests
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+        - 3.6
+        - 3.7
+        - 3.8
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel twine
+    - name: Build dist
+      run: python setup.py sdist bdist_wheel
+    # Publish only on tags, and for the 3.8 build
+    - name: Publish package
+      if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags') && matrix.python-version == '3.8'
+      uses: pypa/gh-action-pypi-publish@v1.1.0
+      with:
+        user: __token__
+        password: ${{ secrets.PIP_API_TOKEN }}
