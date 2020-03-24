@@ -15,7 +15,7 @@ import re
 import os
 from setuptools import find_namespace_packages, setup
 
-DEPENDENCIES = ["requests>=2.22.0", "paho-mqtt", "cryptography", "bson"]
+DEPENDENCIES = ["requests>=2.22.0", "paho-mqtt", "cryptography", "bson", "PyJWT>=1.7.0"]
 EXCLUDE_FROM_PACKAGES = ["contrib", "docs", "tests*", "venv"]
 CURDIR = os.path.abspath(os.path.dirname(__file__))
 
