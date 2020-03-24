@@ -1,4 +1,5 @@
 import asyncio
+import collections.abc
 import os
 import bson
 import paho.mqtt.client as mqtt
@@ -238,6 +239,9 @@ class Device:
 
         # TODO: validate paths
 
+        if isinstance(payload, collections.abc.Mapping):
+            raise Exception('Payload for individual interfaces should not be a dictionary')
+
         object_payload = {'v': payload}
         if timestamp:
             object_payload['t'] = timestamp
@@ -270,12 +274,19 @@ class Device:
 
         # TODO: validate paths
 
-        object_payload = {'v': payload}
+        if not isinstance(payload, collections.abc.Mapping):
+            raise Exception('Payload for aggregate interfaces should be a dictionary')
+
+        # The path should correspond to the initial, common portion of the path
+        aggregate_path = "/".join(list(payload)[0].split("/")[:-1])
+        # The payload should carry only the last item
+        object_payload = {'v': {k.split("/")[-1]:v for k,v in payload.items()}}
         if timestamp:
             object_payload['t'] = timestamp
 
-        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}',
+        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{aggregate_path}',
                             object_payload)
+
 
     def __send_generic(self, topic, object_payload, qos=2):
         self.__mqtt_client.publish(topic, bson.dumps(object_payload), qos=qos)
