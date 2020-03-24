@@ -15,7 +15,7 @@
 
 import json
 import requests
-from . import crypto
+from . import crypto, exceptions
 
 
 def register_device_with_private_key(device_id, realm, private_key_file,
@@ -77,9 +77,10 @@ def obtain_device_certificate(device_id, realm, credentials_secret,
         f'{pairing_base_url}/v1/{realm}/devices/{device_id}/protocols/astarte_mqtt_v1/credentials',
         json=data,
         headers=headers)
-    if res.status_code != 201:
-        print(res)
-        return None
+    if res.status_code == 401 or res.status_code == 403:
+        raise exceptions.AuthorizationError(res.json())
+    elif res.status_code != 201:
+        raise exceptions.APIError(res.json())
 
     crypto.import_device_certificate(res.json()['data']['client_crt'],
                               crypto_store_dir)
@@ -92,8 +93,10 @@ def obtain_device_transport_information(device_id, realm, credentials_secret,
 
     res = requests.get(f'{pairing_base_url}/v1/{realm}/devices/{device_id}',
                        headers=headers)
-    if res.status_code != 200:
-        return None
+    if res.status_code == 401 or res.status_code == 403:
+        raise exceptions.AuthorizationError(res.json())
+    elif res.status_code != 200:
+        raise exceptions.APIError(res.json())
 
     return res.json()["data"]
 
@@ -104,13 +107,14 @@ def __register_device(device_id, realm, headers, pairing_base_url) -> str:
     res = requests.post(f'{pairing_base_url}/v1/{realm}/agent/devices',
                         json=data,
                         headers=headers)
-    if res.status_code == 201:
-        return res.json()['data']['credentials_secret']
+    if res.status_code == 401 or res.status_code == 403:
+        raise exceptions.AuthorizationError(res.json())
     elif res.status_code == 422:
-        raise DeviceAlreadyRegisteredException(
-            f'This device already exists in Realm {realm}.')
+        raise exceptions.DeviceAlreadyRegisteredError()
+    elif res.status_code != 201:
+        raise exceptions.APIError(res.json())
 
-    return None
+    return res.json()['data']['credentials_secret']
 
 
 def __register_device_headers_with_private_key(private_key_file) -> dict:
@@ -120,7 +124,7 @@ def __register_device_headers_with_private_key(private_key_file) -> dict:
             'Authorization'] = f'Bearer {__generate_token(private_key_file, type="pairing")}'
         return headers
     except:
-        raise UnprocessableRealmKey(
+        raise TypeError(
             "Supplied Realm Key could not be used to generate a valid Token.")
 
 

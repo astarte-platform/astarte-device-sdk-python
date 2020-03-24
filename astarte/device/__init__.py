@@ -19,3 +19,4 @@ __version__ = "0.10.0a2"
 # Export what we care about
 from .device import Device
 from .pairing_handler import register_device_with_jwt_token, register_device_with_private_key
+from .exceptions import AstarteError, DeviceAlreadyRegisteredError, AuthorizationError, APIError

@@ -105,7 +105,7 @@ class Device:
 
         # Check if the persistency dir exists
         if not os.path.isdir(persistency_dir):
-            raise Exception(f'{persistency_dir} is not a directory')
+            raise FileNotFoundError(f'{persistency_dir} is not a directory')
 
         if not os.path.isdir(os.path.join(persistency_dir, device_id)):
             os.mkdir(os.path.join(persistency_dir, device_id))
@@ -248,14 +248,14 @@ class Device:
             as the timestamp for the value.
         """
         if self.__is_interface_aggregate(interface_name):
-            raise Exception(
+            raise TypeError(
                 f'Interface {interface_name} is an aggregate interface. You should use send_aggregate.'
             )
 
         # TODO: validate paths
 
         if isinstance(payload, collections.abc.Mapping):
-            raise Exception('Payload for individual interfaces should not be a dictionary')
+            raise TypeError('Payload for individual interfaces should not be a dictionary')
 
         object_payload = {'v': payload}
         if timestamp:
@@ -283,14 +283,14 @@ class Device:
             as the timestamp for the value.
         """
         if not self.__is_interface_aggregate(interface_name):
-            raise Exception(
+            raise TypeError(
                 f'Interface {interface_name} is not an aggregate interface. You should use send.'
             )
 
         # TODO: validate paths
 
         if not isinstance(payload, collections.abc.Mapping):
-            raise Exception('Payload for aggregate interfaces should be a dictionary')
+            raise TypeError('Payload for aggregate interfaces should be a dictionary')
 
         # The path should correspond to the initial, common portion of the path
         aggregate_path = "/".join(list(payload)[0].split("/")[:-1])
@@ -308,7 +308,7 @@ class Device:
 
     def __is_interface_aggregate(self, interface_name):
         if not interface_name in self.__interfaces:
-            raise Exception(
+            raise FileNotFoundError(
                 f'Interface {interface_name} not declared in introspection')
 
         try:
