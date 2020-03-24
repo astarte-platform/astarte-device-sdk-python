@@ -14,7 +14,7 @@
 
 
 # Version of the module
-__version__ = "0.10.0a1"
+__version__ = "0.10.0a2"
 
 # Export what we care about
 from .device import Device
