@@ -267,6 +267,7 @@ class Device:
 
     def send_aggregate(self,
                        interface_name,
+                       interface_path,
                        payload,
                        timestamp=None):
         """
@@ -292,14 +293,12 @@ class Device:
         if not isinstance(payload, collections.abc.Mapping):
             raise TypeError('Payload for aggregate interfaces should be a dictionary')
 
-        # The path should correspond to the initial, common portion of the path
-        aggregate_path = "/".join(list(payload)[0].split("/")[:-1])
-        # The payload should carry only the last item
-        object_payload = {'v': {k.split("/")[-1]:v for k,v in payload.items()}}
+        # The payload should carry the aggregate object
+        object_payload = {'v': payload}
         if timestamp:
             object_payload['t'] = timestamp
 
-        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{aggregate_path}',
+        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}',
                             object_payload)
 
 
