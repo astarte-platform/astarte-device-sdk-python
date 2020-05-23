@@ -58,6 +58,12 @@ class Device:
         name, the Interface path, and the payload. The payload will reflect the type defined in the Interface.
     """
 
+    QOS_MAP = {
+        "unreliable": 0,
+        "guaranteed": 1,
+        "unique": 2
+    }
+
     def __init__(self,
                  device_id,
                  realm,
@@ -261,9 +267,11 @@ class Device:
         if timestamp:
             object_payload['t'] = timestamp
 
+        qos = self.__get_qos(interface_name)
+
         self.__send_generic(
             f'{self.__get_base_topic()}/{interface_name}{interface_path}',
-            object_payload)
+            object_payload, qos=qos)
 
     def send_aggregate(self,
                        interface_name,
@@ -298,9 +306,10 @@ class Device:
         if timestamp:
             object_payload['t'] = timestamp
 
-        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}',
-                            object_payload)
+        qos = self.__get_qos(interface_name)
 
+        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}',
+                            object_payload, qos=qos)
 
     def __send_generic(self, topic, object_payload, qos=2):
         self.__mqtt_client.publish(topic, bson.dumps(object_payload), qos=qos)
@@ -357,7 +366,7 @@ class Device:
                                                  rc)
             else:
                 self.on_disconnected(self, rc)
-        
+
         # If rc was explicit, stop the loop (after the callback)
         if rc == 0:
             self.__mqtt_client.loop_stop()
@@ -410,3 +419,22 @@ class Device:
         introspection_message = introspection_message[:-1]
         self.__mqtt_client.publish(self.__get_base_topic(),
                                    introspection_message, 2)
+
+    def __get_qos(self, interface_name) -> int:
+        """
+        Deduce the QoS to be used, based on the reliability of the interface.
+        Parameters
+        ----------
+        interface_name
+        The interface name to deduce QoS for.
+        Returns
+        -------
+        The deduced QoS, one of [0,1,2], default is 2
+        """
+        if interface_name not in self.__interfaces:
+            raise FileNotFoundError(
+                f'Interface {interface_name} not declared in introspection')
+        try:
+            return self.QOS_MAP[self.__interfaces[interface_name]['reliability']]
+        except KeyError:
+            return 2
