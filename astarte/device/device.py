@@ -336,11 +336,10 @@ class Device:
             print("Error while connecting: " + str(rc))
 
         self.__is_connected = True
-        client.subscribe(self.__get_base_topic())
+        client.subscribe(f'{self.__get_base_topic()}/control/consumer/properties')
         for k, v in self.__interfaces.items():
             try:
                 if v['ownership'] == 'server':
-                    client.subscribe(f'{self.__get_base_topic()}/{k}')
                     client.subscribe(f'{self.__get_base_topic()}/{k}/#')
             except:
                 # Default is device
