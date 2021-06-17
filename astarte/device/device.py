@@ -311,8 +311,34 @@ class Device:
         self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}',
                             object_payload, qos=qos)
 
+    def unset_property(self, interface_name, interface_path):
+        """
+        Unset the specified property on an interface.
+
+        Parameters
+        ----------
+        interface_name : str
+            The name of an the Interface where the property to unset is located.
+        interface_path : str
+            The path on the Interface to unset.
+        """
+        if not self.__is_interface_type_properties(interface_name):
+            raise TypeError(
+                f'Interface {interface_name} is a datastream interface. You can only unset a property.'
+            )
+
+        # TODO: validate paths
+
+        qos = self.__get_qos(interface_name)
+
+        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}', None, qos=qos)
+
     def __send_generic(self, topic, object_payload, qos=2):
-        self.__mqtt_client.publish(topic, bson.dumps(object_payload), qos=qos)
+        if object_payload:
+            payload = bson.dumps(object_payload)
+        else:
+            payload = b''
+        self.__mqtt_client.publish(topic, payload, qos=qos)
 
     def __is_interface_aggregate(self, interface_name):
         if not interface_name in self.__interfaces:
@@ -325,6 +351,19 @@ class Device:
         except KeyError:
             # It's good, as the default is aggregate
             pass
+
+        return False
+
+    def __is_interface_type_properties(self, interface_name):
+        if interface_name not in self.__interfaces:
+            raise FileNotFoundError(
+                f'Interface {interface_name} not declared in introspection')
+
+        try:
+            if self.__interfaces[interface_name]['type'] == 'properties':
+                return True
+        except KeyError:
+            raise TypeError('Interface \'type\' key must be present')
 
         return False
 
