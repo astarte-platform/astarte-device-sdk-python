@@ -70,7 +70,8 @@ class Device:
                  credentials_secret,
                  pairing_base_url,
                  persistency_dir,
-                 loop=None):
+                 loop=None,
+                 ignore_ssl_errors= False):
         """
         Parameters
         ----------
@@ -91,6 +92,10 @@ class Device:
             through loop.call_soon_threadsafe, ensuring that the callbacks will be run in thread the loop belongs to. Usually, you want
             to set this to get_running_loop(). When not sent, callbacks will be invoked as a standard function - keep in mind this means
             your callbacks might create deadlocks.
+        ignore_ssl_errors: bool (optional)
+            Useful if you're using the Device to connect to a test instance of Astarte with self signed certificates,
+            it is not recommended to leave this `true` in production.
+            Defaults to `false`, if `true` the device will ignore SSL errors during connection.
         """
         self.__device_id = device_id
         self.__realm = realm
@@ -103,6 +108,7 @@ class Device:
         self.__interfaces = {}
         self.__is_connected = False
         self.__loop = loop
+        self.__ignore_ssl_errors = ignore_ssl_errors
 
         self.on_connected = None
         self.on_disconnected = None
@@ -172,15 +178,21 @@ class Device:
                 os.path.join(self.__persistency_dir, self.__device_id,
                              "crypto"))
         # Initialize MQTT Client
+        if self.__ignore_ssl_errors:
+            cert_reqs = ssl.CERT_NONE
+        else:
+            cert_reqs = ssl.CERT_REQUIRED
+
         self.__mqtt_client.tls_set(
             ca_certs=None,
             certfile=os.path.join(self.__persistency_dir, self.__device_id,
                                   "crypto", "device.crt"),
             keyfile=os.path.join(self.__persistency_dir, self.__device_id,
                                  "crypto", "device.key"),
-            cert_reqs=ssl.CERT_REQUIRED,
+            cert_reqs=cert_reqs,
             tls_version=ssl.PROTOCOL_TLS,
             ciphers=None)
+        self.__mqtt_client.tls_insecure_set(self.__ignore_ssl_errors)
 
     def connect(self):
         """
