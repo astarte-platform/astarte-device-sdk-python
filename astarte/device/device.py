@@ -98,7 +98,6 @@ class Device:
         self.__persistency_dir = persistency_dir
         self.__credentials_secret = credentials_secret
         self.__jwt_token = None
-        self.__mqtt_client = mqtt.Client()
         self.__is_crypto_setup = False
         self.__interfaces = {}
         self.__is_connected = False
@@ -119,6 +118,10 @@ class Device:
         if not os.path.isdir(os.path.join(persistency_dir, device_id,
                                           "crypto")):
             os.mkdir(os.path.join(persistency_dir, device_id, "crypto"))
+        self.__setup_mqtt_client()
+
+    def __setup_mqtt_client(self):
+        self.__mqtt_client = mqtt.Client()
         self.__mqtt_client.on_connect = self.__on_connect
         self.__mqtt_client.on_disconnect = self.__on_disconnect
         self.__mqtt_client.on_message = self.__on_message
@@ -369,6 +372,15 @@ class Device:
         # If rc was explicit, stop the loop (after the callback)
         if rc == 0:
             self.__mqtt_client.loop_stop()
+        # Else check certificate expiration and try reconnection
+        # TODO: check for MQTT_ERR_TLS when Paho correctly returns it
+        elif not crypto.certificate_is_valid(os.path.join(self.__persistency_dir, self.__device_id,
+                                                        "crypto")):
+            self.__mqtt_client.loop_stop()
+            # If the certificate must be regenerated, old mqtt client is no longer valid as it is bound to the
+            # wrong TLS params and paho does not allow to replace them a second time
+            self.__setup_mqtt_client()
+            self.connect()
 
     def __on_message(self, client, userdata, msg):
         if not msg.topic.startswith(self.__get_base_topic()):
