@@ -20,6 +20,7 @@ from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 from os import path
+from datetime import datetime
 
 
 def generate_csr(realm, device_id, crypto_store_dir):
@@ -66,6 +67,20 @@ def import_device_certificate(client_crt, crypto_store_dir):
 
 
 def device_has_certificate(crypto_store_dir):
-    return path.exists(path.join(crypto_store_dir,
-                                 "device.crt")) and path.exists(
-                                     path.join(crypto_store_dir, "device.key"))
+    cert_path = path.join(crypto_store_dir, "device.crt")
+    key_path = path.join(crypto_store_dir, "device.key")
+
+    return path.exists(cert_path) and path.exists(key_path) and certificate_is_valid(crypto_store_dir)
+
+
+def certificate_is_valid(crypto_store_dir):
+    cert_path = path.join(crypto_store_dir, "device.crt")
+    with open(cert_path, 'r') as file:
+        data = file.read()
+    if data:
+        try:
+            certificate = x509.load_pem_x509_certificate(data.encode('ascii'), default_backend())
+        except ValueError:
+            return False
+        return certificate.not_valid_before < datetime.utcnow() < certificate.not_valid_after
+    return False
