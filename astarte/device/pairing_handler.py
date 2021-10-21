@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import json
 import requests
 from . import crypto, exceptions
+from base64 import urlsafe_b64encode
+from uuid import UUID, uuid5, uuid4
 
 
 def register_device_with_private_key(device_id, realm, private_key_file,
@@ -63,6 +63,47 @@ def register_device_with_jwt_token(device_id, realm, jwt_token,
     return __register_device(
         device_id, realm, __register_device_headers_with_jwt_token(jwt_token),
         pairing_base_url)
+
+
+def generate_device_id(namespace: UUID, unique_data: str):
+    """
+    Deterministically generate a device Id based on UUID namespace identifier and unique data.
+
+    Parameters
+    ----------
+    namespace: UUID
+        UUID namespace of the device_id
+    unique_data: str
+        device unique data used to generate the device_id
+
+    Returns
+    -------
+    str
+        the generated device Id, using the standard Astarte Device ID encoding (base64 urlencoding without padding).
+
+    """
+
+    device_id = uuid5(namespace=namespace, name=unique_data)
+
+    # encode the device_id, strip down the padding and return it as a string
+    return urlsafe_b64encode(device_id.bytes).replace(b'=', b'').decode("utf-8")
+
+
+def generate_random_device_id():
+    """
+    Quick way to generate a device Id.
+    Pay attention that each time this value is different and the use in production is discouraged.
+
+    Returns
+    -------
+    str
+        the generated device Id, using the standard Astarte Device ID encoding (base64 urlencoding without padding).
+
+    """
+    device_id = uuid4()
+
+    # encode the device_id, strip down the padding and return it as a string
+    return urlsafe_b64encode(device_id.bytes).replace(b'=', b'').decode("utf-8")
 
 
 def obtain_device_certificate(device_id, realm, credentials_secret,
