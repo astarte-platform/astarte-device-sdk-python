@@ -1,4 +1,4 @@
-# Copyright 2020 Ispirata S.r.l.
+# Copyright 2020-2021 SECO Mind S.r.l.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@ import bson
 import paho.mqtt.client as mqtt
 import ssl
 from urllib.parse import urlparse
-from . import crypto, pairing_handler
+from astarte.device import crypto, pairing_handler
+from astarte.device.introspection import Introspection
 
 
 class Device:
@@ -57,12 +58,6 @@ class Device:
         A function that will be invoked everytime data is received from Astarte. Parameters are the Device itself, the Interface
         name, the Interface path, and the payload. The payload will reflect the type defined in the Interface.
     """
-
-    QOS_MAP = {
-        "unreliable": 0,
-        "guaranteed": 1,
-        "unique": 2
-    }
 
     def __init__(self,
                  device_id,
@@ -104,7 +99,7 @@ class Device:
         self.__credentials_secret = credentials_secret
         self.__jwt_token = None
         self.__is_crypto_setup = False
-        self.__interfaces = {}
+        self.__introspection = Introspection()
         self.__is_connected = False
         self.__loop = loop
         self.__ignore_ssl_errors = ignore_ssl_errors
@@ -144,8 +139,7 @@ class Device:
         interface_definition : dict
             An Astarte Interface definition in the form of a Python dictionary. Usually obtained by using json.loads on an Interface file.
         """
-        self.__interfaces[
-            interface_definition["interface_name"]] = interface_definition
+        self.__introspection.add_interface(interface_definition)
 
     def remove_interface(self, interface_name):
         """
@@ -156,11 +150,10 @@ class Device:
         
         Parameters
         ----------
-        interface_name : dict
+        interface_name : str
             The name of an Interface previously added with :py:func:`add_interface`.
         """
-        if interface_name in self.__interfaces:
-            del self.__interfaces[interface_name]
+        self.__introspection.remove_interface(interface_name)
 
     def get_device_id(self) -> str:
         """
@@ -273,16 +266,17 @@ class Device:
                 f'Interface {interface_name} is an aggregate interface. You should use send_aggregate.'
             )
 
-        # TODO: validate paths
-
         if isinstance(payload, collections.abc.Mapping):
             raise TypeError('Payload for individual interfaces should not be a dictionary')
+
+        if not self.__validate_data(interface_name, interface_path, payload, timestamp):
+            print("validation failed")
 
         object_payload = {'v': payload}
         if timestamp:
             object_payload['t'] = timestamp
 
-        qos = self.__get_qos(interface_name)
+        qos = self._get_qos(interface_name, interface_path)
 
         self.__send_generic(
             f'{self.__get_base_topic()}/{interface_name}{interface_path}',
@@ -311,8 +305,6 @@ class Device:
                 f'Interface {interface_name} is not an aggregate interface. You should use send.'
             )
 
-        # TODO: validate paths
-
         if not isinstance(payload, collections.abc.Mapping):
             raise TypeError('Payload for aggregate interfaces should be a dictionary')
 
@@ -321,7 +313,7 @@ class Device:
         if timestamp:
             object_payload['t'] = timestamp
 
-        qos = self.__get_qos(interface_name)
+        qos = self._get_qos(interface_name)
 
         self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}',
                             object_payload, qos=qos)
@@ -342,9 +334,7 @@ class Device:
                 f'Interface {interface_name} is a datastream interface. You can only unset a property.'
             )
 
-        # TODO: validate paths
-
-        qos = self.__get_qos(interface_name)
+        qos = self._get_qos(interface_name)
 
         self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}', None, qos=qos)
 
@@ -356,18 +346,12 @@ class Device:
         self.__mqtt_client.publish(topic, payload, qos=qos)
 
     def __is_interface_aggregate(self, interface_name):
-        if not interface_name in self.__interfaces:
+        interface = self.__introspection.get_interface(interface_name)
+        if not interface:
             raise FileNotFoundError(
                 f'Interface {interface_name} not declared in introspection')
 
-        try:
-            if self.__interfaces[interface_name]['aggregation'] == 'object':
-                return True
-        except KeyError:
-            # It's good, as the default is aggregate
-            pass
-
-        return False
+        return interface.is_aggregation_object()
 
     def __is_interface_type_properties(self, interface_name):
         if interface_name not in self.__interfaces:
@@ -391,13 +375,8 @@ class Device:
 
         self.__is_connected = True
         client.subscribe(f'{self.__get_base_topic()}/control/consumer/properties')
-        for k, v in self.__interfaces.items():
-            try:
-                if v['ownership'] == 'server':
-                    client.subscribe(f'{self.__get_base_topic()}/{k}/#')
-            except:
-                # Default is device
-                pass
+        for interface in self.__introspection.get_all_server_owned_interfaces():
+            client.subscribe(f'{self.__get_base_topic()}/{interface.name}/#')
 
         # Send the introspection
         self.__send_introspection()
@@ -449,7 +428,7 @@ class Device:
         real_topic = msg.topic.replace(f'{self.__get_base_topic()}/', '')
         topic_tokens = real_topic.split('/')
         interface_name = topic_tokens[0]
-        if interface_name not in self.__interfaces:
+        if not self.__introspection.get_interface(interface_name):
             print(
                 f'Received unexpected message for unregistered interface {interface_name}: {msg.topic}, {msg.payload}'
             )
@@ -476,13 +455,13 @@ class Device:
     def __send_introspection(self):
         # Build the introspection message
         introspection_message = ""
-        for interface_name, interface_definition in self.__interfaces.items():
-            introspection_message += f'{interface_name}:{interface_definition["version_major"]}:{interface_definition["version_minor"]};'
+        for interface in self.__introspection.get_all_interfaces():
+            introspection_message += f'{interface.name}:{interface.version_major}:{interface.version_minor};'
         introspection_message = introspection_message[:-1]
         self.__mqtt_client.publish(self.__get_base_topic(),
                                    introspection_message, 2)
 
-    def __get_qos(self, interface_name) -> int:
+    def _get_qos(self, interface_name, path=None) -> int:
         """
         Deduce the QoS to be used, based on the reliability of the interface.
         Parameters
@@ -493,10 +472,41 @@ class Device:
         -------
         The deduced QoS, one of [0,1,2], default is 2
         """
-        if interface_name not in self.__interfaces:
+        interface = self.__introspection.get_interface(interface_name)
+        if not interface:
             raise FileNotFoundError(
                 f'Interface {interface_name} not declared in introspection')
-        try:
-            return self.QOS_MAP[self.__interfaces[interface_name]['reliability']]
-        except KeyError:
-            return 2
+
+        # When aggregation object there is no need to specify the path as every map have the same QoS
+        if path:
+            mapping = interface.get_mapping(path)
+            if not mapping:
+                raise FileNotFoundError(
+                    f'Path {path} not declared in {interface_name}')
+        else:
+            mapping = list(interface.mappings.values())[0]
+
+        return mapping.reliability
+
+    def __validate_data(self, interface_name, interface_path, payload, timestamp) -> bool:
+        """
+        Verifies the data corresponds with the interface.
+
+        Parameters
+        ----------
+        interface_name : str
+            The name of an the Interface to send data to.
+        interface_path : str
+            The path on the Interface to send data to.
+        payload : object
+            The value to be sent. The type should be compatible to the one specified in the interface path.
+        timestamp : datetime, optional
+            If sending a Datastream with explicit_timestamp, you can specify a datetime object which will be registered
+            as the timestamp for the value.
+        """
+        interface = self.__introspection.get_interface(interface_name)
+        if not interface:
+            raise FileNotFoundError(
+                f'Interface {interface_name} not declared in introspection')
+
+        return interface.validate(interface_path, payload, timestamp)
