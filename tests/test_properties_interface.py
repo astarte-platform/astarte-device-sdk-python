@@ -74,6 +74,12 @@ class UnitTests(unittest.TestCase):
                     "type": "booleanarray",
                     "database_retention_policy": "use_ttl",
                     "database_retention_ttl": 31536000,
+                },
+                {
+                    "endpoint": "/test/%{param}/int",
+                    "type": "integer",
+                    "database_retention_policy": "use_ttl",
+                    "database_retention_ttl": 31536000,
                 }
             ]
         }
@@ -252,3 +258,9 @@ class UnitTests(unittest.TestCase):
         result, msg = self.interface.validate("/test/booleanArray", payload, None)
         self.assertFalse(result)
         self.assertIsNot(msg, "")
+
+    def test_validate_parameter_property(self):
+        payload = 1
+        result, msg = self.interface.validate("/test/parameter-value/int", payload, None)
+        self.assertTrue(result)
+        self.assertIs(msg, "")

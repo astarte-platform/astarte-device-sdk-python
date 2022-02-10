@@ -15,6 +15,7 @@
 from typing import Tuple
 from astarte.device.mapping import Mapping
 from datetime import datetime
+from re import sub, match
 
 DEVICE = "device"
 SERVER = "server"
@@ -104,7 +105,10 @@ class Interface:
         Mapping or None
             The Mapping if found, None otherwise
         """
-        return self.mappings.get(endpoint)
+        for path, mapping in self.mappings.items():
+            regex = sub(r'%{\w+}', r'.+', path)
+            if match(regex + "$", endpoint):
+                return mapping
 
     def validate(self, path: str, payload, timestamp: datetime) -> Tuple[bool, str]:
         """
