@@ -72,34 +72,31 @@ class Mapping:
 
     Notes
     -----
-        Supported data types:
-        =====================
+        **Supported data types**
+
         The following types are supported:
-        * double: A double-precision floating-point number as specified by binary64, by the IEEE 754 standard (NaNs and
-         other non numerical values are not supported).
+
+        * double: A double-precision floating-point number as specified by binary64, by the IEEE 754 standard (NaNs and other non numerical values are not supported).
         * integer: A signed 32 bit integer.
         * boolean: Either true or false, adhering to JSON boolean type.
-        * longinteger: A signed 64 bit integer (please note that longinteger is represented as a string by default in
-         JSON-based APIs.).
+        * longinteger: A signed 64 bit integer (please note that longinteger is represented as a string by default in JSON-based APIs.).
         * string: An UTF-8 string, at most 65536 bytes long.
-        * binaryblob: An arbitrary sequence of any byte that should be shorter than 64 KiB. (binaryblob is represented
-         as a base64 string by default in JSON-based APIs.).
-        * datetime: A UTC timestamp, internally represented as milliseconds since 1st Jan 1970 using a signed 64 bits
-         integer. (datetime is represented as an ISO 8601 string by default in JSON based APIs.)
-        * doublearray, integerarray, booleanarray, longintegerarray, stringarray, binaryblobarray, datetimearray: A list
-         of values, represented as a JSON Array. Arrays can have up to 1024 items and each item must respect the limits
-         of its scalar type (i.e. each string in a stringarray must be at most 65535 bytes long, each binary blob in a
-         binaryblobarray must be shorter than 64 KiB.
+        * binaryblob: An arbitrary sequence of any byte that should be shorter than 64 KiB. (binaryblob is represented as a base64 string by default in JSON-based APIs.).
+        * datetime: A UTC timestamp, internally represented as milliseconds since 1st Jan 1970 using a signed 64 bits integer. (datetime is represented as an ISO 8601 string by default in JSON based APIs.)
+        * doublearray, integerarray, booleanarray, longintegerarray, stringarray, binaryblobarray, datetimearray: A list of values, represented as a JSON Array. Arrays can have up to 1024 items and each item must respect the limits of its scalar type (i.e. each string in a stringarray must be at most 65535 bytes long, each binary blob in a binaryblobarray must be shorter than 64 KiB.
 
-        Quality of Service
-        ==================
+        **Quality of Service**
+
         Data messages QoS is chosen according to mapping settings, such as reliability. Properties are always published using QoS 2.
 
-        INTERFACE TYPE	RELIABILITY	    QOS
-        properties      always unique	2
-        datastream	    unreliable	    0
-        datastream	    guaranteed	    1
-        datastream	    unique	        2
+        ============== ============== ===
+        INTERFACE TYPE RELIABILITY    QOS
+        ============== ============== ===
+        properties     always unique	2
+        datastream	   unreliable	    0
+        datastream	   guaranteed	    1
+        datastream	   unique	        2
+        ============== ============== ===
     """
 
     def __init__(self, mapping_definition: dict, interface_type):

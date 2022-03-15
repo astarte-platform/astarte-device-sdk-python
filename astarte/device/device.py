@@ -32,8 +32,8 @@ class Device:
     Users should instantiate a Device with the right credentials and connect it to the configured instance to
     start working with it.
 
-    Threading and Concurrency
-    ----------
+    **Threading and Concurrency**
+
     This SDK uses paho-mqtt under the hood to provide Transport connectivity. As such, it is bound by paho-mqtt's behaviors
     in terms of threading. When a Device connects, a new thread is spawned and an event loop is run there to manage all the
     connection events.

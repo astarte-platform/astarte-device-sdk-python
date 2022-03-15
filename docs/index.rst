@@ -10,7 +10,8 @@ Welcome to Astarte Device SDK Python's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
+   modules
+.. mdinclude:: ../README.md
 
 Indices and tables
 ==================
