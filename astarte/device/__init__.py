@@ -1,4 +1,4 @@
-# Copyright 2020 Ispirata S.r.l.
+# Copyright 2020-2022 SECO Mind S.r.l.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,5 +21,6 @@ from .device import Device
 from .introspection import Introspection
 from .interface import Interface
 from .mapping import Mapping
-from .pairing_handler import register_device_with_jwt_token, register_device_with_private_key
+from .pairing_handler import register_device_with_jwt_token, register_device_with_private_key, generate_device_id, \
+    generate_random_device_id
 from .exceptions import AstarteError, DeviceAlreadyRegisteredError, AuthorizationError, APIError
