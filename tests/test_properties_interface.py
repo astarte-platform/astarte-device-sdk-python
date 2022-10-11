@@ -264,3 +264,14 @@ class UnitTests(unittest.TestCase):
         result, msg = self.interface.validate("/test/parameter-value/int", payload, None)
         self.assertTrue(result)
         self.assertIs(msg, "")
+
+    def test_major_minor_zero_exception(self):
+        bad_interface_json = {
+            "interface_name": "com.astarte.MajorMinorTest",
+            "version_major": 0,
+            "version_minor": 0,
+            "type": "properties",
+            "ownership": "device",
+            "mappings": []
+        }
+        self.assertRaises(ValueError, lambda: Interface(bad_interface_json))
