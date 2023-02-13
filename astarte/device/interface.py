@@ -92,6 +92,16 @@ class Interface:
         """
         return self.ownership == "server"
 
+    def is_type_properties(self):
+        """
+        Check the Interface type
+        Returns
+        -------
+        bool
+            True if type: properties
+        """
+        return self.type == "properties"
+
     def get_mapping(self, endpoint) -> Mapping:
         """
         Retrieve the Mapping with the given endpoint from the Interface
