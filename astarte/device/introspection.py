@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Optional, List
 
 from astarte.device.interface import Interface
 
@@ -27,7 +28,7 @@ class Introspection:
     def __init__(self):
         self.__interfaces_list = {}
 
-    def add_interface(self, interface_definition):
+    def add_interface(self, interface_definition: dict) -> None:
         """
         Adds an Interface to the Introspection
 
@@ -42,7 +43,7 @@ class Introspection:
         interface = Interface(interface_definition)
         self.__interfaces_list[interface.name] = interface
 
-    def remove_interface(self, interface_name):
+    def remove_interface(self, interface_name: str) -> None:
         """
         Removes an Interface from the Introspection
 
@@ -57,7 +58,7 @@ class Introspection:
         if interface_name in self.__interfaces_list:
             del self.__interfaces_list[interface_name]
 
-    def get_interface(self, interface_name):
+    def get_interface(self, interface_name: str) -> Optional[Interface]:
         """
         Retrieve an Interface definition from the Introspection
 
@@ -74,7 +75,7 @@ class Introspection:
         if interface_name in self.__interfaces_list:
             return self.__interfaces_list[interface_name]
 
-    def get_all_interfaces(self):
+    def get_all_interfaces(self) -> List[Interface]:
         """
         Retrieve all the list of all Interfaces in Device's Introspection
 
@@ -85,7 +86,7 @@ class Introspection:
         """
         return self.__interfaces_list.values()
 
-    def get_all_server_owned_interfaces(self):
+    def get_all_server_owned_interfaces(self) -> List[Interface]:
         """
         Retrieve all the list of all Interfaces in Device's Introspection with server ownership
 

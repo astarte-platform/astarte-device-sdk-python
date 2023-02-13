@@ -57,22 +57,22 @@ class Interface:
             An Astarte Interface definition in the form of a Python dictionary. Usually obtained by using json.loads on
             an Interface file.
         """
-        self.name = interface_definition["interface_name"]
-        self.version_major = interface_definition["version_major"]
-        self.version_minor = interface_definition["version_minor"]
-        self.type = interface_definition["type"]
+        self.name: str = interface_definition["interface_name"]
+        self.version_major: int = interface_definition["version_major"]
+        self.version_minor: int = interface_definition["version_minor"]
+        self.type: str = interface_definition["type"]
         self.ownership = "device"
         if "ownership" in interface_definition:
             self.ownership = interface_definition["ownership"]
         self.aggregation = ""
         if "aggregation" in interface_definition:
             self.aggregation = interface_definition["aggregation"]
-        self.mappings: dict = {}
+        self.mappings = {}
         for mapping_definition in interface_definition["mappings"]:
             mapping = Mapping(mapping_definition, self.type)
             self.mappings[mapping.endpoint] = mapping
 
-    def is_aggregation_object(self):
+    def is_aggregation_object(self) -> bool:
         """
         Check if the current Interface is a datastream with aggregation object
         Returns
@@ -82,7 +82,7 @@ class Interface:
         """
         return self.aggregation == "object"
 
-    def is_server_owned(self):
+    def is_server_owned(self) -> bool:
         """
         Check the Interface ownership
         Returns
