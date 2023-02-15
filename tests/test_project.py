@@ -3,6 +3,8 @@
 
 import unittest
 import os
+from unittest.mock import MagicMock
+
 from astarte.device import Device
 
 
@@ -21,6 +23,22 @@ class UnitTests(unittest.TestCase):
                     "endpoint": "/test/uno",
                     "type": "integer",
                     "database_retention_policy": "use_ttl",
+                }
+            ]
+        }
+
+        self.property_interface_json = {
+            "interface_name": "com.astarte.PropertyTest",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "properties",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/int",
+                    "type": "integer",
+                    "database_retention_policy": "use_ttl",
+                    "database_retention_ttl": 31536000,
                 }
             ]
         }
@@ -45,3 +63,8 @@ class UnitTests(unittest.TestCase):
         self.device.add_interface(interface_definition_unique)
         self.assertIs(self.device._get_qos(interface_definition_unique["interface_name"]), 2,
                       msg="qos should be '2' for 'unique' reliability")
+
+    def test_unset_property(self):
+        self.device.add_interface(self.property_interface_json)
+        self.device._send_generic = MagicMock(return_value=None)
+        self.device.unset_property("com.astarte.PropertyTest", "/test/int")

@@ -354,17 +354,12 @@ class Device:
         return interface.is_aggregation_object()
 
     def __is_interface_type_properties(self, interface_name):
-        if interface_name not in self.__interfaces:
+        interface = self.__introspection.get_interface(interface_name)
+        if not interface:
             raise FileNotFoundError(
                 f'Interface {interface_name} not declared in introspection')
 
-        try:
-            if self.__interfaces[interface_name]['type'] == 'properties':
-                return True
-        except KeyError:
-            raise TypeError('Interface \'type\' key must be present')
-
-        return False
+        return interface.is_type_properties()
 
     def __get_base_topic(self):
         return f'{self.__realm}/{self.__device_id}'
