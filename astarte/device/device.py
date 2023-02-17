@@ -430,22 +430,25 @@ class Device:
             return
 
         interface_path = '/' + '/'.join(topic_tokens[1:])
-        payload_object = bson.loads(msg.payload)
-        if 'v' not in payload_object:
-            print(
-                f'Received unexpected BSON Object on topic {msg.topic}, {payload_object}'
-            )
-            return
-        timestamp = payload_object['t'] if 't' in payload_object else None
+        data_payload = None
+        if msg.payload:
+            payload_object = bson.loads(msg.payload)
+            if 'v' not in payload_object:
+                print(
+                    f'Received unexpected BSON Object on topic {msg.topic}, {payload_object}'
+                )
+                return
+            timestamp = payload_object['t'] if 't' in payload_object else None
+            data_payload = payload_object['v']
 
         if self.__loop:
             # Use threadsafe, as we're in a different thread here
             self.__loop.call_soon_threadsafe(self.on_data_received, self,
                                              interface_name, interface_path,
-                                             payload_object['v'])
+                                             data_payload)
         else:
             self.on_data_received(self, interface_name, interface_path,
-                                  payload_object['v'])
+                                  data_payload)
 
     def __send_introspection(self):
         # Build the introspection message
