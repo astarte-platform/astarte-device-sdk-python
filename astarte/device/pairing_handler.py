@@ -43,7 +43,8 @@ def register_device_with_private_key(device_id, realm, private_key_file,
 
 
 def register_device_with_jwt_token(device_id, realm, jwt_token,
-                                   pairing_base_url) -> str:
+                                   pairing_base_url,
+                                   ignore_ssl_errors: bool = False) -> str:
     """
     Registers a Device against an Astarte instance/realm with a JWT Token
 
@@ -59,10 +60,14 @@ def register_device_with_jwt_token(device_id, realm, jwt_token,
         A JWT Token to Authenticate against Pairing API. The token must have access to Pairing API and to the agent API paths.
     pairing_base_url : str
         The Base URL of Pairing API of the Astarte Instance the Device will be registered in.
+    ignore_ssl_errors: bool
+        Useful if you're registering a device into a test instance of Astarte with self signed
+        certificates. It is not recommended to leave this `true` in production.
+        Defaults to `false`, if `true` SSL errors will be ignored when registering a device.
     """
     return __register_device(
         device_id, realm, __register_device_headers_with_jwt_token(jwt_token),
-        pairing_base_url)
+        pairing_base_url, ignore_ssl_errors)
 
 
 def generate_device_id(namespace: UUID, unique_data: str):
@@ -107,7 +112,8 @@ def generate_random_device_id():
 
 
 def obtain_device_certificate(device_id, realm, credentials_secret,
-                              pairing_base_url, crypto_store_dir):
+                              pairing_base_url, crypto_store_dir,
+                              ignore_ssl_errors: bool):
     # Get a CSR first
     csr = crypto.generate_csr(realm, device_id, crypto_store_dir)
     # Prepare the Pairing API request
@@ -117,7 +123,8 @@ def obtain_device_certificate(device_id, realm, credentials_secret,
     res = requests.post(
         f'{pairing_base_url}/v1/{realm}/devices/{device_id}/protocols/astarte_mqtt_v1/credentials',
         json=data,
-        headers=headers)
+        headers=headers,
+        verify=not ignore_ssl_errors)
     if res.status_code == 401 or res.status_code == 403:
         raise exceptions.AuthorizationError(res.json())
     elif res.status_code != 201:
@@ -128,12 +135,13 @@ def obtain_device_certificate(device_id, realm, credentials_secret,
 
 
 def obtain_device_transport_information(device_id, realm, credentials_secret,
-                                        pairing_base_url):
+                                        pairing_base_url, ignore_ssl_errors: bool):
     # Prepare the Pairing API request
     headers = {'Authorization': f'Bearer {credentials_secret}'}
 
     res = requests.get(f'{pairing_base_url}/v1/{realm}/devices/{device_id}',
-                       headers=headers)
+                       headers=headers,
+                       verify=not ignore_ssl_errors)
     if res.status_code == 401 or res.status_code == 403:
         raise exceptions.AuthorizationError(res.json())
     elif res.status_code != 200:
@@ -142,12 +150,14 @@ def obtain_device_transport_information(device_id, realm, credentials_secret,
     return res.json()["data"]
 
 
-def __register_device(device_id, realm, headers, pairing_base_url) -> str:
+def __register_device(device_id, realm, headers, pairing_base_url,
+                      ignore_ssl_errors: bool) -> str:
     data = {'data': {'hw_id': device_id}}
 
     res = requests.post(f'{pairing_base_url}/v1/{realm}/agent/devices',
                         json=data,
-                        headers=headers)
+                        headers=headers,
+                        verify=not ignore_ssl_errors)
     if res.status_code == 401 or res.status_code == 403:
         raise exceptions.AuthorizationError(res.json())
     elif res.status_code == 422:

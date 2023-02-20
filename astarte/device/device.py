@@ -133,7 +133,7 @@ class Device:
 
         This will add an Interface definition to the Device. It has to be called before :py:func:`connect`, as it will be
         used for building the Device Introspection.
-        
+
         Parameters
         ----------
         interface_definition : dict
@@ -147,7 +147,7 @@ class Device:
 
         Removes an Interface definition from the Device. It has to be called before :py:func:`connect`, as it will be
         used for building the Device Introspection.
-        
+
         Parameters
         ----------
         interface_name : str
@@ -171,8 +171,8 @@ class Device:
             pairing_handler.obtain_device_certificate(
                 self.__device_id, self.__realm, self.__credentials_secret,
                 self.__pairing_base_url,
-                os.path.join(self.__persistency_dir, self.__device_id,
-                             "crypto"))
+                os.path.join(self.__persistency_dir, self.__device_id, "crypto"),
+                self.__ignore_ssl_errors)
         # Initialize MQTT Client
         if self.__ignore_ssl_errors:
             cert_reqs = ssl.CERT_NONE
@@ -209,7 +209,7 @@ class Device:
 
         transport_info = pairing_handler.obtain_device_transport_information(
             self.__device_id, self.__realm, self.__credentials_secret,
-            self.__pairing_base_url)
+            self.__pairing_base_url, self.__ignore_ssl_errors)
         broker_url = ""
         # We support only MQTTv1
         for transport, transport_data in transport_info["protocols"].items():
