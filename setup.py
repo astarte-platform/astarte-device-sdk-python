@@ -47,6 +47,9 @@ setup(
     scripts=[],
     zip_safe=False,
     install_requires=DEPENDENCIES,
+    extras_require={
+        "e2e": ["termcolor", "python-dateutil"]
+    },
     test_suite="tests.test_project",
     python_requires=">=3.6",
     # license and classifier list:
