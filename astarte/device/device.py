@@ -62,14 +62,16 @@ class Device:
         name, the Interface path, and the payload. The payload will reflect the type defined in the Interface.
     """
 
-    def __init__(self,
-                 device_id: str,
-                 realm: str,
-                 credentials_secret: str,
-                 pairing_base_url: str,
-                 persistency_dir: str,
-                 loop: Optional[asyncio.AbstractEventLoop] = None,
-                 ignore_ssl_errors: bool = False):
+    def __init__(
+        self,
+        device_id: str,
+        realm: str,
+        credentials_secret: str,
+        pairing_base_url: str,
+        persistency_dir: str,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+        ignore_ssl_errors: bool = False,
+    ):
         """
         Parameters
         ----------
@@ -113,13 +115,12 @@ class Device:
 
         # Check if the persistency dir exists
         if not os.path.isdir(persistency_dir):
-            raise FileNotFoundError(f'{persistency_dir} is not a directory')
+            raise FileNotFoundError(f"{persistency_dir} is not a directory")
 
         if not os.path.isdir(os.path.join(persistency_dir, device_id)):
             os.mkdir(os.path.join(persistency_dir, device_id))
 
-        if not os.path.isdir(os.path.join(persistency_dir, device_id,
-                                          "crypto")):
+        if not os.path.isdir(os.path.join(persistency_dir, device_id, "crypto")):
             os.mkdir(os.path.join(persistency_dir, device_id, "crypto"))
         self.__setup_mqtt_client()
 
@@ -168,13 +169,16 @@ class Device:
             return
 
         if not crypto.device_has_certificate(
-                os.path.join(self.__persistency_dir, self.__device_id,
-                             "crypto")):
+            os.path.join(self.__persistency_dir, self.__device_id, "crypto")
+        ):
             pairing_handler.obtain_device_certificate(
-                self.__device_id, self.__realm, self.__credentials_secret,
+                self.__device_id,
+                self.__realm,
+                self.__credentials_secret,
                 self.__pairing_base_url,
                 os.path.join(self.__persistency_dir, self.__device_id, "crypto"),
-                self.__ignore_ssl_errors)
+                self.__ignore_ssl_errors,
+            )
         # Initialize MQTT Client
         if self.__ignore_ssl_errors:
             cert_reqs = ssl.CERT_NONE
@@ -183,13 +187,12 @@ class Device:
 
         self.__mqtt_client.tls_set(
             ca_certs=None,
-            certfile=os.path.join(self.__persistency_dir, self.__device_id,
-                                  "crypto", "device.crt"),
-            keyfile=os.path.join(self.__persistency_dir, self.__device_id,
-                                 "crypto", "device.key"),
+            certfile=os.path.join(self.__persistency_dir, self.__device_id, "crypto", "device.crt"),
+            keyfile=os.path.join(self.__persistency_dir, self.__device_id, "crypto", "device.key"),
             cert_reqs=cert_reqs,
             tls_version=ssl.PROTOCOL_TLS,
-            ciphers=None)
+            ciphers=None,
+        )
         self.__mqtt_client.tls_insecure_set(self.__ignore_ssl_errors)
 
     def connect(self) -> None:
@@ -210,8 +213,12 @@ class Device:
             self.__setup_crypto()
 
         transport_info = pairing_handler.obtain_device_transport_information(
-            self.__device_id, self.__realm, self.__credentials_secret,
-            self.__pairing_base_url, self.__ignore_ssl_errors)
+            self.__device_id,
+            self.__realm,
+            self.__credentials_secret,
+            self.__pairing_base_url,
+            self.__ignore_ssl_errors,
+        )
         broker_url = ""
         # We support only MQTTv1
         for transport, transport_data in transport_info["protocols"].items():
@@ -247,8 +254,13 @@ class Device:
         """
         return self.__is_connected
 
-    def send(self, interface_name: str, interface_path: str, payload: object,
-             timestamp: Optional[datetime] = None) -> None:
+    def send(
+        self,
+        interface_name: str,
+        interface_path: str,
+        payload: object,
+        timestamp: Optional[datetime] = None,
+    ) -> None:
         """
         Sends an individual message to an interface.
 
@@ -266,33 +278,37 @@ class Device:
         """
         if self.__is_interface_aggregate(interface_name):
             raise TypeError(
-                f'Interface {interface_name} is an aggregate interface. You should use send_aggregate.'
+                f"Interface {interface_name} is an aggregate interface. You should use send_aggregate."
             )
 
         if isinstance(payload, collections.abc.Mapping):
-            raise TypeError('Payload for individual interfaces should not be a dictionary')
+            raise TypeError("Payload for individual interfaces should not be a dictionary")
 
-        (validation_success, validation_error_message) = self.__validate_data(interface_name,
-                                                                              interface_path,
-                                                                              payload, timestamp)
+        (validation_success, validation_error_message) = self.__validate_data(
+            interface_name, interface_path, payload, timestamp
+        )
         if not validation_success:
             raise TypeError(validation_error_message)
 
-        object_payload = {'v': payload}
+        object_payload = {"v": payload}
         if timestamp:
-            object_payload['t'] = timestamp
+            object_payload["t"] = timestamp
 
         qos = self._get_qos(interface_name, interface_path)
 
         self.__send_generic(
-            f'{self.__get_base_topic()}/{interface_name}{interface_path}',
-            object_payload, qos=qos)
+            f"{self.__get_base_topic()}/{interface_name}{interface_path}",
+            object_payload,
+            qos=qos,
+        )
 
-    def send_aggregate(self,
-                       interface_name: str,
-                       interface_path: str,
-                       payload: dict,
-                       timestamp: Optional[datetime] = None) -> None:
+    def send_aggregate(
+        self,
+        interface_name: str,
+        interface_path: str,
+        payload: dict,
+        timestamp: Optional[datetime] = None,
+    ) -> None:
         """
         Sends an aggregate message to an interface
 
@@ -308,21 +324,24 @@ class Device:
         """
         if not self.__is_interface_aggregate(interface_name):
             raise TypeError(
-                f'Interface {interface_name} is not an aggregate interface. You should use send.'
+                f"Interface {interface_name} is not an aggregate interface. You should use send."
             )
 
         if not isinstance(payload, collections.abc.Mapping):
-            raise TypeError('Payload for aggregate interfaces should be a dictionary')
+            raise TypeError("Payload for aggregate interfaces should be a dictionary")
 
         # The payload should carry the aggregate object
-        object_payload = {'v': payload}
+        object_payload = {"v": payload}
         if timestamp:
-            object_payload['t'] = timestamp
+            object_payload["t"] = timestamp
 
         qos = self._get_qos(interface_name)
 
-        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}',
-                            object_payload, qos=qos)
+        self.__send_generic(
+            f"{self.__get_base_topic()}/{interface_name}{interface_path}",
+            object_payload,
+            qos=qos,
+        )
 
     def unset_property(self, interface_name: str, interface_path: str) -> None:
         """
@@ -337,47 +356,47 @@ class Device:
         """
         if not self.__is_interface_type_properties(interface_name):
             raise TypeError(
-                f'Interface {interface_name} is a datastream interface. You can only unset a property.'
+                f"Interface {interface_name} is a datastream interface. You can only unset a property."
             )
 
         qos = self._get_qos(interface_name)
 
-        self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}', None, qos=qos)
+        self.__send_generic(
+            f"{self.__get_base_topic()}/{interface_name}{interface_path}", None, qos=qos
+        )
 
     def __send_generic(self, topic: str, object_payload: Optional[str], qos=2) -> None:
         if object_payload:
             payload = bson.dumps(object_payload)
         else:
-            payload = b''
+            payload = b""
         self.__mqtt_client.publish(topic, payload, qos=qos)
 
     def __is_interface_aggregate(self, interface_name: str) -> bool:
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
-            raise FileNotFoundError(
-                f'Interface {interface_name} not declared in introspection')
+            raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
 
         return interface.is_aggregation_object()
 
     def __is_interface_type_properties(self, interface_name: str) -> bool:
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
-            raise FileNotFoundError(
-                f'Interface {interface_name} not declared in introspection')
+            raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
 
         return interface.is_type_properties()
 
     def __get_base_topic(self) -> str:
-        return f'{self.__realm}/{self.__device_id}'
+        return f"{self.__realm}/{self.__device_id}"
 
     def __on_connect(self, client, userdata, flags, rc):
         if rc != 0:
             print("Error while connecting: " + str(rc))
 
         self.__is_connected = True
-        client.subscribe(f'{self.__get_base_topic()}/control/consumer/properties')
+        client.subscribe(f"{self.__get_base_topic()}/control/consumer/properties")
         for interface in self.__introspection.get_all_server_owned_interfaces():
-            client.subscribe(f'{self.__get_base_topic()}/{interface.name}/#')
+            client.subscribe(f"{self.__get_base_topic()}/{interface.name}/#")
 
         # Send the introspection
         self.__send_introspection()
@@ -395,8 +414,7 @@ class Device:
         if self.on_disconnected:
             if self.__loop:
                 # Use threadsafe, as we're in a different thread here
-                self.__loop.call_soon_threadsafe(self.on_disconnected, self,
-                                                 rc)
+                self.__loop.call_soon_threadsafe(self.on_disconnected, self, rc)
             else:
                 self.on_disconnected(self, rc)
 
@@ -405,8 +423,9 @@ class Device:
             self.__mqtt_client.loop_stop()
         # Else check certificate expiration and try reconnection
         # TODO: check for MQTT_ERR_TLS when Paho correctly returns it
-        elif not crypto.certificate_is_valid(os.path.join(self.__persistency_dir, self.__device_id,
-                                                        "crypto")):
+        elif not crypto.certificate_is_valid(
+            os.path.join(self.__persistency_dir, self.__device_id, "crypto")
+        ):
             self.__mqtt_client.loop_stop()
             # If the certificate must be regenerated, old mqtt client is no longer valid as it is bound to the
             # wrong TLS params and paho does not allow to replace them a second time
@@ -415,9 +434,7 @@ class Device:
 
     def __on_message(self, client, userdata, msg):
         if not msg.topic.startswith(self.__get_base_topic()):
-            print(
-                f'Received unexpected message on topic {msg.topic}, {msg.payload}'
-            )
+            print(f"Received unexpected message on topic {msg.topic}, {msg.payload}")
             return
         if msg.topic == self.__get_base_topic():
             print("received control message")
@@ -426,44 +443,46 @@ class Device:
         if not self.on_data_received:
             return
 
-        real_topic = msg.topic.replace(f'{self.__get_base_topic()}/', '')
-        topic_tokens = real_topic.split('/')
+        real_topic = msg.topic.replace(f"{self.__get_base_topic()}/", "")
+        topic_tokens = real_topic.split("/")
         interface_name = topic_tokens[0]
         if not self.__introspection.get_interface(interface_name):
             print(
-                f'Received unexpected message for unregistered interface {interface_name}: {msg.topic}, {msg.payload}'
+                f"Received unexpected message for unregistered interface {interface_name}: {msg.topic}, {msg.payload}"
             )
             return
 
-        interface_path = '/' + '/'.join(topic_tokens[1:])
+        interface_path = "/" + "/".join(topic_tokens[1:])
         data_payload = None
         if msg.payload:
             payload_object = bson.loads(msg.payload)
-            if 'v' not in payload_object:
-                print(
-                    f'Received unexpected BSON Object on topic {msg.topic}, {payload_object}'
-                )
+            if "v" not in payload_object:
+                print(f"Received unexpected BSON Object on topic {msg.topic}, {payload_object}")
                 return
-            timestamp = payload_object['t'] if 't' in payload_object else None
-            data_payload = payload_object['v']
+            timestamp = payload_object["t"] if "t" in payload_object else None
+            data_payload = payload_object["v"]
 
         if self.__loop:
             # Use threadsafe, as we're in a different thread here
-            self.__loop.call_soon_threadsafe(self.on_data_received, self,
-                                             interface_name, interface_path,
-                                             data_payload)
+            self.__loop.call_soon_threadsafe(
+                self.on_data_received,
+                self,
+                interface_name,
+                interface_path,
+                data_payload,
+            )
         else:
-            self.on_data_received(self, interface_name, interface_path,
-                                  data_payload)
+            self.on_data_received(self, interface_name, interface_path, data_payload)
 
     def __send_introspection(self) -> None:
         # Build the introspection message
         introspection_message = ""
         for interface in self.__introspection.get_all_interfaces():
-            introspection_message += f'{interface.name}:{interface.version_major}:{interface.version_minor};'
+            introspection_message += (
+                f"{interface.name}:{interface.version_major}:{interface.version_minor};"
+            )
         introspection_message = introspection_message[:-1]
-        self.__mqtt_client.publish(self.__get_base_topic(),
-                                   introspection_message, 2)
+        self.__mqtt_client.publish(self.__get_base_topic(), introspection_message, 2)
 
     def _get_qos(self, interface_name, path=None) -> int:
         """
@@ -478,22 +497,25 @@ class Device:
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
-            raise FileNotFoundError(
-                f'Interface {interface_name} not declared in introspection')
+            raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
 
         # When aggregation object there is no need to specify the path as every map have the same QoS
         if path:
             mapping = interface.get_mapping(path)
             if not mapping:
-                raise FileNotFoundError(
-                    f'Path {path} not declared in {interface_name}')
+                raise FileNotFoundError(f"Path {path} not declared in {interface_name}")
         else:
             mapping = list(interface.mappings.values())[0]
 
         return mapping.reliability
 
-    def __validate_data(self, interface_name: str, interface_path: str, payload: object,
-                        timestamp: Optional[datetime]) -> Tuple[bool, str]:
+    def __validate_data(
+        self,
+        interface_name: str,
+        interface_path: str,
+        payload: object,
+        timestamp: Optional[datetime],
+    ) -> Tuple[bool, str]:
         """
         Verifies the data corresponds with the interface.
 
@@ -518,7 +540,6 @@ class Device:
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
-            raise FileNotFoundError(
-                f'Interface {interface_name} not declared in introspection')
+            raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
 
         return interface.validate(interface_path, payload, timestamp)

@@ -23,7 +23,19 @@ BsonList = List[bytes]
 BoolList = List[bool]
 DatetimeList = List[datetime]
 MapType = Union[
-    int, float, str, bytes, bool, datetime, IntList, FloatList, StringList, BsonList, BoolList, DatetimeList]
+    int,
+    float,
+    str,
+    bytes,
+    bool,
+    datetime,
+    IntList,
+    FloatList,
+    StringList,
+    BsonList,
+    BoolList,
+    DatetimeList,
+]
 
 """ Mapping type to python type mapping"""
 type_strings = {
@@ -40,15 +52,11 @@ type_strings = {
     "stringarray": list,
     "binaryblobarray": list,
     "booleanarray": list,
-    "datetimearray": list
+    "datetimearray": list,
 }
 
 """ Mapping quality of service """
-QOS_MAP = {
-    "unreliable": 0,
-    "guaranteed": 1,
-    "unique": 2
-}
+QOS_MAP = {"unreliable": 0, "guaranteed": 1, "unique": 2}
 
 
 class Mapping:
@@ -143,7 +151,10 @@ class Mapping:
             return False, f"It's not possible to set the timestamp for {self.endpoint}"
         # Check the type of data is valid for that endpoint
         if not isinstance(payload, self.__actual_type):
-            return False, f"{self.endpoint} is {self.type} but {type(payload)} was provided"
+            return (
+                False,
+                f"{self.endpoint} is {self.type} but {type(payload)} was provided",
+            )
         # Must return False when trying to send an integer outside -2147483648 to 2147483647 interval.
         if self.type == "integer" and not -2147483648 <= payload <= 2147483647:
             return False, f"Value out of int32 range for {self.endpoint}"
@@ -157,9 +168,14 @@ class Mapping:
                 return False, f"Type incoherence in payload elements"
             subtype: type = type_strings.get(self.type.replace("array", ""))
             if not isinstance(payload[0], subtype):
-                return False, f"{self.endpoint} is {self.type} but {type(payload)} was provided"
+                return (
+                    False,
+                    f"{self.endpoint} is {self.type} but {type(payload)} was provided",
+                )
             # Must return False when trying to send an integer outside -2147483648 to 2147483647 interval.
-            if self.type == "integerarray" and any(elem < -2147483648 or elem > 2147483647 for elem in payload):
+            if self.type == "integerarray" and any(
+                elem < -2147483648 or elem > 2147483647 for elem in payload
+            ):
                 return False, f"Value out of int32 range for {self.endpoint}"
             # Must return False when trying to send a double value which is not a number
             if self.type == "doublearray" and any(not isfinite(elem) for elem in payload):

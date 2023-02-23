@@ -116,7 +116,7 @@ class Interface:
             The Mapping if found, None otherwise
         """
         for path, mapping in self.mappings.items():
-            regex = sub(r'%{\w+}', r'.+', path)
+            regex = sub(r"%{\w+}", r".+", path)
             if match(regex + "$", endpoint):
                 return mapping
 
@@ -152,7 +152,10 @@ class Interface:
             return False, f"Path {path} not in the {self.name} interface."
         else:
             if not isinstance(payload, dict):
-                return False, f"The interface {self.name} is aggregate, but the payload is not a dictionary"
+                return (
+                    False,
+                    f"The interface {self.name} is aggregate, but the payload is not a dictionary",
+                )
 
             # Validate all paths
             for k, v in payload.items():
@@ -166,7 +169,10 @@ class Interface:
 
             # Check all elements are present
             for mapping in self.mappings:
-                endpoint = mapping[len(path + "/"):]
+                endpoint = mapping[len(path + "/") :]
                 if endpoint not in payload:
-                    return False, f"Path {mapping} has no value in {self.name} interface."
+                    return (
+                        False,
+                        f"Path {mapping} has no value in {self.name} interface.",
+                    )
             return True, ""

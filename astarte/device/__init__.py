@@ -21,6 +21,15 @@ from .device import Device
 from .introspection import Introspection
 from .interface import Interface
 from .mapping import Mapping
-from .pairing_handler import register_device_with_jwt_token, register_device_with_private_key, generate_device_id, \
-    generate_random_device_id
-from .exceptions import AstarteError, DeviceAlreadyRegisteredError, AuthorizationError, APIError
+from .pairing_handler import (
+    register_device_with_jwt_token,
+    register_device_with_private_key,
+    generate_device_id,
+    generate_random_device_id,
+)
+from .exceptions import (
+    AstarteError,
+    DeviceAlreadyRegisteredError,
+    AuthorizationError,
+    APIError,
+)

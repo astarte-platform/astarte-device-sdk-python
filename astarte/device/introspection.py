@@ -25,6 +25,7 @@ class Introspection:
     In any given time a device can have a single interface with a given name, multiple interfaces with the same
     name but different major/minor are not supported.
     """
+
     def __init__(self):
         self.__interfaces_list = {}
 
@@ -95,4 +96,9 @@ class Introspection:
         list
             The list of all Interfaces in the Introspection that have ownership "server"
         """
-        return list(filter(lambda interface: interface.is_server_owned(), self.__interfaces_list.values()))
+        return list(
+            filter(
+                lambda interface: interface.is_server_owned(),
+                self.__interfaces_list.values(),
+            )
+        )

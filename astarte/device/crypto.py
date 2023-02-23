@@ -28,8 +28,7 @@ def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
     # Do we need to generate a keypair?
     if not path.exists(path.join(crypto_store_dir, "device.key")):
         # Generate our key
-        key = ec.generate_private_key(curve=ec.SECP256R1(),
-                                      backend=default_backend())
+        key = ec.generate_private_key(curve=ec.SECP256R1(), backend=default_backend())
         # Write our key to disk for safe keeping
         with open(path.join(crypto_store_dir, "device.key"), "wb") as f:
             f.write(
@@ -37,29 +36,36 @@ def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
                     encoding=serialization.Encoding.PEM,
                     format=serialization.PrivateFormat.TraditionalOpenSSL,
                     encryption_algorithm=serialization.NoEncryption(),
-                ))
+                )
+            )
     else:
         # Load the key
         with open(path.join(crypto_store_dir, "device.key"), "rb") as key_file:
-            key = serialization.load_pem_private_key(key_file.read(),
-                                                     password=None,
-                                                     backend=default_backend())
+            key = serialization.load_pem_private_key(
+                key_file.read(), password=None, backend=default_backend()
+            )
 
-    csr = x509.CertificateSigningRequestBuilder().subject_name(
-        x509.Name([
-            # Provide various details about who we are.
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"Devices"),
-            x509.NameAttribute(NameOID.COMMON_NAME, f"{realm}/{device_id}"),
-            # Sign the CSR with our private key.
-        ])).sign(key, hashes.SHA256(), default_backend())
+    csr = (
+        x509.CertificateSigningRequestBuilder()
+        .subject_name(
+            x509.Name(
+                [
+                    # Provide various details about who we are.
+                    x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Devices"),
+                    x509.NameAttribute(NameOID.COMMON_NAME, f"{realm}/{device_id}"),
+                    # Sign the CSR with our private key.
+                ]
+            )
+        )
+        .sign(key, hashes.SHA256(), default_backend())
+    )
 
     # Return the CSR
     return csr.public_bytes(serialization.Encoding.PEM)
 
 
 def import_device_certificate(client_crt: str, crypto_store_dir: str) -> None:
-    certificate = x509.load_pem_x509_certificate(client_crt.encode('ascii'),
-                                                 default_backend())
+    certificate = x509.load_pem_x509_certificate(client_crt.encode("ascii"), default_backend())
 
     # Store the certificate
     with open(path.join(crypto_store_dir, "device.crt"), "wb") as f:
@@ -70,16 +76,18 @@ def device_has_certificate(crypto_store_dir: str) -> bool:
     cert_path = path.join(crypto_store_dir, "device.crt")
     key_path = path.join(crypto_store_dir, "device.key")
 
-    return path.exists(cert_path) and path.exists(key_path) and certificate_is_valid(crypto_store_dir)
+    return (
+        path.exists(cert_path) and path.exists(key_path) and certificate_is_valid(crypto_store_dir)
+    )
 
 
 def certificate_is_valid(crypto_store_dir: str) -> bool:
     cert_path = path.join(crypto_store_dir, "device.crt")
-    with open(cert_path, 'r') as file:
+    with open(cert_path, "r") as file:
         data = file.read()
     if data:
         try:
-            certificate = x509.load_pem_x509_certificate(data.encode('ascii'), default_backend())
+            certificate = x509.load_pem_x509_certificate(data.encode("ascii"), default_backend())
         except ValueError:
             return False
         return certificate.not_valid_before < datetime.utcnow() < certificate.not_valid_after
