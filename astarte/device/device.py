@@ -15,7 +15,10 @@
 
 import asyncio
 import collections.abc
+from datetime import datetime
 import os
+from typing import Optional, Callable
+
 import bson
 import paho.mqtt.client as mqtt
 import ssl
@@ -60,13 +63,13 @@ class Device:
     """
 
     def __init__(self,
-                 device_id,
-                 realm,
-                 credentials_secret,
-                 pairing_base_url,
-                 persistency_dir,
-                 loop=None,
-                 ignore_ssl_errors= False):
+                 device_id: str,
+                 realm: str,
+                 credentials_secret: str,
+                 pairing_base_url: str,
+                 persistency_dir: str,
+                 loop: Optional[asyncio.AbstractEventLoop] = None,
+                 ignore_ssl_errors: bool = False):
         """
         Parameters
         ----------
@@ -97,17 +100,17 @@ class Device:
         self.__pairing_base_url = pairing_base_url
         self.__persistency_dir = persistency_dir
         self.__credentials_secret = credentials_secret
-        self.__jwt_token = None
+        self.__jwt_token: Optional[str] = None
         self.__is_crypto_setup = False
         self.__introspection = Introspection()
         self.__is_connected = False
         self.__loop = loop
         self.__ignore_ssl_errors = ignore_ssl_errors
 
-        self.on_connected = None
-        self.on_disconnected = None
+        self.on_connected: Optional[Callable[[Device], None]] = None
+        self.on_disconnected: Optional[Callable[[Device, int], None]] = None
         self.on_aggregate_data_received = None
-        self.on_data_received = None
+        self.on_data_received: Optional[Callable[[Device, str, str, object], None]] = None
 
         # Check if the persistency dir exists
         if not os.path.isdir(persistency_dir):
@@ -121,13 +124,13 @@ class Device:
             os.mkdir(os.path.join(persistency_dir, device_id, "crypto"))
         self.__setup_mqtt_client()
 
-    def __setup_mqtt_client(self):
+    def __setup_mqtt_client(self) -> None:
         self.__mqtt_client = mqtt.Client()
         self.__mqtt_client.on_connect = self.__on_connect
         self.__mqtt_client.on_disconnect = self.__on_disconnect
         self.__mqtt_client.on_message = self.__on_message
 
-    def add_interface(self, interface_definition):
+    def add_interface(self, interface_definition: dict) -> None:
         """
         Adds an Interface to the Device
 
@@ -141,7 +144,7 @@ class Device:
         """
         self.__introspection.add_interface(interface_definition)
 
-    def remove_interface(self, interface_name):
+    def remove_interface(self, interface_name: str) -> None:
         """
         Removes an Interface from the Device
 
@@ -161,7 +164,7 @@ class Device:
         """
         return self.__device_id
 
-    def __setup_crypto(self):
+    def __setup_crypto(self) -> None:
         if self.__is_crypto_setup:
             return
 
@@ -190,7 +193,7 @@ class Device:
             ciphers=None)
         self.__mqtt_client.tls_insecure_set(self.__ignore_ssl_errors)
 
-    def connect(self):
+    def connect(self) -> None:
         """
         Connects the Device asynchronously.
 
@@ -224,7 +227,7 @@ class Device:
         self.__mqtt_client.connect_async(parsed_url.hostname, parsed_url.port)
         self.__mqtt_client.loop_start()
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """
         Disconnects the Device asynchronously.
 
@@ -245,7 +248,8 @@ class Device:
         """
         return self.__is_connected
 
-    def send(self, interface_name, interface_path, payload, timestamp=None):
+    def send(self, interface_name: str, interface_path: str, payload: object,
+             timestamp: Optional[datetime] = None) -> None:
         """
         Sends an individual message to an interface.
 
@@ -283,10 +287,10 @@ class Device:
             object_payload, qos=qos)
 
     def send_aggregate(self,
-                       interface_name,
-                       interface_path,
-                       payload,
-                       timestamp=None):
+                       interface_name: str,
+                       interface_path: str,
+                       payload: dict,
+                       timestamp: Optional[datetime] = None) -> None:
         """
         Sends an aggregate message to an interface
 
@@ -318,7 +322,7 @@ class Device:
         self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}',
                             object_payload, qos=qos)
 
-    def unset_property(self, interface_name, interface_path):
+    def unset_property(self, interface_name: str, interface_path: str) -> None:
         """
         Unset the specified property on an interface.
 
@@ -338,14 +342,14 @@ class Device:
 
         self.__send_generic(f'{self.__get_base_topic()}/{interface_name}{interface_path}', None, qos=qos)
 
-    def __send_generic(self, topic, object_payload, qos=2):
+    def __send_generic(self, topic: str, object_payload: Optional[str], qos=2) -> None:
         if object_payload:
             payload = bson.dumps(object_payload)
         else:
             payload = b''
         self.__mqtt_client.publish(topic, payload, qos=qos)
 
-    def __is_interface_aggregate(self, interface_name):
+    def __is_interface_aggregate(self, interface_name: str) -> bool:
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
             raise FileNotFoundError(
@@ -353,7 +357,7 @@ class Device:
 
         return interface.is_aggregation_object()
 
-    def __is_interface_type_properties(self, interface_name):
+    def __is_interface_type_properties(self, interface_name: str) -> bool:
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
             raise FileNotFoundError(
@@ -361,7 +365,7 @@ class Device:
 
         return interface.is_type_properties()
 
-    def __get_base_topic(self):
+    def __get_base_topic(self) -> str:
         return f'{self.__realm}/{self.__device_id}'
 
     def __on_connect(self, client, userdata, flags, rc):
@@ -450,7 +454,7 @@ class Device:
             self.on_data_received(self, interface_name, interface_path,
                                   data_payload)
 
-    def __send_introspection(self):
+    def __send_introspection(self) -> None:
         # Build the introspection message
         introspection_message = ""
         for interface in self.__introspection.get_all_interfaces():
@@ -486,7 +490,8 @@ class Device:
 
         return mapping.reliability
 
-    def __validate_data(self, interface_name, interface_path, payload, timestamp) -> bool:
+    def __validate_data(self, interface_name: str, interface_path: str, payload: object,
+                        timestamp: Optional[datetime]) -> bool:
         """
         Verifies the data corresponds with the interface.
 

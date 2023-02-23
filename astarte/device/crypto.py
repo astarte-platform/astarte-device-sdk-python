@@ -23,7 +23,7 @@ from os import path
 from datetime import datetime
 
 
-def generate_csr(realm, device_id, crypto_store_dir):
+def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
     key = None
     # Do we need to generate a keypair?
     if not path.exists(path.join(crypto_store_dir, "device.key")):
@@ -57,7 +57,7 @@ def generate_csr(realm, device_id, crypto_store_dir):
     return csr.public_bytes(serialization.Encoding.PEM)
 
 
-def import_device_certificate(client_crt, crypto_store_dir):
+def import_device_certificate(client_crt: str, crypto_store_dir: str) -> None:
     certificate = x509.load_pem_x509_certificate(client_crt.encode('ascii'),
                                                  default_backend())
 
@@ -66,14 +66,14 @@ def import_device_certificate(client_crt, crypto_store_dir):
         f.write(certificate.public_bytes(encoding=serialization.Encoding.PEM))
 
 
-def device_has_certificate(crypto_store_dir):
+def device_has_certificate(crypto_store_dir: str) -> bool:
     cert_path = path.join(crypto_store_dir, "device.crt")
     key_path = path.join(crypto_store_dir, "device.key")
 
     return path.exists(cert_path) and path.exists(key_path) and certificate_is_valid(crypto_store_dir)
 
 
-def certificate_is_valid(crypto_store_dir):
+def certificate_is_valid(crypto_store_dir: str) -> bool:
     cert_path = path.join(crypto_store_dir, "device.crt")
     with open(cert_path, 'r') as file:
         data = file.read()

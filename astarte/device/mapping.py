@@ -99,7 +99,7 @@ class Mapping:
         ============== ============== ===
     """
 
-    def __init__(self, mapping_definition: dict, interface_type):
+    def __init__(self, mapping_definition: dict, interface_type: str):
         """
         Parameters
         ----------
@@ -111,8 +111,8 @@ class Mapping:
         """
         self.endpoint: str = mapping_definition["endpoint"]
         self.type: str = mapping_definition["type"]
-        self.__actual_type: type = type_strings.get(mapping_definition["type"])
-        self.explicit_timestamp: bool = mapping_definition.get("explicit_timestamp", False)
+        self.__actual_type = type_strings.get(mapping_definition["type"])
+        self.explicit_timestamp = mapping_definition.get("explicit_timestamp", False)
         self.reliability = 2
         if interface_type == "datastream":
             if "reliability" in mapping_definition:

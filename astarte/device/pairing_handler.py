@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import List
 
 import requests
 from . import crypto, exceptions
@@ -18,8 +19,8 @@ from base64 import urlsafe_b64encode
 from uuid import UUID, uuid5, uuid4
 
 
-def register_device_with_private_key(device_id, realm, private_key_file,
-                                     pairing_base_url) -> str:
+def register_device_with_private_key(device_id: str, realm: str, private_key_file: str,
+                                     pairing_base_url: str) -> str:
     """
     Registers a Device against an Astarte instance/realm with a Private Key
 
@@ -42,8 +43,8 @@ def register_device_with_private_key(device_id, realm, private_key_file,
         pairing_base_url)
 
 
-def register_device_with_jwt_token(device_id, realm, jwt_token,
-                                   pairing_base_url,
+def register_device_with_jwt_token(device_id: str, realm: str, jwt_token: str,
+                                   pairing_base_url: str,
                                    ignore_ssl_errors: bool = False) -> str:
     """
     Registers a Device against an Astarte instance/realm with a JWT Token
@@ -70,7 +71,7 @@ def register_device_with_jwt_token(device_id, realm, jwt_token,
         pairing_base_url, ignore_ssl_errors)
 
 
-def generate_device_id(namespace: UUID, unique_data: str):
+def generate_device_id(namespace: UUID, unique_data: str) -> str:
     """
     Deterministically generate a device Id based on UUID namespace identifier and unique data.
 
@@ -94,7 +95,7 @@ def generate_device_id(namespace: UUID, unique_data: str):
     return urlsafe_b64encode(device_id.bytes).replace(b'=', b'').decode("utf-8")
 
 
-def generate_random_device_id():
+def generate_random_device_id() -> str:
     """
     Quick way to generate a device Id.
     Pay attention that each time this value is different and the use in production is discouraged.
@@ -111,9 +112,9 @@ def generate_random_device_id():
     return urlsafe_b64encode(device_id.bytes).replace(b'=', b'').decode("utf-8")
 
 
-def obtain_device_certificate(device_id, realm, credentials_secret,
-                              pairing_base_url, crypto_store_dir,
-                              ignore_ssl_errors: bool):
+def obtain_device_certificate(device_id: str, realm: str, credentials_secret: str,
+                              pairing_base_url: str, crypto_store_dir: str,
+                              ignore_ssl_errors: bool) -> None:
     # Get a CSR first
     csr = crypto.generate_csr(realm, device_id, crypto_store_dir)
     # Prepare the Pairing API request
@@ -134,8 +135,8 @@ def obtain_device_certificate(device_id, realm, credentials_secret,
                               crypto_store_dir)
 
 
-def obtain_device_transport_information(device_id, realm, credentials_secret,
-                                        pairing_base_url, ignore_ssl_errors: bool):
+def obtain_device_transport_information(device_id: str, realm: str, credentials_secret: str,
+                                        pairing_base_url: str, ignore_ssl_errors: bool) -> dict:
     # Prepare the Pairing API request
     headers = {'Authorization': f'Bearer {credentials_secret}'}
 
@@ -150,7 +151,7 @@ def obtain_device_transport_information(device_id, realm, credentials_secret,
     return res.json()["data"]
 
 
-def __register_device(device_id, realm, headers, pairing_base_url,
+def __register_device(device_id: str, realm: str, headers: dict, pairing_base_url: str,
                       ignore_ssl_errors: bool) -> str:
     data = {'data': {'hw_id': device_id}}
 
@@ -179,15 +180,15 @@ def __register_device_headers_with_private_key(private_key_file) -> dict:
             "Supplied Realm Key could not be used to generate a valid Token.")
 
 
-def __register_device_headers_with_jwt_token(jwt_token) -> dict:
+def __register_device_headers_with_jwt_token(jwt_token: str) -> dict:
     return {'Authorization': f'Bearer {jwt_token}'}
 
 
 # This throws FileNotFoundError if the private key does not exist
-def __generate_token(private_key_file,
-                     type="appengine",
-                     auth_paths=[".*::.*"],
-                     expiry=30) -> str:
+def __generate_token(private_key_file: str,
+                     type: str = "appengine",
+                     auth_paths: List[str] = [".*::.*"],
+                     expiry: int = 30) -> str:
     import datetime
     import jwt
     api_claims = {
