@@ -62,10 +62,12 @@ QOS_MAP = {"unreliable": 0, "guaranteed": 1, "unique": 2}
 class Mapping:
     """
     Class that represent a data Mapping
-    Mappings are designed around REST controller semantics: each mapping describes an endpoint which is resolved to a
-    path, it is strongly typed, and can have additional options. Just like in REST controllers, Endpoints can be
-    parametrized to build REST-like collection and trees. Parameters are identified by %{parameterName}, with each
-    endpoint supporting any number of parameters (see `Limitations <https://docs.astarte-platform.org/snapshot/030-interface.html#limitations>`_).
+    Mappings are designed around REST controller semantics: each mapping describes an endpoint
+    which is resolved to a path, it is strongly typed, and can have additional options. Just like
+    in REST controllers, Endpoints can be parametrized to build REST-like collection and trees.
+    Parameters are identified by %{parameterName}, with each endpoint supporting any number of
+    parameters (see
+    `Limitations <https://docs.astarte-platform.org/snapshot/030-interface.html#limitations>`_).
 
     Attributes
     ----------
@@ -84,18 +86,28 @@ class Mapping:
 
         The following types are supported:
 
-        * double: A double-precision floating-point number as specified by binary64, by the IEEE 754 standard (NaNs and other non numerical values are not supported).
+        * double: A double-precision floating-point number as specified by binary64, by the IEEE
+        754 standard (NaNs and other non-numerical values are not supported).
         * integer: A signed 32 bit integer.
         * boolean: Either true or false, adhering to JSON boolean type.
-        * longinteger: A signed 64 bit integer (please note that longinteger is represented as a string by default in JSON-based APIs.).
+        * longinteger: A signed 64-bit integer (please note that longinteger is represented as a
+        string by default in JSON-based APIs.).
         * string: An UTF-8 string, at most 65536 bytes long.
-        * binaryblob: An arbitrary sequence of any byte that should be shorter than 64 KiB. (binaryblob is represented as a base64 string by default in JSON-based APIs.).
-        * datetime: A UTC timestamp, internally represented as milliseconds since 1st Jan 1970 using a signed 64 bits integer. (datetime is represented as an ISO 8601 string by default in JSON based APIs.)
-        * doublearray, integerarray, booleanarray, longintegerarray, stringarray, binaryblobarray, datetimearray: A list of values, represented as a JSON Array. Arrays can have up to 1024 items and each item must respect the limits of its scalar type (i.e. each string in a stringarray must be at most 65535 bytes long, each binary blob in a binaryblobarray must be shorter than 64 KiB.
+        * binaryblob: An arbitrary sequence of any byte that should be shorter than 64 KiB. (
+        binaryblob is represented as a base64 string by default in JSON-based APIs.).
+        * datetime: A UTC timestamp, internally represented as milliseconds since 1st Jan 1970
+        using a signed 64 bits integer. (datetime is represented as an ISO 8601 string by default
+        in JSON based APIs.)
+        * doublearray, integerarray, booleanarray, longintegerarray, stringarray,
+        binaryblobarray, datetimearray: A list of values, represented as a JSON Array.
+        Arrays can have up to 1024 items and each item must respect the limits of its scalar type
+        (i.e. each string in a stringarray must be at most 65535 bytes long, each binary blob in
+        a binaryblobarray must be shorter than 64 KiB.)
 
         **Quality of Service**
 
-        Data messages QoS is chosen according to mapping settings, such as reliability. Properties are always published using QoS 2.
+        Data messages QoS is chosen according to mapping settings, such as reliability.
+        Properties are always published using QoS 2.
 
         ============== ============== ===
         INTERFACE TYPE RELIABILITY    QOS
@@ -112,8 +124,8 @@ class Mapping:
         Parameters
         ----------
         mapping_definition: dict
-            Mapping from the mappings array of an Astarte Interface definition in the form of a Python dictionary.
-            Usually obtained by using json.loads on an Interface file.
+            Mapping from the mappings array of an Astarte Interface definition in the form of a
+            Python dictionary. Usually obtained by using json.loads() on an Interface file.
         interface_type:
             Type of the parent Interface, used to determine the default reliability
         """
@@ -155,7 +167,8 @@ class Mapping:
                 False,
                 f"{self.endpoint} is {self.type} but {type(payload)} was provided",
             )
-        # Must return False when trying to send an integer outside -2147483648 to 2147483647 interval.
+        # Must return False when trying to send an integer outside -2147483648 to 2147483647
+        # interval.
         if self.type == "integer" and not -2147483648 <= payload <= 2147483647:
             return False, f"Value out of int32 range for {self.endpoint}"
         # Must return False when trying to send a double value which is not a number
@@ -172,7 +185,8 @@ class Mapping:
                     False,
                     f"{self.endpoint} is {self.type} but {type(payload)} was provided",
                 )
-            # Must return False when trying to send an integer outside -2147483648 to 2147483647 interval.
+            # Must return False when trying to send an integer outside -2147483648 to 2147483647
+            # interval.
             if self.type == "integerarray" and any(
                 elem < -2147483648 or elem > 2147483647 for elem in payload
             ):

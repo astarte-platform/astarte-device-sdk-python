@@ -31,24 +31,26 @@ class Device:
     """
     Basic class to define an Astarte Device.
 
-    Device represents an Astarte Device. It is the base class used for managing the Device lifecycle and data.
-    Users should instantiate a Device with the right credentials and connect it to the configured instance to
-    start working with it.
+    Device represents an Astarte Device. It is the base class used for managing the Device
+    lifecycle and data. Users should instantiate a Device with the right credentials and connect
+    it to the configured instance to start working with it.
 
     **Threading and Concurrency**
 
-    This SDK uses paho-mqtt under the hood to provide Transport connectivity. As such, it is bound by paho-mqtt's behaviors
-    in terms of threading. When a Device connects, a new thread is spawned and an event loop is run there to manage all the
-    connection events.
+    This SDK uses paho-mqtt under the hood to provide Transport connectivity. As such,
+    it is bound by paho-mqtt's behaviors in terms of threading. When a Device connects,
+    a new thread is spawned and an event loop is run there to manage all the connection events.
 
-    This SDK spares the user from this detail - on the other hand, when configuring callbacks, threading has to be taken into
-    account. When creating a Device, it is possible to specify an asyncio.loop to automatically manage this detail. When a loop
-    is specified, all callbacks will be called in the context of that loop, guaranteeing thread-safety and making sure that
+    This SDK spares the user from this detail - on the other hand, when configuring callbacks,
+    threading has to be taken into account. When creating a Device, it is possible to specify an
+    asyncio.loop() to automatically manage this detail. When a loop is specified, all callbacks
+    will be called in the context of that loop, guaranteeing thread-safety and making sure that
     the user does not have to take any further action beyond consuming the callback.
 
-    When a loop is not specified, callbacks are invoked just as standard Python functions. This inevitably means that the user
-    will have to take into account the fact that the callback will be invoked in the Thread of the MQTT connection. In particular,
-    blocking the execution of that thread might cause deadlocks and, in general, malfunctions in the SDK. For this reason, the
+    When a loop is not specified, callbacks are invoked just as standard Python functions. This
+    inevitably means that the user will have to take into account the fact that the callback will
+    be invoked in the Thread of the MQTT connection. In particular, blocking the execution of
+    that thread might cause deadlocks and, in general, malfunctions in the SDK. For this reason, the
     usage of asyncio is strongly recommended.
 
     Attributes
@@ -56,10 +58,12 @@ class Device:
     on_connected : Callable[[Device], None]
         A function that will be invoked everytime the device successfully connects.
     on_disconnected : Callable[[Device, int], None]
-        A function that will be invoked everytime the device disconnects. The int parameter bears the disconnect reason.
+        A function that will be invoked everytime the device disconnects. The int parameter bears
+        the disconnect reason.
     on_data_received : Callable[[Device, string, string, object], None]
-        A function that will be invoked everytime data is received from Astarte. Parameters are the Device itself, the Interface
-        name, the Interface path, and the payload. The payload will reflect the type defined in the Interface.
+        A function that will be invoked everytime data is received from Astarte. Parameters are
+        the Device itself, the Interface name, the Interface path, and the payload. The payload
+        will reflect the type defined in the Interface.
     """
 
     def __init__(
@@ -80,21 +84,25 @@ class Device:
         realm : str
             The Realm this Device will be connecting against.
         credentials_secret : str
-            The Credentials Secret for this Device. The Device class assumes your Device has already been registered - if that
-            is not the case, you can use either :py:func:`register_device_with_jwt_token` or :py:func:`register_device_with_private_key`.
+            The Credentials Secret for this Device. The Device class assumes your Device has
+            already been registered - if that is not the case, you can use either
+            :py:func:`register_device_with_jwt_token` or
+            :py:func:`register_device_with_private_key`.
         pairing_base_url : str
             The Base URL of Pairing API of the Astarte Instance the Device will connect to.
         persistency_dir : str
-            Path to an existing directory which will be used for holding persistency for this device: certificates, caching and more.
-            It doesn't have to be unique per device, a subdirectory for the given Device ID will be created.
+            Path to an existing directory which will be used for holding persistency for this
+            device: certificates, caching and more. It doesn't have to be unique per device,
+            a subdirectory for the given Device ID will be created.
         loop : asyncio.loop, optional
-            An optional loop which will be used for invoking callbacks. When this is not none, Device will call any specified callback
-            through loop.call_soon_threadsafe, ensuring that the callbacks will be run in thread the loop belongs to. Usually, you want
-            to set this to get_running_loop(). When not sent, callbacks will be invoked as a standard function - keep in mind this means
-            your callbacks might create deadlocks.
+            An optional loop which will be used for invoking callbacks. When this is not none,
+            Device will call any specified callback through loop.call_soon_threadsafe, ensuring
+            that the callbacks will be run in thread the loop belongs to. Usually, you want
+            to set this to get_running_loop(). When not sent, callbacks will be invoked as a
+            standard function - keep in mind this means your callbacks might create deadlocks.
         ignore_ssl_errors: bool (optional)
-            Useful if you're using the Device to connect to a test instance of Astarte with self signed certificates,
-            it is not recommended to leave this `true` in production.
+            Useful if you're using the Device to connect to a test instance of Astarte with
+            self-signed certificates, it is not recommended to leave this `true` in production.
             Defaults to `false`, if `true` the device will ignore SSL errors during connection.
         """
         self.__device_id = device_id
@@ -134,13 +142,14 @@ class Device:
         """
         Adds an Interface to the Device
 
-        This will add an Interface definition to the Device. It has to be called before :py:func:`connect`, as it will be
-        used for building the Device Introspection.
+        This will add an Interface definition to the Device. It has to be called before
+        :py:func:`connect`, as it will be used for building the Device Introspection.
 
         Parameters
         ----------
         interface_definition : dict
-            An Astarte Interface definition in the form of a Python dictionary. Usually obtained by using json.loads on an Interface file.
+            An Astarte Interface definition in the form of a Python dictionary. Usually obtained
+            by using json.loads() on an Interface file.
         """
         self.__introspection.add_interface(interface_definition)
 
@@ -148,8 +157,8 @@ class Device:
         """
         Removes an Interface from the Device
 
-        Removes an Interface definition from the Device. It has to be called before :py:func:`connect`, as it will be
-        used for building the Device Introspection.
+        Removes an Interface definition from the Device. It has to be called before
+        :py:func:`connect`, as it will be used for building the Device Introspection.
 
         Parameters
         ----------
@@ -199,12 +208,12 @@ class Device:
         """
         Connects the Device asynchronously.
 
-        When calling connect, a new connection thread is spawned and the Device will start a connection routine.
-        The function might return before the Device connects: you want to use the on_connected callback to ensure
-        you are notified upon connection.
+        When calling connect, a new connection thread is spawned and the Device will start a
+        connection routine. The function might return before the Device connects: you want to
+        use the on_connected callback to ensure you are notified upon connection.
 
-        In case the Device gets disconnected unexpectedly, it will try to reconnect indefinitely until disconnect()
-        is called.
+        In case the Device gets disconnected unexpectedly, it will try to reconnect indefinitely
+        until disconnect() is called.
         """
         if self.__is_connected:
             return
@@ -237,11 +246,12 @@ class Device:
         """
         Disconnects the Device asynchronously.
 
-        When calling disconnect, the connection thread is requested to terminate the disconnection, and the thread is stopped
-        when the disconnection happens.
-        The function might return before the Device connects: you want to use the on_disconnected callback to ensure
-        you are notified upon connection. When doing so, check the return code parameter: if it is 0, it means the disconnection
-        happened following an explicit disconnection request.
+        When calling disconnect, the connection thread is requested to terminate the
+        disconnection, and the thread is stopped when the disconnection happens.
+        The function might return before the Device connects: you want to use the on_disconnected
+        callback to ensure you are notified upon connection. When doing so, check the return
+        code parameter: if it is 0, it means the disconnection happened following an explicit
+        disconnection request.
         """
         if not self.__is_connected:
             return
@@ -271,14 +281,16 @@ class Device:
         interface_path : str
             The path on the Interface to send data to.
         payload : object
-            The value to be sent. The type should be compatible to the one specified in the interface path.
+            The value to be sent. The type should be compatible to the one specified in the
+            interface path.
         timestamp : datetime, optional
-            If sending a Datastream with explicit_timestamp, you can specify a datetime object which will be registered
-            as the timestamp for the value.
+            If sending a Datastream with explicit_timestamp, you can specify a datetime object
+            which will be registered as the timestamp for the value.
         """
         if self.__is_interface_aggregate(interface_name):
             raise TypeError(
-                f"Interface {interface_name} is an aggregate interface. You should use send_aggregate."
+                f"Interface {interface_name} is an aggregate interface. You should use "
+                f"send_aggregate."
             )
 
         if isinstance(payload, collections.abc.Mapping):
@@ -319,8 +331,8 @@ class Device:
         payload : dict
             A dictionary containing the path:value map for the aggregate.
         timestamp : datetime, optional
-            If the Datastream has explicit_timestamp, you can specify a datetime object which will be registered
-            as the timestamp for the value.
+            If the Datastream has explicit_timestamp, you can specify a datetime object which
+            will be registered as the timestamp for the value.
         """
         if not self.__is_interface_aggregate(interface_name):
             raise TypeError(
@@ -356,7 +368,8 @@ class Device:
         """
         if not self.__is_interface_type_properties(interface_name):
             raise TypeError(
-                f"Interface {interface_name} is a datastream interface. You can only unset a property."
+                f"Interface {interface_name} is a datastream interface. You can only unset a "
+                f"property."
             )
 
         qos = self._get_qos(interface_name)
@@ -427,8 +440,8 @@ class Device:
             os.path.join(self.__persistency_dir, self.__device_id, "crypto")
         ):
             self.__mqtt_client.loop_stop()
-            # If the certificate must be regenerated, old mqtt client is no longer valid as it is bound to the
-            # wrong TLS params and paho does not allow to replace them a second time
+            # If the certificate must be regenerated, old mqtt client is no longer valid as it is
+            # bound to the wrong TLS params and paho does not allow to replace them a second time
             self.__setup_mqtt_client()
             self.connect()
 
@@ -448,7 +461,8 @@ class Device:
         interface_name = topic_tokens[0]
         if not self.__introspection.get_interface(interface_name):
             print(
-                f"Received unexpected message for unregistered interface {interface_name}: {msg.topic}, {msg.payload}"
+                f"Received unexpected message for unregistered interface {interface_name}:"
+                f" {msg.topic}, {msg.payload}"
             )
             return
 
@@ -499,7 +513,8 @@ class Device:
         if not interface:
             raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
 
-        # When aggregation object there is no need to specify the path as every map have the same QoS
+        # When aggregation object there is no need to specify the path as every map have the same
+        # QoS
         if path:
             mapping = interface.get_mapping(path)
             if not mapping:
@@ -526,10 +541,11 @@ class Device:
         interface_path : str
             The path on the Interface to send data to.
         payload : object
-            The value to be sent. The type should be compatible to the one specified in the interface path.
+            The value to be sent. The type should be compatible to the one specified in the
+            interface path.
         timestamp : datetime, optional
-            If sending a Datastream with explicit_timestamp, you can specify a datetime object which will be registered
-            as the timestamp for the value.
+            If sending a Datastream with explicit_timestamp, you can specify a datetime object
+            which will be registered as the timestamp for the value.
 
         Returns
         -------

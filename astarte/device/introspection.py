@@ -20,10 +20,11 @@ class Introspection:
     """
     Class that represent the introspection of a device.
 
-    The introspection is the list od interfaces that the device declares to the server it is compatible with.
+    The introspection is the list od interfaces that the device declares to the server it is
+    compatible with.
 
-    In any given time a device can have a single interface with a given name, multiple interfaces with the same
-    name but different major/minor are not supported.
+    In any given time a device can have a single interface with a given name, multiple interfaces
+    with the same name but different major/minor are not supported.
     """
 
     def __init__(self):
@@ -33,13 +34,14 @@ class Introspection:
         """
         Adds an Interface to the Introspection
 
-        This will add an Interface definition to the Device. It has to be called before :py:func:`connect`, as it will be
-        used for building the Device Introspection.
+        This will add an Interface definition to the Device. It has to be called before
+        :py:func:`connect`, as it will be used for building the Device Introspection.
 
         Parameters
         ----------
         interface_definition : dict
-            An Astarte Interface definition in the form of a Python dictionary. Usually obtained by using json.loads on an Interface file.
+            An Astarte Interface definition in the form of a Python dictionary. Usually obtained
+            by using json.loads() on an Interface file.
         """
         interface = Interface(interface_definition)
         self.__interfaces_list[interface.name] = interface
@@ -48,8 +50,8 @@ class Introspection:
         """
         Removes an Interface from the Introspection
 
-        Removes an Interface definition from the Device. It has to be called before :py:func:`connect`, as it will be
-        used for building the Device Introspection.
+        Removes an Interface definition from the Device. It has to be called before
+        :py:func:`connect`, as it will be used for building the Device Introspection.
 
         Parameters
         ----------

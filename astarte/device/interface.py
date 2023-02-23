@@ -25,11 +25,13 @@ class Interface:
     """
     Class that represent an Interface definition
 
-    Interfaces are a core concept of Astarte which defines how data is exchanged between Astarte and its peers.
-    They are not to be intended as OOP interfaces, but rather as the following definition:
+    Interfaces are a core concept of Astarte which defines how data is exchanged between Astarte
+    and its peers. They are not to be intended as OOP interfaces, but rather as the following
+    definition:
 
-    In Astarte each interface has an owner, can represent either a continuous data stream or a snapshot of a set
-    of properties, and can be either aggregated into an object or be an independent set of individual members.
+    In Astarte each interface has an owner, can represent either a continuous data stream or a
+    snapshot of a set of properties, and can be either aggregated into an object or be an
+    independent set of individual members.
 
     Attributes
     ----------
@@ -54,8 +56,8 @@ class Interface:
         Parameters
         ----------
         interface_definition: dict
-            An Astarte Interface definition in the form of a Python dictionary. Usually obtained by using json.loads on
-            an Interface file.
+            An Astarte Interface definition in the form of a Python dictionary. Usually obtained
+            by using json.loads on an Interface file.
         """
         self.name: str = interface_definition["interface_name"]
         self.version_major: int = interface_definition["version_major"]

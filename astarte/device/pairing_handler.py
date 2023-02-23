@@ -34,7 +34,8 @@ def register_device_with_private_key(
     realm : str
         The Realm in which to register the Device.
     private_key_file : str
-        Path to the Private Key file for the Realm. It will be used to Authenticate against Pairing API.
+        Path to the Private Key file for the Realm. It will be used to Authenticate against
+        Pairing API.
     pairing_base_url : str
         The Base URL of Pairing API of the Astarte Instance the Device will be registered in.
     """
@@ -65,11 +66,12 @@ def register_device_with_jwt_token(
     realm : str
         The Realm in which to register the Device.
     jwt_token : str
-        A JWT Token to Authenticate against Pairing API. The token must have access to Pairing API and to the agent API paths.
+        A JWT Token to Authenticate against Pairing API. The token must have access to Pairing
+        API and to the agent API paths.
     pairing_base_url : str
         The Base URL of Pairing API of the Astarte Instance the Device will be registered in.
     ignore_ssl_errors: bool
-        Useful if you're registering a device into a test instance of Astarte with self signed
+        Useful if you're registering a device into a test instance of Astarte with self-signed
         certificates. It is not recommended to leave this `true` in production.
         Defaults to `false`, if `true` SSL errors will be ignored when registering a device.
     """
@@ -96,7 +98,8 @@ def generate_device_id(namespace: UUID, unique_data: str) -> str:
     Returns
     -------
     str
-        the generated device Id, using the standard Astarte Device ID encoding (base64 urlencoding without padding).
+        the generated device Id, using the standard Astarte Device ID encoding (base64
+        urlencoding without padding).
 
     """
 
@@ -114,7 +117,8 @@ def generate_random_device_id() -> str:
     Returns
     -------
     str
-        the generated device Id, using the standard Astarte Device ID encoding (base64 urlencoding without padding).
+        the generated device Id, using the standard Astarte Device ID encoding (base64
+        urlencoding without padding).
 
     """
     device_id = uuid4()
