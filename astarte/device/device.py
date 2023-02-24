@@ -109,7 +109,6 @@ class Device:
 
         self.on_connected: Optional[Callable[[Device], None]] = None
         self.on_disconnected: Optional[Callable[[Device, int], None]] = None
-        self.on_aggregate_data_received = None
         self.on_data_received: Optional[Callable[[Device, str, str, object], None]] = None
 
         # Check if the persistency dir exists
