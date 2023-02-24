@@ -13,10 +13,15 @@
 # limitations under the License.
 
 from __future__ import annotations
-import requests
-from . import crypto, exceptions
+
+import datetime
 from base64 import urlsafe_b64encode
 from uuid import UUID, uuid5, uuid4
+
+import jwt
+import requests
+
+from . import crypto, exceptions
 
 
 def register_device_with_private_key(
@@ -379,8 +384,6 @@ def __generate_token(
     str
         The generated token
     """
-    import datetime
-    import jwt
 
     api_claims = {
         "appengine": "a_aea",

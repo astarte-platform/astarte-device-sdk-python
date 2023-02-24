@@ -13,9 +13,11 @@
 # limitations under the License.
 
 from __future__ import annotations
-from astarte.device.mapping import Mapping
+
 from datetime import datetime
 from re import sub, match
+
+from astarte.device.mapping import Mapping
 
 DEVICE = "device"
 SERVER = "server"

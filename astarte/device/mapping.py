@@ -13,9 +13,10 @@
 # limitations under the License.
 
 from __future__ import annotations
+
+from datetime import datetime
 from math import isfinite
 from typing import Union, List
-from datetime import datetime
 
 # Astarte Types definition
 IntList = List[int]

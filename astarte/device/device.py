@@ -13,16 +13,18 @@
 # limitations under the License.
 
 from __future__ import annotations
+
 import asyncio
 import collections.abc
-from datetime import datetime
 import os
+import ssl
 from collections.abc import Callable
+from datetime import datetime
+from urllib.parse import urlparse
 
 import bson
 import paho.mqtt.client as mqtt
-import ssl
-from urllib.parse import urlparse
+
 from astarte.device import crypto, pairing_handler
 from astarte.device.introspection import Introspection
 
