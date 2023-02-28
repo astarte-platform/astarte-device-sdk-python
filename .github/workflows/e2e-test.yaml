@@ -64,7 +64,11 @@ jobs:
           source venv/bin/activate
           python3 -m pip install -e .[e2e]
       - name: Run test
-        run: |
-          source venv/bin/activate
-          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-          python3 e2etest/main.py
+        uses: nick-fields/retry@v2
+        with:
+          timeout_seconds: 30
+          max_attempts: 2
+          command: |
+            source venv/bin/activate
+            export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+            python3 e2etest/main.py
