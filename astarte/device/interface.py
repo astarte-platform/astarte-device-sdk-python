@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Tuple
+from __future__ import annotations
 from astarte.device.mapping import Mapping
 from datetime import datetime
 from re import sub, match
@@ -122,7 +122,7 @@ class Interface:
             if match(regex + "$", endpoint):
                 return mapping
 
-    def validate(self, path: str, payload, timestamp: datetime) -> Tuple[bool, str]:
+    def validate(self, path: str, payload, timestamp: datetime) -> tuple[bool, str]:
         """
         Interface Data validation
 

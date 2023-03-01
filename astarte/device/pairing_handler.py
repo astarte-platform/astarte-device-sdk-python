@@ -11,8 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import List
 
+from __future__ import annotations
 import requests
 from . import crypto, exceptions
 from base64 import urlsafe_b64encode
@@ -220,7 +220,7 @@ def __register_device_headers_with_jwt_token(jwt_token: str) -> dict:
 def __generate_token(
     private_key_file: str,
     type: str = "appengine",
-    auth_paths: List[str] = [".*::.*"],
+    auth_paths: list[str] = [".*::.*"],
     expiry: int = 30,
 ) -> str:
     import datetime

@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
 from math import isfinite
-from typing import Union, List, Tuple
+from typing import Union, List
 from datetime import datetime
 
 IntList = List[int]
@@ -140,7 +141,7 @@ class Mapping:
             else:
                 self.reliability = 0
 
-    def validate(self, payload: MapType, timestamp: datetime) -> Tuple[bool, str]:
+    def validate(self, payload: MapType, timestamp: datetime) -> tuple[bool, str]:
         """
         Mapping data validation
         Parameters

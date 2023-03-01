@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, List
+from __future__ import annotations
 
 from astarte.device.interface import Interface
 
@@ -61,7 +61,7 @@ class Introspection:
         if interface_name in self.__interfaces_list:
             del self.__interfaces_list[interface_name]
 
-    def get_interface(self, interface_name: str) -> Optional[Interface]:
+    def get_interface(self, interface_name: str) -> Interface | None:
         """
         Retrieve an Interface definition from the Introspection
 
@@ -78,7 +78,7 @@ class Introspection:
         if interface_name in self.__interfaces_list:
             return self.__interfaces_list[interface_name]
 
-    def get_all_interfaces(self) -> List[Interface]:
+    def get_all_interfaces(self) -> list[Interface]:
         """
         Retrieve all the list of all Interfaces in Device's Introspection
 
@@ -89,7 +89,7 @@ class Introspection:
         """
         return self.__interfaces_list.values()
 
-    def get_all_server_owned_interfaces(self) -> List[Interface]:
+    def get_all_server_owned_interfaces(self) -> list[Interface]:
         """
         Retrieve all the list of all Interfaces in Device's Introspection with server ownership
 

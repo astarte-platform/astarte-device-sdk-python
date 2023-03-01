@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+from __future__ import annotations
 import asyncio
 import collections.abc
 from datetime import datetime
 import os
-from typing import Optional, Callable, Tuple
+from collections.abc import Callable
 
 import bson
 import paho.mqtt.client as mqtt
@@ -73,7 +73,7 @@ class Device:
         credentials_secret: str,
         pairing_base_url: str,
         persistency_dir: str,
-        loop: Optional[asyncio.AbstractEventLoop] = None,
+        loop: asyncio.AbstractEventLoop | None = None,
         ignore_ssl_errors: bool = False,
     ):
         """
@@ -110,16 +110,16 @@ class Device:
         self.__pairing_base_url = pairing_base_url
         self.__persistency_dir = persistency_dir
         self.__credentials_secret = credentials_secret
-        self.__jwt_token: Optional[str] = None
+        self.__jwt_token: str | None = None
         self.__is_crypto_setup = False
         self.__introspection = Introspection()
         self.__is_connected = False
         self.__loop = loop
         self.__ignore_ssl_errors = ignore_ssl_errors
 
-        self.on_connected: Optional[Callable[[Device], None]] = None
-        self.on_disconnected: Optional[Callable[[Device, int], None]] = None
-        self.on_data_received: Optional[Callable[[Device, str, str, object], None]] = None
+        self.on_connected: Callable[Device, None] | None = None
+        self.on_disconnected: Callable[[Device, int], None] | None = None
+        self.on_data_received: Callable[[Device, str, str, object], None] | None = None
 
         # Check if the persistency dir exists
         if not os.path.isdir(persistency_dir):
@@ -269,7 +269,7 @@ class Device:
         interface_name: str,
         interface_path: str,
         payload: object,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """
         Sends an individual message to an interface.
@@ -319,7 +319,7 @@ class Device:
         interface_name: str,
         interface_path: str,
         payload: dict,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """
         Sends an aggregate message to an interface
@@ -378,7 +378,7 @@ class Device:
             f"{self.__get_base_topic()}/{interface_name}{interface_path}", None, qos=qos
         )
 
-    def __send_generic(self, topic: str, object_payload: Optional[str], qos=2) -> None:
+    def __send_generic(self, topic: str, object_payload: str | None, qos=2) -> None:
         if object_payload:
             payload = bson.dumps(object_payload)
         else:
@@ -529,8 +529,8 @@ class Device:
         interface_name: str,
         interface_path: str,
         payload: object,
-        timestamp: Optional[datetime],
-    ) -> Tuple[bool, str]:
+        timestamp: datetime | None,
+    ) -> tuple[bool, str]:
         """
         Verifies the data corresponds with the interface.
 
