@@ -24,6 +24,8 @@ import requests
 
 from . import crypto, exceptions
 
+DEFAULT_TIMEOUT = 30
+
 
 def register_device_with_private_key(
     device_id: str,
@@ -195,6 +197,7 @@ def obtain_device_certificate(
         json=data,
         headers=headers,
         verify=not ignore_ssl_errors,
+        timeout=DEFAULT_TIMEOUT,
     )
     if res.status_code in {http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN}:
         raise exceptions.AuthorizationError(res.json())
@@ -247,6 +250,7 @@ def obtain_device_transport_information(
         f"{pairing_base_url}/v1/{realm}/devices/{device_id}",
         headers=headers,
         verify=not ignore_ssl_errors,
+        timeout=DEFAULT_TIMEOUT,
     )
     if res.status_code in {http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN}:
         raise exceptions.AuthorizationError(res.json())
@@ -300,6 +304,7 @@ def __register_device(
         json=data,
         headers=headers,
         verify=not ignore_ssl_errors,
+        timeout=DEFAULT_TIMEOUT,
     )
     if res.status_code in {http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN}:
         raise exceptions.AuthorizationError(res.json())
