@@ -29,7 +29,7 @@ from astarte.device import crypto, pairing_handler
 from astarte.device.introspection import Introspection
 
 
-class Device:
+class Device:  # pylint: disable=too-many-instance-attributes
     """
     Basic class to define an Astarte Device.
 

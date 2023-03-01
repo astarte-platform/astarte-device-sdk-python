@@ -115,6 +115,9 @@ disable=
     format,
     # We anticipate #3512 where it will become optional
     fixme,
+    # Currently the "not callable" error throws false positive warnings
+    # See https://github.com/PyCQA/pylint/issues/1493
+    not-callable,
 
 
 [REPORTS]
@@ -552,6 +555,7 @@ check-str-concat-over-line-jumps=no
 # suggestions which would get split by a code formatter (e.g., black). Will
 # default to the setting for ``max-line-length``.
 #max-line-length-suggestions=
+
 
 [tool.pylint.parameter_documentation]
 accept-no-param-doc = false
