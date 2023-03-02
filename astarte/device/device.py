@@ -17,7 +17,7 @@ import asyncio
 import collections.abc
 from datetime import datetime
 import os
-from typing import Optional, Callable
+from typing import Optional, Callable, Tuple
 
 import bson
 import paho.mqtt.client as mqtt
@@ -272,8 +272,11 @@ class Device:
         if isinstance(payload, collections.abc.Mapping):
             raise TypeError('Payload for individual interfaces should not be a dictionary')
 
-        if not self.__validate_data(interface_name, interface_path, payload, timestamp):
-            print("validation failed")
+        (validation_success, validation_error_message) = self.__validate_data(interface_name,
+                                                                              interface_path,
+                                                                              payload, timestamp)
+        if not validation_success:
+            raise TypeError(validation_error_message)
 
         object_payload = {'v': payload}
         if timestamp:
@@ -490,7 +493,7 @@ class Device:
         return mapping.reliability
 
     def __validate_data(self, interface_name: str, interface_path: str, payload: object,
-                        timestamp: Optional[datetime]) -> bool:
+                        timestamp: Optional[datetime]) -> Tuple[bool, str]:
         """
         Verifies the data corresponds with the interface.
 
@@ -505,6 +508,13 @@ class Device:
         timestamp : datetime, optional
             If sending a Datastream with explicit_timestamp, you can specify a datetime object which will be registered
             as the timestamp for the value.
+
+        Returns
+        -------
+        bool
+            Success of the validation operation
+        str
+            Error message if success is False
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:

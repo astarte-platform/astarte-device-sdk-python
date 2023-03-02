@@ -2,6 +2,7 @@
 Contains the tests for individual datastreams.
 """
 import time
+from datetime import datetime, timezone
 from threading import Lock
 from termcolor import cprint
 
@@ -26,7 +27,7 @@ def test_datastream_from_device_to_server(device: Device, test_cfg: TestCfg):
         flush=True,
     )
     for key, value in test_cfg.mock_data.items():
-        device.send(test_cfg.interface_device_data, "/" + key, value)
+        device.send(test_cfg.interface_device_data, "/" + key, value, datetime.now(tz=timezone.utc))
         time.sleep(0.005)
 
     time.sleep(1)
