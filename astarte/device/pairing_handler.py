@@ -20,7 +20,11 @@ from uuid import UUID, uuid5, uuid4
 
 
 def register_device_with_private_key(
-    device_id: str, realm: str, private_key_file: str, pairing_base_url: str
+    device_id: str,
+    realm: str,
+    private_key_file: str,
+    pairing_base_url: str,
+    ignore_ssl_errors: bool,
 ) -> str:
     """
     Registers a Device against an Astarte instance/realm with a Private Key
@@ -38,12 +42,20 @@ def register_device_with_private_key(
         Pairing API.
     pairing_base_url : str
         The Base URL of Pairing API of the Astarte Instance the Device will be registered in.
+    ignore_ssl_errors: str
+        Set to True to ignore SSL errors
+
+    Returns
+    -------
+    str
+        The credentials secret obtained after the registration
     """
     return __register_device(
         device_id,
         realm,
         __register_device_headers_with_private_key(private_key_file),
         pairing_base_url,
+        ignore_ssl_errors,
     )
 
 
@@ -74,6 +86,11 @@ def register_device_with_jwt_token(
         Useful if you're registering a device into a test instance of Astarte with self-signed
         certificates. It is not recommended to leave this `true` in production.
         Defaults to `false`, if `true` SSL errors will be ignored when registering a device.
+
+    Returns
+    -------
+    str
+        The credentials secret obtained after the registration
     """
     return __register_device(
         device_id,
@@ -135,6 +152,32 @@ def obtain_device_certificate(
     crypto_store_dir: str,
     ignore_ssl_errors: bool,
 ) -> None:
+    """
+    Utility function that gets a device certificate from Astarte based on a locally generated csr
+
+    Parameters
+    ----------
+    device_id: str
+        The device ID
+    realm: str
+        The Astarte realm where the device is registered
+    credentials_secret: str
+        The credentials secret for the device in the given realm
+    pairing_base_url: str
+        The base URL for the Astarte pairing APIs
+    crypto_store_dir: str
+        Path to the folder where crypto information are stored
+    ignore_ssl_errors: str
+        Set to True to ignore SSL errors
+
+    Raises
+    ------
+    AuthorizationError
+        If the authentication provided was not correct
+    APIError
+        If a generic Error was returned by the APIs
+    """
+
     # Get a CSR first
     csr = crypto.generate_csr(realm, device_id, crypto_store_dir)
     # Prepare the Pairing API request
@@ -162,6 +205,35 @@ def obtain_device_transport_information(
     pairing_base_url: str,
     ignore_ssl_errors: bool,
 ) -> dict:
+    """
+    Utility function that requests the device transport information to Astarte
+
+    Parameters
+    ----------
+    device_id: str
+        The device ID
+    realm: str
+        The Astarte realm where the device is registered
+    credentials_secret: str
+        The credentials secret for the device in the given realm
+    pairing_base_url: str
+        The base URL for the Astarte pairing APIs
+    ignore_ssl_errors: str
+        Set to True to ignore SSL errors
+
+    Returns
+    -------
+    dict
+        The device transport information
+
+    Raises
+    ------
+    AuthorizationError
+        If the authentication provided was not correct
+    APIError
+        If a generic Error was returned by the APIs
+
+    """
     # Prepare the Pairing API request
     headers = {"Authorization": f"Bearer {credentials_secret}"}
 
@@ -185,6 +257,36 @@ def __register_device(
     pairing_base_url: str,
     ignore_ssl_errors: bool,
 ) -> str:
+    """
+    Private utility Function that registers a new device
+
+    Parameters
+    ----------
+    device_id: str
+        Device ID
+    realm: str
+        Astarte realm
+    headers: dict
+        HTTP connection headers
+    pairing_base_url: str
+        Base URL for the Astarte Pairing APIs
+    ignore_ssl_errors: bool
+        Set to True to ignore SSL errors
+
+    Returns
+    -------
+    str
+        The credentials secret obtained after the registration
+
+    Raises
+    ------
+    AuthorizationError
+        If the authentication provided was not correct
+    DeviceAlreadyRegisteredError
+        If the Device was already registered
+    APIError
+        If a generic Error was returned by the APIs
+    """
     data = {"data": {"hw_id": device_id}}
 
     res = requests.post(
@@ -204,25 +306,79 @@ def __register_device(
 
 
 def __register_device_headers_with_private_key(private_key_file) -> dict:
+    """
+    Private utility function that generates the Authorization header for astarte HTTP APIs from a
+    private key file.
+
+    Parameters
+    ----------
+    private_key_file: str
+        Path to the private key file.
+
+    Returns
+    -------
+    dict
+        The Authorization Header dict.
+
+    Raises
+    ------
+    TypeError
+        If there is an error generating the token from the certificate
+    """
     headers = {}
     try:
-        headers["Authorization"] = f'Bearer {__generate_token(private_key_file, type="pairing")}'
+        headers[
+            "Authorization"
+        ] = f'Bearer {__generate_token(private_key_file, key_type="pairing")}'
         return headers
     except:
         raise TypeError("Supplied Realm Key could not be used to generate a valid Token.")
 
 
 def __register_device_headers_with_jwt_token(jwt_token: str) -> dict:
+    """
+    Private utility function that generates the Authorization header for astarte HTTP APIs
+
+    Parameters
+    ----------
+    jwt_token: str
+        The authorization token for the HTTP Request
+
+    Returns
+    -------
+    dict
+        The Authorization Header dict
+
+    """
     return {"Authorization": f"Bearer {jwt_token}"}
 
 
 # This throws FileNotFoundError if the private key does not exist
 def __generate_token(
     private_key_file: str,
-    type: str = "appengine",
+    key_type: str = "appengine",
     auth_paths: list[str] = [".*::.*"],
     expiry: int = 30,
 ) -> str:
+    """
+    Private utility function that generates a valid token from a private key
+
+    Parameters
+    ----------
+    private_key_file: str
+        Path to where the private key is stored
+    key_type: str
+        Type of Astarte service the private key was made for
+    auth_paths: list[str]
+        Authorization paths used if key_type is channels
+    expiry: int
+        How many seconds the token validity will last
+
+    Returns
+    -------
+    str
+        The generated token
+    """
     import datetime
     import jwt
 
@@ -237,12 +393,12 @@ def __generate_token(
     with open(private_key_file, "r") as pk:
         private_key_pem = pk.read()
 
-        if type == "channels" and auth_paths == [".*::.*"]:
+        if key_type == "channels" and auth_paths == [".*::.*"]:
             real_auth_paths = ["JOIN::.*", "WATCH::.*"]
         else:
             real_auth_paths = [".*::.*"]
         now = datetime.datetime.utcnow()
-        claims = {api_claims[type]: real_auth_paths, "iat": now}
+        claims = {api_claims[key_type]: real_auth_paths, "iat": now}
         if expiry > 0:
             claims["exp"] = now + datetime.timedelta(seconds=expiry)
 

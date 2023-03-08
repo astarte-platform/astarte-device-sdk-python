@@ -170,6 +170,11 @@ class Device:
     def get_device_id(self) -> str:
         """
         Returns the Device ID of the Device.
+
+        Returns
+        -------
+        str
+            The Id of the device
         """
         return self.__device_id
 
@@ -261,6 +266,11 @@ class Device:
     def is_connected(self) -> bool:
         """
         Returns whether the Device is currently connected.
+
+        Returns
+        -------
+        bool
+            The device connection status.
         """
         return self.__is_connected
 
@@ -286,6 +296,11 @@ class Device:
         timestamp : datetime, optional
             If sending a Datastream with explicit_timestamp, you can specify a datetime object
             which will be registered as the timestamp for the value.
+
+        Raises
+        ------
+        TypeError
+            If the interface or the payload are not compatible.
         """
         if self.__is_interface_aggregate(interface_name):
             raise TypeError(
@@ -327,12 +342,19 @@ class Device:
         Parameters
         ----------
         interface_name : str
-            The name of an the Interface to send data to.
+            The name of the Interface to send data to.
+        interface_path: str
+            The endpoint to send the data to
         payload : dict
             A dictionary containing the path:value map for the aggregate.
         timestamp : datetime, optional
             If the Datastream has explicit_timestamp, you can specify a datetime object which
             will be registered as the timestamp for the value.
+
+        Raises
+        ------
+        TypeError
+            If the interface or the payload are not compatible.
         """
         if not self.__is_interface_aggregate(interface_name):
             raise TypeError(
@@ -362,9 +384,14 @@ class Device:
         Parameters
         ----------
         interface_name : str
-            The name of an the Interface where the property to unset is located.
+            The name of the Interface where the property to unset is located.
         interface_path : str
             The path on the Interface to unset.
+
+        Raises
+        ------
+        TypeError
+            If the interface is of type datastream.
         """
         if not self.__is_interface_type_properties(interface_name):
             raise TypeError(
@@ -378,7 +405,7 @@ class Device:
             f"{self.__get_base_topic()}/{interface_name}{interface_path}", None, qos=qos
         )
 
-    def __send_generic(self, topic: str, object_payload: str | None, qos=2) -> None:
+    def __send_generic(self, topic: str, object_payload: dict | None, qos=2) -> None:
         if object_payload:
             payload = bson.dumps(object_payload)
         else:
@@ -386,6 +413,24 @@ class Device:
         self.__mqtt_client.publish(topic, payload, qos=qos)
 
     def __is_interface_aggregate(self, interface_name: str) -> bool:
+        """
+        Utility Function used to check if an interface is of type datastream and object aggregated
+
+        Parameters
+        ----------
+        interface_name: str
+            The name of the interface to check
+
+        Returns
+        -------
+        bool
+            True if the interface has aggregation "object", False otherwise
+
+        Raises
+        ------
+        FileNotFoundError
+            If the interface is not declared in the introspection
+        """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
             raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
@@ -393,6 +438,24 @@ class Device:
         return interface.is_aggregation_object()
 
     def __is_interface_type_properties(self, interface_name: str) -> bool:
+        """
+        Utility Function used to check if an interface is of type "Properties"
+
+        Parameters
+        ----------
+        interface_name: str
+            The name of the interface to check
+
+        Returns
+        -------
+        bool
+            True if the interface is of type "Properties", False otherwise
+
+        Raises
+        ------
+        FileNotFoundError
+            If the interface is not declared in the introspection
+        """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
             raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
@@ -400,9 +463,33 @@ class Device:
         return interface.is_type_properties()
 
     def __get_base_topic(self) -> str:
+        """
+        Utility function that returns the composition between realm and device id as often used
+        in astarte API URLs
+
+        Returns
+        -------
+        str
+            The composition between realm and device id as used in Astarte API URLs
+        """
         return f"{self.__realm}/{self.__device_id}"
 
     def __on_connect(self, client, userdata, flags, rc):
+        """
+        Callback function for MQTT connection
+
+        Parameters
+        ----------
+        client
+            the client instance for this callback
+        userdata
+            the private user data as set in Client() or userdata_set()
+        flags
+            response flags sent by the broker
+        rc
+            the connection result
+
+        """
         if rc != 0:
             print("Error while connecting: " + str(rc))
 
@@ -422,6 +509,26 @@ class Device:
                 self.on_connected(self)
 
     def __on_disconnect(self, client, userdata, rc):
+        """
+        Callback function for MQTT disconnection
+
+        Parameters
+        ----------
+        client
+            the client instance for this callback
+        userdata
+            the private user data as set in Client() or userdata_set()
+        rc
+            the disconnection result
+            The rc parameter indicates the disconnection state. If
+            MQTT_ERR_SUCCESS (0), the callback was called in response to
+            a disconnect() call. If any other value the disconnection
+            was unexpected, such as might be caused by a network error.
+
+        Returns
+        -------
+
+        """
         self.__is_connected = False
 
         if self.on_disconnected:
@@ -446,6 +553,23 @@ class Device:
             self.connect()
 
     def __on_message(self, client, userdata, msg):
+        """
+        Callback function for MQTT data received
+
+        Parameters
+        ----------
+        client
+            the client instance for this callback
+        userdata
+            the private user data as set in Client() or userdata_set()
+        msg
+            an instance of MQTTMessage.
+            This is a class with members topic, payload, qos, retain.
+
+        Returns
+        -------
+
+        """
         if not msg.topic.startswith(self.__get_base_topic()):
             print(f"Received unexpected message on topic {msg.topic}, {msg.payload}")
             return
@@ -489,6 +613,10 @@ class Device:
             self.on_data_received(self, interface_name, interface_path, data_payload)
 
     def __send_introspection(self) -> None:
+        """
+        Utility function used to send the introspection to Astarte
+        """
+
         # Build the introspection message
         introspection_message = ""
         for interface in self.__introspection.get_all_interfaces():
@@ -501,13 +629,23 @@ class Device:
     def _get_qos(self, interface_name, path=None) -> int:
         """
         Deduce the QoS to be used, based on the reliability of the interface.
+
         Parameters
         ----------
-        interface_name
-        The interface name to deduce QoS for.
+        interface_name : str
+            The interface name to deduce QoS for.
+        path : str
+            The path on the Interface to deduce QoS for.
+
         Returns
         -------
-        The deduced QoS, one of [0,1,2], default is 2
+        int
+            The deduced QoS, one of [0,1,2], default is 2
+
+        Raises
+        ------
+        FileNotFoundError
+            If the interface is not declared in the introspection
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
@@ -553,6 +691,10 @@ class Device:
             Success of the validation operation
         str
             Error message if success is False
+        Raises
+        ------
+        FileNotFoundError
+            If the interface is not declared in the introspection
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:

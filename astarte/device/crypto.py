@@ -24,6 +24,23 @@ from datetime import datetime
 
 
 def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
+    """
+    Utility function that generate the csr for the device
+
+    Parameters
+    ----------
+    realm: str
+        The Astarte realm where the device will be registered
+    device_id: str
+        The device ID
+    crypto_store_dir: str
+        Path to the folder where crypto information is stored
+
+    Returns
+    -------
+    bytes
+        The device certificate signing request file
+    """
     key = None
     # Do we need to generate a keypair?
     if not path.exists(path.join(crypto_store_dir, "device.key")):
@@ -73,6 +90,20 @@ def import_device_certificate(client_crt: str, crypto_store_dir: str) -> None:
 
 
 def device_has_certificate(crypto_store_dir: str) -> bool:
+    """
+    Utility function that checks if a certificate is present for the device
+
+    Parameters
+    ----------
+    crypto_store_dir: str
+        Path to the folder where crypto information is stored
+
+    Returns
+    -------
+    bool
+        True if the certificate is present, False otherwise
+
+    """
     cert_path = path.join(crypto_store_dir, "device.crt")
     key_path = path.join(crypto_store_dir, "device.key")
 
@@ -82,6 +113,20 @@ def device_has_certificate(crypto_store_dir: str) -> bool:
 
 
 def certificate_is_valid(crypto_store_dir: str) -> bool:
+    """
+    Utility function that checks the certificate validity
+
+    Parameters
+    ----------
+    crypto_store_dir: str
+        Path to the folder where crypto information are stored
+
+    Returns
+    -------
+    bool
+        True if the certificate is valid, False otherwise.
+
+    """
     cert_path = path.join(crypto_store_dir, "device.crt")
     with open(cert_path, "r") as file:
         data = file.read()

@@ -137,9 +137,9 @@ class Interface:
 
         Returns
         -------
-        success: bool
+        bool
             Success of the validation operation
-        msg: str
+        str
             Error message if success is False
         """
         # Check the interface has device ownership

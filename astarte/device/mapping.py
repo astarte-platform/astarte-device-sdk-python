@@ -17,6 +17,7 @@ from math import isfinite
 from typing import Union, List
 from datetime import datetime
 
+# Astarte Types definition
 IntList = List[int]
 FloatList = List[float]
 StringList = List[str]
@@ -144,17 +145,19 @@ class Mapping:
     def validate(self, payload: MapType, timestamp: datetime) -> tuple[bool, str]:
         """
         Mapping data validation
+
         Parameters
         ----------
-        payload: object
+        payload: MapType
             Data to validate
         timestamp: datetime or None
             Timestamp associated to the payload
+
         Returns
         -------
-        success: bool
+        bool
             Success of the validation operation
-        msg: str
+        str
             Error message if success is False
         """
         # Check if the interface has explicit_timestamp when a timestamp is given (and viceversa)
