@@ -112,7 +112,8 @@ class Device:
         self.__pairing_base_url = pairing_base_url
         self.__persistency_dir = persistency_dir
         self.__credentials_secret = credentials_secret
-        self.__jwt_token: str | None = None
+        # TODO: Implement device registration using token on connect
+        # self.__jwt_token: str | None = None
         self.__is_crypto_setup = False
         self.__introspection = Introspection()
         self.__is_connected = False
@@ -476,23 +477,19 @@ class Device:
         """
         return f"{self.__realm}/{self.__device_id}"
 
-    def __on_connect(self, client, userdata, flags, rc):
+    def __on_connect(self, client, _userdata, _flags, rc):
         """
         Callback function for MQTT connection
 
         Parameters
         ----------
-        client
+        client: paho.mqtt.client
             the client instance for this callback
-        userdata
-            the private user data as set in Client() or userdata_set()
-        flags
-            response flags sent by the broker
-        rc
+        rc: int
             the connection result
 
         """
-        if rc != 0:
+        if rc:
             print("Error while connecting: " + str(rc))
 
         self.__is_connected = True
@@ -510,17 +507,13 @@ class Device:
             else:
                 self.on_connected(self)
 
-    def __on_disconnect(self, client, userdata, rc):
+    def __on_disconnect(self, _client, _userdata, rc):
         """
         Callback function for MQTT disconnection
 
         Parameters
         ----------
-        client
-            the client instance for this callback
-        userdata
-            the private user data as set in Client() or userdata_set()
-        rc
+        rc: int
             the disconnection result
             The rc parameter indicates the disconnection state. If
             MQTT_ERR_SUCCESS (0), the callback was called in response to
@@ -541,7 +534,7 @@ class Device:
                 self.on_disconnected(self, rc)
 
         # If rc was explicit, stop the loop (after the callback)
-        if rc == 0:
+        if not rc:
             self.__mqtt_client.loop_stop()
         # Else check certificate expiration and try reconnection
         # TODO: check for MQTT_ERR_TLS when Paho correctly returns it
@@ -554,17 +547,13 @@ class Device:
             self.__setup_mqtt_client()
             self.connect()
 
-    def __on_message(self, client, userdata, msg):
+    def __on_message(self, _client, _userdata, msg):
         """
         Callback function for MQTT data received
 
         Parameters
         ----------
-        client
-            the client instance for this callback
-        userdata
-            the private user data as set in Client() or userdata_set()
-        msg
+        msg: paho.mqtt.MQTTMessage
             an instance of MQTTMessage.
             This is a class with members topic, payload, qos, retain.
 
@@ -599,7 +588,6 @@ class Device:
             if "v" not in payload_object:
                 print(f"Received unexpected BSON Object on topic {msg.topic}, {payload_object}")
                 return
-            timestamp = payload_object["t"] if "t" in payload_object else None
             data_payload = payload_object["v"]
 
         if self.__loop:

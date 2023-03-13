@@ -106,7 +106,7 @@ class Interface:
         """
         return self.type == "properties"
 
-    def get_mapping(self, endpoint) -> Mapping:
+    def get_mapping(self, endpoint) -> Mapping | None:
         """
         Retrieve the Mapping with the given endpoint from the Interface
         Parameters
@@ -123,6 +123,8 @@ class Interface:
             regex = sub(r"%{\w+}", r".+", path)
             if match(regex + "$", endpoint):
                 return mapping
+
+        return None
 
     def validate(self, path: str, payload, timestamp: datetime) -> tuple[bool, str]:
         """
@@ -154,29 +156,29 @@ class Interface:
                 return mapping.validate(payload, timestamp)
 
             return False, f"Path {path} not in the {self.name} interface."
-        else:
-            if not isinstance(payload, dict):
+
+        if not isinstance(payload, dict):
+            return (
+                False,
+                f"The interface {self.name} is aggregate, but the payload is not a dictionary",
+            )
+
+        # Validate all paths
+        for k, v in payload.items():
+            mapping = self.get_mapping(f"{path}/{k}")
+            if mapping:
+                result, errormsg = mapping.validate(v, timestamp)
+                if not result:
+                    return result, errormsg
+            else:
+                return False, f"Path {path} not in the {self.name} interface."
+
+        # Check all elements are present
+        for mapping in self.mappings:
+            endpoint = mapping[len(path + "/") :]
+            if endpoint not in payload:
                 return (
                     False,
-                    f"The interface {self.name} is aggregate, but the payload is not a dictionary",
+                    f"Path {mapping} has no value in {self.name} interface.",
                 )
-
-            # Validate all paths
-            for k, v in payload.items():
-                mapping = self.get_mapping(f"{path}/{k}")
-                if mapping:
-                    result, errormsg = mapping.validate(v, timestamp)
-                    if not result:
-                        return result, errormsg
-                else:
-                    return False, f"Path {path} not in the {self.name} interface."
-
-            # Check all elements are present
-            for mapping in self.mappings:
-                endpoint = mapping[len(path + "/") :]
-                if endpoint not in payload:
-                    return (
-                        False,
-                        f"Path {mapping} has no value in {self.name} interface.",
-                    )
-            return True, ""
+        return True, ""

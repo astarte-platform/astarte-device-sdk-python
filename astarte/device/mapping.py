@@ -161,6 +161,8 @@ class Mapping:
         str
             Error message if success is False
         """
+        min_supported_int = -2147483648
+        max_supported_int = 2147483647
         # Check if the interface has explicit_timestamp when a timestamp is given (and viceversa)
         if self.explicit_timestamp and not timestamp:
             return False, f"Timestamp required for {self.endpoint}"
@@ -172,9 +174,8 @@ class Mapping:
                 False,
                 f"{self.endpoint} is {self.type} but {type(payload)} was provided",
             )
-        # Must return False when trying to send an integer outside -2147483648 to 2147483647
-        # interval.
-        if self.type == "integer" and not -2147483648 <= payload <= 2147483647:
+        # Must return False when trying to send an integer outside allowed interval.
+        if self.type == "integer" and not min_supported_int <= payload <= max_supported_int:
             return False, f"Value out of int32 range for {self.endpoint}"
         # Must return False when trying to send a double value which is not a number
         if self.type == "double" and not isfinite(payload):
@@ -183,17 +184,16 @@ class Mapping:
         if self.__actual_type == list:
             # Check coherence
             if any(not isinstance(elem, type(payload[0])) for elem in payload):
-                return False, f"Type incoherence in payload elements"
+                return False, "Type incoherence in payload elements"
             subtype: type = type_strings.get(self.type.replace("array", ""))
             if not isinstance(payload[0], subtype):
                 return (
                     False,
                     f"{self.endpoint} is {self.type} but {type(payload)} was provided",
                 )
-            # Must return False when trying to send an integer outside -2147483648 to 2147483647
-            # interval.
+            # Must return False when trying to send an integer outside allowed interval.
             if self.type == "integerarray" and any(
-                elem < -2147483648 or elem > 2147483647 for elem in payload
+                elem < min_supported_int or elem > max_supported_int for elem in payload
             ):
                 return False, f"Value out of int32 range for {self.endpoint}"
             # Must return False when trying to send a double value which is not a number

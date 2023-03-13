@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import datetime
+import http
 from base64 import urlsafe_b64encode
 from uuid import UUID, uuid5, uuid4
 
@@ -195,9 +196,9 @@ def obtain_device_certificate(
         headers=headers,
         verify=not ignore_ssl_errors,
     )
-    if res.status_code == 401 or res.status_code == 403:
+    if res.status_code in {http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN}:
         raise exceptions.AuthorizationError(res.json())
-    elif res.status_code != 201:
+    if res.status_code != http.HTTPStatus.CREATED:
         raise exceptions.APIError(res.json())
 
     crypto.import_device_certificate(res.json()["data"]["client_crt"], crypto_store_dir)
@@ -247,9 +248,9 @@ def obtain_device_transport_information(
         headers=headers,
         verify=not ignore_ssl_errors,
     )
-    if res.status_code == 401 or res.status_code == 403:
+    if res.status_code in {http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN}:
         raise exceptions.AuthorizationError(res.json())
-    elif res.status_code != 200:
+    if res.status_code != http.HTTPStatus.OK:
         raise exceptions.APIError(res.json())
 
     return res.json()["data"]
@@ -300,11 +301,11 @@ def __register_device(
         headers=headers,
         verify=not ignore_ssl_errors,
     )
-    if res.status_code == 401 or res.status_code == 403:
+    if res.status_code in {http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN}:
         raise exceptions.AuthorizationError(res.json())
-    elif res.status_code == 422:
+    if res.status_code == http.HTTPStatus.UNPROCESSABLE_ENTITY:
         raise exceptions.DeviceAlreadyRegisteredError()
-    elif res.status_code != 201:
+    if res.status_code != http.HTTPStatus.CREATED:
         raise exceptions.APIError(res.json())
 
     return res.json()["data"]["credentials_secret"]
@@ -336,8 +337,8 @@ def __register_device_headers_with_private_key(private_key_file) -> dict:
             "Authorization"
         ] = f'Bearer {__generate_token(private_key_file, key_type="pairing")}'
         return headers
-    except:
-        raise TypeError("Supplied Realm Key could not be used to generate a valid Token.")
+    except Exception as exc:
+        raise TypeError("Supplied Realm Key could not be used to generate a valid Token.") from exc
 
 
 def __register_device_headers_with_jwt_token(jwt_token: str) -> dict:
@@ -362,7 +363,7 @@ def __register_device_headers_with_jwt_token(jwt_token: str) -> dict:
 def __generate_token(
     private_key_file: str,
     key_type: str = "appengine",
-    auth_paths: list[str] = [".*::.*"],
+    auth_paths: list[str] | None = None,
     expiry: int = 30,
 ) -> str:
     """
@@ -374,7 +375,7 @@ def __generate_token(
         Path to where the private key is stored
     key_type: str
         Type of Astarte service the private key was made for
-    auth_paths: list[str]
+    auth_paths: list[str] | None
         Authorization paths used if key_type is channels
     expiry: int
         How many seconds the token validity will last
@@ -393,10 +394,10 @@ def __generate_token(
         "pairing": "a_pa",
     }
 
-    with open(private_key_file, "r") as pk:
+    with open(private_key_file, "r", encoding="utf-8") as pk:
         private_key_pem = pk.read()
 
-        if key_type == "channels" and auth_paths == [".*::.*"]:
+        if key_type == "channels" and not auth_paths:
             real_auth_paths = ["JOIN::.*", "WATCH::.*"]
         else:
             real_auth_paths = [".*::.*"]

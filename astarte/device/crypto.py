@@ -129,7 +129,7 @@ def certificate_is_valid(crypto_store_dir: str) -> bool:
 
     """
     cert_path = path.join(crypto_store_dir, "device.crt")
-    with open(cert_path, "r") as file:
+    with open(cert_path, "r", encoding="utf-8") as file:
         data = file.read()
     if data:
         try:

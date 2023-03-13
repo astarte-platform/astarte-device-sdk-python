@@ -78,6 +78,8 @@ class Introspection:
         if interface_name in self.__interfaces_list:
             return self.__interfaces_list[interface_name]
 
+        return None
+
     def get_all_interfaces(self) -> list[Interface]:
         """
         Retrieve all the list of all Interfaces in Device's Introspection

@@ -16,8 +16,6 @@
 class AstarteError(Exception):
     """Base class for Astarte Errors."""
 
-    pass
-
 
 class DeviceAlreadyRegisteredError(AstarteError):
     """Exception raised in case a Device being registered has already been registered."""
