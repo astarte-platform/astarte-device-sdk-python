@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, List
+from __future__ import annotations
 
 from astarte.device.interface import Interface
 
@@ -20,11 +20,13 @@ class Introspection:
     """
     Class that represent the introspection of a device.
 
-    The introspection is the list od interfaces that the device declares to the server it is compatible with.
+    The introspection is the list od interfaces that the device declares to the server it is
+    compatible with.
 
-    In any given time a device can have a single interface with a given name, multiple interfaces with the same
-    name but different major/minor are not supported.
+    In any given time a device can have a single interface with a given name, multiple interfaces
+    with the same name but different major/minor are not supported.
     """
+
     def __init__(self):
         self.__interfaces_list = {}
 
@@ -32,13 +34,14 @@ class Introspection:
         """
         Adds an Interface to the Introspection
 
-        This will add an Interface definition to the Device. It has to be called before :py:func:`connect`, as it will be
-        used for building the Device Introspection.
+        This will add an Interface definition to the Device. It has to be called before
+        :py:func:`connect`, as it will be used for building the Device Introspection.
 
         Parameters
         ----------
         interface_definition : dict
-            An Astarte Interface definition in the form of a Python dictionary. Usually obtained by using json.loads on an Interface file.
+            An Astarte Interface definition in the form of a Python dictionary. Usually obtained
+            by using json.loads() on an Interface file.
         """
         interface = Interface(interface_definition)
         self.__interfaces_list[interface.name] = interface
@@ -47,8 +50,8 @@ class Introspection:
         """
         Removes an Interface from the Introspection
 
-        Removes an Interface definition from the Device. It has to be called before :py:func:`connect`, as it will be
-        used for building the Device Introspection.
+        Removes an Interface definition from the Device. It has to be called before
+        :py:func:`connect`, as it will be used for building the Device Introspection.
 
         Parameters
         ----------
@@ -58,7 +61,7 @@ class Introspection:
         if interface_name in self.__interfaces_list:
             del self.__interfaces_list[interface_name]
 
-    def get_interface(self, interface_name: str) -> Optional[Interface]:
+    def get_interface(self, interface_name: str) -> Interface | None:
         """
         Retrieve an Interface definition from the Introspection
 
@@ -75,7 +78,9 @@ class Introspection:
         if interface_name in self.__interfaces_list:
             return self.__interfaces_list[interface_name]
 
-    def get_all_interfaces(self) -> List[Interface]:
+        return None
+
+    def get_all_interfaces(self) -> list[Interface]:
         """
         Retrieve all the list of all Interfaces in Device's Introspection
 
@@ -86,7 +91,7 @@ class Introspection:
         """
         return self.__interfaces_list.values()
 
-    def get_all_server_owned_interfaces(self) -> List[Interface]:
+    def get_all_server_owned_interfaces(self) -> list[Interface]:
         """
         Retrieve all the list of all Interfaces in Device's Introspection with server ownership
 
@@ -95,4 +100,9 @@ class Introspection:
         list
             The list of all Interfaces in the Introspection that have ownership "server"
         """
-        return list(filter(lambda interface: interface.is_server_owned(), self.__interfaces_list.values()))
+        return list(
+            filter(
+                lambda interface: interface.is_server_owned(),
+                self.__interfaces_list.values(),
+            )
+        )

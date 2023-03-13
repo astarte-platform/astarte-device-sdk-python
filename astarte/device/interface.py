@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Tuple
-from astarte.device.mapping import Mapping
+from __future__ import annotations
+
 from datetime import datetime
 from re import sub, match
+
+from astarte.device.mapping import Mapping
 
 DEVICE = "device"
 SERVER = "server"
@@ -25,11 +27,13 @@ class Interface:
     """
     Class that represent an Interface definition
 
-    Interfaces are a core concept of Astarte which defines how data is exchanged between Astarte and its peers.
-    They are not to be intended as OOP interfaces, but rather as the following definition:
+    Interfaces are a core concept of Astarte which defines how data is exchanged between Astarte
+    and its peers. They are not to be intended as OOP interfaces, but rather as the following
+    definition:
 
-    In Astarte each interface has an owner, can represent either a continuous data stream or a snapshot of a set
-    of properties, and can be either aggregated into an object or be an independent set of individual members.
+    In Astarte each interface has an owner, can represent either a continuous data stream or a
+    snapshot of a set of properties, and can be either aggregated into an object or be an
+    independent set of individual members.
 
     Attributes
     ----------
@@ -54,8 +58,8 @@ class Interface:
         Parameters
         ----------
         interface_definition: dict
-            An Astarte Interface definition in the form of a Python dictionary. Usually obtained by using json.loads on
-            an Interface file.
+            An Astarte Interface definition in the form of a Python dictionary. Usually obtained
+            by using json.loads on an Interface file.
         """
         self.name: str = interface_definition["interface_name"]
         self.version_major: int = interface_definition["version_major"]
@@ -102,7 +106,7 @@ class Interface:
         """
         return self.type == "properties"
 
-    def get_mapping(self, endpoint) -> Mapping:
+    def get_mapping(self, endpoint) -> Mapping | None:
         """
         Retrieve the Mapping with the given endpoint from the Interface
         Parameters
@@ -116,11 +120,13 @@ class Interface:
             The Mapping if found, None otherwise
         """
         for path, mapping in self.mappings.items():
-            regex = sub(r'%{\w+}', r'.+', path)
+            regex = sub(r"%{\w+}", r".+", path)
             if match(regex + "$", endpoint):
                 return mapping
 
-    def validate(self, path: str, payload, timestamp: datetime) -> Tuple[bool, str]:
+        return None
+
+    def validate(self, path: str, payload, timestamp: datetime) -> tuple[bool, str]:
         """
         Interface Data validation
 
@@ -135,9 +141,9 @@ class Interface:
 
         Returns
         -------
-        success: bool
+        bool
             Success of the validation operation
-        msg: str
+        str
             Error message if success is False
         """
         # Check the interface has device ownership
@@ -150,23 +156,29 @@ class Interface:
                 return mapping.validate(payload, timestamp)
 
             return False, f"Path {path} not in the {self.name} interface."
-        else:
-            if not isinstance(payload, dict):
-                return False, f"The interface {self.name} is aggregate, but the payload is not a dictionary"
 
-            # Validate all paths
-            for k, v in payload.items():
-                mapping = self.get_mapping(f"{path}/{k}")
-                if mapping:
-                    result, errormsg = mapping.validate(v, timestamp)
-                    if not result:
-                        return result, errormsg
-                else:
-                    return False, f"Path {path} not in the {self.name} interface."
+        if not isinstance(payload, dict):
+            return (
+                False,
+                f"The interface {self.name} is aggregate, but the payload is not a dictionary",
+            )
 
-            # Check all elements are present
-            for mapping in self.mappings:
-                endpoint = mapping[len(path + "/"):]
-                if endpoint not in payload:
-                    return False, f"Path {mapping} has no value in {self.name} interface."
-            return True, ""
+        # Validate all paths
+        for k, v in payload.items():
+            mapping = self.get_mapping(f"{path}/{k}")
+            if mapping:
+                result, errormsg = mapping.validate(v, timestamp)
+                if not result:
+                    return result, errormsg
+            else:
+                return False, f"Path {path} not in the {self.name} interface."
+
+        # Check all elements are present
+        for mapping in self.mappings:
+            endpoint = mapping[len(path + "/") :]
+            if endpoint not in payload:
+                return (
+                    False,
+                    f"Path {mapping} has no value in {self.name} interface.",
+                )
+        return True, ""
