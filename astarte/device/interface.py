@@ -60,10 +60,19 @@ class Interface:
         interface_definition: dict
             An Astarte Interface definition in the form of a Python dictionary. Usually obtained
             by using json.loads on an Interface file.
+
+        Raises
+        ------
+        ValueError
+            if both version_major and version_minor numbers are set to 0
         """
         self.name: str = interface_definition["interface_name"]
         self.version_major: int = interface_definition["version_major"]
         self.version_minor: int = interface_definition["version_minor"]
+
+        if not self.version_major and not self.version_minor:
+            raise ValueError(f"Both Major and Minor versions set to 0 for interface {self.name}")
+
         self.type: str = interface_definition["type"]
         self.ownership = "device"
         if "ownership" in interface_definition:
