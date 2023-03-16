@@ -18,13 +18,14 @@ import asyncio
 import collections.abc
 import os
 import ssl
+import json
+from pathlib import Path
 from collections.abc import Callable
 from datetime import datetime
 from urllib.parse import urlparse
 
 import bson
 import paho.mqtt.client as mqtt
-
 from astarte.device import crypto, pairing_handler
 from astarte.device.introspection import Introspection
 
@@ -155,6 +156,58 @@ class Device:  # pylint: disable=too-many-instance-attributes
             by using json.loads() on an Interface file.
         """
         self.__introspection.add_interface(interface_definition)
+
+    def add_interface_from_file(self, interface_file: Path):
+        """
+        Adds an interface to the device
+
+        This will add an interface definition to the device. It has to be called before
+        :py:func:`connect`, as it will be used for building the device introspection.
+
+        Parameters
+        ----------
+        interface_file : Path
+            An absolute path to an Astarte interface json file.
+        Raises
+        ------
+        FileNotFoundError
+            If specified file does not exists.
+        TypeError
+            If speficied file is not a .json file.
+        """
+        if not interface_file.is_file():
+            raise FileNotFoundError(f'"{interface_file}" does not exist or is not a file')
+        try:
+            with open(interface_file, "r", encoding="utf-8") as interface_fp:
+                self.__introspection.add_interface(json.load(interface_fp))
+        except json.JSONDecodeError as exc:
+            raise TypeError(f'"{interface_file}" is not a parsable json file') from exc
+
+    def add_interfaces_from_dir(self, interfaces_dir: Path):
+        """
+        Adds a series of interfaces to the device
+
+        This will add all the interfaces contained in the provided folder to the device.
+        It has to be called before :py:func:`connect`, as it will be used for building the device
+        introspection.
+
+        Parameters
+        ----------
+        interfaces_dir : Path
+            An absolute path to an a folder containing some Astarte interface .json files.
+        Raises
+        ------
+        FileNotFoundError
+            If specified directory does not exists.
+        NotADirectoryError
+            If speficied directory exists but it's not a directory.
+        """
+        if not interfaces_dir.exists():
+            raise FileNotFoundError(f'"{interfaces_dir}" does not exist')
+        if not interfaces_dir.is_dir():
+            raise NotADirectoryError(f'"{interfaces_dir}" is not a directory')
+        for interface_file in [i for i in interfaces_dir.iterdir() if i.suffix == ".json"]:
+            self.add_interface_from_file(interface_file)
 
     def remove_interface(self, interface_name: str) -> None:
         """
