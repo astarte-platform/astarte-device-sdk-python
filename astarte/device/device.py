@@ -530,14 +530,18 @@ class Device:  # pylint: disable=too-many-instance-attributes
         """
         return f"{self.__realm}/{self.__device_id}"
 
-    def __on_connect(self, client, _userdata, _flags, rc):
+    def __on_connect(self, _client, _userdata, flags: dict, rc):
         """
         Callback function for MQTT connection
 
         Parameters
         ----------
-        client: paho.mqtt.client
-            the client instance for this callback
+        flags: dict
+            it contains response flags from the broker:
+            flags[‘session present’] - this flag is only useful for clients that are using
+            [clean session] set to 0. If a client with [clean session] = 0 reconnects to a broker
+            to which it has been connected previously, this flag indicates whether the broker still
+            has the session information of the client. If 1, the session still exists.
         rc: int
             the connection result
 
@@ -546,12 +550,13 @@ class Device:  # pylint: disable=too-many-instance-attributes
             print("Error while connecting: " + str(rc))
 
         self.__is_connected = True
-        client.subscribe(f"{self.__get_base_topic()}/control/consumer/properties")
-        for interface in self.__introspection.get_all_server_owned_interfaces():
-            client.subscribe(f"{self.__get_base_topic()}/{interface.name}/#")
 
-        # Send the introspection
-        self.__send_introspection()
+        if not flags["session present"]:
+            # Setup subscription
+            self.__setup_subscriptions()
+            # Send the introspection
+            self.__send_introspection()
+            self.__send_empty_cache()
 
         if self.on_connected:
             if self.__loop:
@@ -617,8 +622,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if not msg.topic.startswith(self.__get_base_topic()):
             print(f"Received unexpected message on topic {msg.topic}, {msg.payload}")
             return
-        if msg.topic == self.__get_base_topic():
-            print("received control message")
+        if msg.topic == f"{self.__get_base_topic()}/control/consumer/properties":
+            print(f"Received control message: {msg.payload}")
             return
 
         if not self.on_data_received:
@@ -668,6 +673,30 @@ class Device:  # pylint: disable=too-many-instance-attributes
             )
         introspection_message = introspection_message[:-1]
         self.__mqtt_client.publish(self.__get_base_topic(), introspection_message, 2)
+
+    def __setup_subscriptions(self) -> None:
+        """
+        Utility function used to subscribe to the server owned interfaces
+        """
+        self.__mqtt_client.subscribe(
+            f"{self.__get_base_topic()}/control/consumer/properties", qos=2
+        )
+        for interface in self.__introspection.get_all_server_owned_interfaces():
+            interface_qos = self._get_qos(interface.name)
+            self.__mqtt_client.subscribe(
+                f"{self.__get_base_topic()}/{interface.name}/#", qos=interface_qos
+            )
+
+    def __send_empty_cache(self) -> None:
+        """
+        Utility function used to send the "empty cache" message to Astarte
+        """
+        self.__mqtt_client.publish(
+            f"{self.__get_base_topic()}/control/emptyCache",
+            payload=b"1",
+            retain=False,
+            qos=2,
+        )
 
     def _get_qos(self, interface_name, path=None) -> int:
         """
