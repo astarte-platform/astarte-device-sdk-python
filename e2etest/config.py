@@ -36,13 +36,6 @@ class TestCfg:
         self.pairing_url = self.api_url + "/pairing"
 
         self.interfaces_fld = Path.joinpath(Path.cwd(), "e2etest", "interfaces")
-        if not Path.is_dir(self.interfaces_fld):
-            raise NotADirectoryError("Missing interfaces folder.")
-        self.interfaces = []
-        for interface_file in self.interfaces_fld.iterdir():
-            if interface_file.is_file() and (interface_file.suffix == ".json"):
-                with open(interface_file, "r", encoding="utf-8") as interface_fp:
-                    self.interfaces += [json.load(interface_fp)]
 
         self.interface_server_data = "org.astarte-platform.python.e2etest.ServerDatastream"
         self.interface_device_data = "org.astarte-platform.python.e2etest.DeviceDatastream"

@@ -78,8 +78,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         loop=cb_loop,
         ignore_ssl_errors=False,
     )
-    for interface in test_cfg.interfaces:
-        device.add_interface(interface)
+    device.add_interfaces_from_dir(test_cfg.interfaces_fld)
     device.on_connected = on_connected_cbk
     device.on_data_received = on_data_received_cbk
     device.on_disconnected = on_disconnected_cbk
