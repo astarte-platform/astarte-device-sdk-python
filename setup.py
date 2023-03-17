@@ -35,8 +35,8 @@ def get_version():
 setup(
     name="astarte-device-sdk",
     version=get_version(),
-    author="Dario Freddi",
-    author_email="dario.freddi@ispirata.com",
+    author="Francesco Vaiani",
+    author_email="francesco.vaiani@secomind.com",
     description="Astarte Device SDK for Python",
     long_description=README,
     long_description_content_type="text/markdown",
