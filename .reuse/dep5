@@ -2,11 +2,11 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Astarte Device SDK Python
 Source: https://github.com/astarte-platform/astarte-device-sdk-python
 
-Files: examples/event_listener/interfaces/*
+Files: docs/index.rst
 Copyright: SECO Mind Srl
 License: CC0-1.0
 
-Files: examples/example_device/interfaces/*
+Files: examples/**/interfaces/*
 Copyright: SECO Mind Srl
 License: CC0-1.0
 
