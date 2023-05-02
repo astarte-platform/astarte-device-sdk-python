@@ -141,6 +141,9 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self.__setup_mqtt_client()
 
     def __setup_mqtt_client(self) -> None:
+        """
+        Utility function used to setup an MQTT client
+        """
         self.__mqtt_client = mqtt.Client()
         self.__mqtt_client.on_connect = self.__on_connect
         self.__mqtt_client.on_disconnect = self.__on_disconnect
@@ -239,6 +242,9 @@ class Device:  # pylint: disable=too-many-instance-attributes
         return self.__device_id
 
     def __setup_crypto(self) -> None:
+        """
+        Utility function used to setup cytptography
+        """
         if self.__is_crypto_setup:
             return
 
@@ -465,7 +471,20 @@ class Device:  # pylint: disable=too-many-instance-attributes
             f"{self.__get_base_topic()}/{interface_name}{interface_path}", None, qos=qos
         )
 
-    def __send_generic(self, topic: str, object_payload: dict | None, qos=2) -> None:
+    def __send_generic(self, topic: str, object_payload: dict | None, qos: int = 2) -> None:
+        """
+        Utility function used to publish a generic payload to a MQTT topic
+
+        Parameters
+        ----------
+        topic: str
+            The MQTT topic on which to publish the payload
+        object_payload: dict | None
+            The payload to publish
+        qos: int
+            The QoS to use for the publish
+
+        """
         if object_payload:
             payload = bson.dumps(object_payload)
         else:

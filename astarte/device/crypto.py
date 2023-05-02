@@ -86,6 +86,17 @@ def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
 
 
 def import_device_certificate(client_crt: str, crypto_store_dir: str) -> None:
+    """
+    Deserialize a client certificate and store the public information permanently in the file system
+
+    Parameters
+    ----------
+    client_crt: str
+        Serialized client certificate
+    crypto_store_dir: str
+        Directory where to store the public bytes of the certificate
+
+    """
     certificate = x509.load_pem_x509_certificate(client_crt.encode("ascii"), default_backend())
 
     # Store the certificate

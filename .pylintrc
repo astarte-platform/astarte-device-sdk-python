@@ -98,6 +98,7 @@ enable=
     compare-to-empty-string,
     no-self-use,
     redefined-loop-name,
+    consider-using-augmented-assign
 
 # Disable the message, report, category or checker with the given id(s). You
 # can either give multiple identifiers separated by comma (,) or put this
@@ -110,10 +111,8 @@ enable=
 # --disable=W"
 
 disable=
-    attribute-defined-outside-init,
     invalid-name,
-    missing-docstring,
-    protected-access,
+    missing-module-docstring,
     too-few-public-methods,
     # handled by black
     format,
