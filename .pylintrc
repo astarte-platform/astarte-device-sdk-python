@@ -1,3 +1,7 @@
+# Copyright 2023 SECO Mind Srl
+#
+# SPDX-License-Identifier: CC0-1.0
+
 [MAIN]
 
 # Python code to execute, usually for sys.path manipulation such as

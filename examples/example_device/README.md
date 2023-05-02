@@ -1,3 +1,9 @@
+<!--
+Copyright 2023 SECO Mind Srl
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Astarte Device SDK Python Example device
 This is an example of how to use the Device SDK to connect a device to Astarte and send
 data on `datastream` or`properties` interfaces.
@@ -13,7 +19,7 @@ The device must be registered beforehand to obtain its credentials-secret.
 which is located at `https://dashboard.<your-astarte-domain>.`
 
 ### 2. Run example
-Before running the example the following constants must have a value at 
+Before running the example the following constants must have a value at
 the start of `example_device.py`
 
 ```python
@@ -24,10 +30,8 @@ _PAIRING_URL = 'https://api.astarte.EXAMPLE.COM/pairing'
 _PERSISTENCY_DIR = tempfile.gettempdir()
 ```
 
-Then run 
+Then run
 ```shell
 pip install -e ../../
 python example_device.py
 ```
-
-
