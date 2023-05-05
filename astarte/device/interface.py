@@ -133,7 +133,7 @@ class Interface:
             The Mapping if found, None otherwise
         """
         for path, mapping in self.mappings.items():
-            regex = sub(r"%{\w+}", r".+", path)
+            regex = sub(r"%{\w+}", r"[^/]+", path)
             if match(regex + "$", endpoint):
                 return mapping
 
@@ -187,11 +187,11 @@ class Interface:
                 return False, f"Path {path} not in the {self.name} interface."
 
         # Check all elements are present
-        for mapping in self.mappings:
-            endpoint = mapping[len(path + "/") :]
-            if endpoint not in payload:
+        for endpoint in self.mappings:
+            non_common_endpoint = "/".join(endpoint.split("/")[len(path.split("/")) :])
+            if non_common_endpoint not in payload:
                 return (
                     False,
-                    f"Path {mapping} has no value in {self.name} interface.",
+                    f"Path {endpoint} has no value in {self.name} interface.",
                 )
         return True, ""

@@ -173,7 +173,8 @@ class Mapping:
         if not self.explicit_timestamp and timestamp:
             return False, f"It's not possible to set the timestamp for {self.endpoint}"
         # Check the type of data is valid for that endpoint
-        if not isinstance(payload, self.__actual_type):
+        # pylint: disable-next=unidiomatic-typecheck
+        if not type(payload) is self.__actual_type:
             return (
                 False,
                 f"{self.endpoint} is {self.type} but {type(payload)} was provided",
@@ -187,10 +188,11 @@ class Mapping:
         # Check types of all element in a list
         if self.__actual_type == list:
             # Check coherence
-            if any(not isinstance(elem, type(payload[0])) for elem in payload):
+            if any(not type(elem) is type(payload[0]) for elem in payload):
                 return False, "Type incoherence in payload elements"
             subtype: type = type_strings.get(self.type.replace("array", ""))
-            if not isinstance(payload[0], subtype):
+            # pylint: disable-next=unidiomatic-typecheck
+            if not type(payload[0]) is subtype:
                 return (
                     False,
                     f"{self.endpoint} is {self.type} but {type(payload)} was provided",
