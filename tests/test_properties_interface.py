@@ -95,8 +95,8 @@ class UnitTests(unittest.TestCase):
                     "type": "integer",
                     "database_retention_policy": "use_ttl",
                     "database_retention_ttl": 31536000,
-                }
-            ]
+                },
+            ],
         }
         self.interface = Interface(interface_json)
 
@@ -287,6 +287,6 @@ class UnitTests(unittest.TestCase):
             "version_minor": 0,
             "type": "properties",
             "ownership": "device",
-            "mappings": []
+            "mappings": [],
         }
         self.assertRaises(ValueError, lambda: Interface(bad_interface_json))
