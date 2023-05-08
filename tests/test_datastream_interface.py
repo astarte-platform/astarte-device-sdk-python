@@ -101,8 +101,8 @@ class UnitTests(unittest.TestCase):
                     "type": "datetimearray",
                     "database_retention_policy": "use_ttl",
                     "database_retention_ttl": 31536000,
-                }
-            ]
+                },
+            ],
         }
         self.interface = Interface(interface_json)
 

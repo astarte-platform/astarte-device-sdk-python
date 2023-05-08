@@ -38,11 +38,11 @@ from typing import Optional, Tuple
 from astarte.device import Device
 
 _ROOT_DIR = Path(__file__).parent.absolute()
-_INTERFACES_DIR = os.path.join(_ROOT_DIR, 'interfaces')
-_DEVICE_ID = 'DEVICE_ID_HERE'
-_REALM = 'REALM_HERE'
-_CREDENTIAL_SECRET = 'CREDENTIAL_SECRET_HERE'
-_PAIRING_URL = 'https://api.astarte.EXAMPLE.COM/pairing'
+_INTERFACES_DIR = os.path.join(_ROOT_DIR, "interfaces")
+_DEVICE_ID = "DEVICE_ID_HERE"
+_REALM = "REALM_HERE"
+_CREDENTIAL_SECRET = "CREDENTIAL_SECRET_HERE"
+_PAIRING_URL = "https://api.astarte.EXAMPLE.COM/pairing"
 _PERSISTENCY_DIR = tempfile.gettempdir()
 
 
@@ -56,10 +56,14 @@ def _signal_handler(signum, frame):
 
 
 def _load_interfaces() -> [dict]:
-    files = [join(_INTERFACES_DIR, f) for f in listdir(_INTERFACES_DIR) if isfile(join(_INTERFACES_DIR, f))]
+    files = [
+        join(_INTERFACES_DIR, f)
+        for f in listdir(_INTERFACES_DIR)
+        if isfile(join(_INTERFACES_DIR, f))
+    ]
     interfaces = []
     for file in files:
-        with open(file, 'r') as interface_file:
+        with open(file, "r") as interface_file:
             interfaces.append(json.load(interface_file))
     return interfaces
 
@@ -95,8 +99,10 @@ def callback(device: Device, interface_name: str, path: str, payload: object) ->
         New Value of the property/datastream
 
     """
-    print(f"[device_id: {device.get_device_id()}] Received message for {interface_name}{path}:"
-          f" {payload}")
+    print(
+        f"[device_id: {device.get_device_id()}] Received message for {interface_name}{path}:"
+        f" {payload}"
+    )
 
 
 def main(cb_loop: Optional[asyncio.AbstractEventLoop] = None):
@@ -105,8 +111,14 @@ def main(cb_loop: Optional[asyncio.AbstractEventLoop] = None):
     """
 
     # Instance the device
-    device = Device(device_id=_DEVICE_ID, realm=_REALM, credentials_secret=_CREDENTIAL_SECRET,
-                    pairing_base_url=_PAIRING_URL, persistency_dir=_PERSISTENCY_DIR, loop=cb_loop)
+    device = Device(
+        device_id=_DEVICE_ID,
+        realm=_REALM,
+        credentials_secret=_CREDENTIAL_SECRET,
+        pairing_base_url=_PAIRING_URL,
+        persistency_dir=_PERSISTENCY_DIR,
+        loop=cb_loop,
+    )
     # Load all the interfaces
     for interface in _load_interfaces():
         device.add_interface(interface)
@@ -132,6 +144,6 @@ if __name__ == "__main__":
     except ProgramKilled:
         if loop:
             loop.call_soon_threadsafe(loop.stop)
-            print('Requested async loop stop')
+            print("Requested async loop stop")
             thread.join()
         print("Stopped")

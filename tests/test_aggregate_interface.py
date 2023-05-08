@@ -36,40 +36,31 @@ class UnitTests(unittest.TestCase):
                     "type": "integer",
                     "database_retention_policy": "use_ttl",
                     "database_retention_ttl": 31536000,
-                    "explicit_timestamp": True
+                    "explicit_timestamp": True,
                 },
                 {
                     "endpoint": "/test/two",
                     "type": "integer",
                     "database_retention_policy": "use_ttl",
                     "database_retention_ttl": 31536000,
-                    "explicit_timestamp": True
-                }
-            ]
+                    "explicit_timestamp": True,
+                },
+            ],
         }
         self.interface = Interface(interface_json)
 
     def test_validate_property(self):
-        payload = {
-            "one": 1,
-            "two": 2
-        }
+        payload = {"one": 1, "two": 2}
         result, msg = self.interface.validate("/test", payload, datetime.now())
         self.assertTrue(result)
         self.assertIs(msg, "")
 
     def test_validate_less_properties(self):
-        payload = {
-            "one": 1
-        }
+        payload = {"one": 1}
         result, msg = self.interface.validate("/test", payload, datetime.now())
         self.assertFalse(result)
 
     def test_validate_too_much_properties(self):
-        payload = {
-            "one": 1,
-            "two": 2,
-            "three": 3
-        }
+        payload = {"one": 1, "two": 2, "three": 3}
         result, msg = self.interface.validate("/test", payload, datetime.now())
         self.assertFalse(result)
