@@ -377,29 +377,19 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if isinstance(payload, collections.abc.Mapping):
             raise TypeError("Payload for individual interfaces should not be a dictionary")
 
-        (validation_success, validation_error_message) = self.__validate_data(
-            interface_name, interface_path, payload, timestamp
-        )
-        if not validation_success:
-            raise TypeError(validation_error_message)
-
-        object_payload = {"v": payload}
-        if timestamp:
-            object_payload["t"] = timestamp
-
-        qos = self._get_qos(interface_name, interface_path)
-
         self.__send_generic(
-            f"{self.__get_base_topic()}/{interface_name}{interface_path}",
-            object_payload,
-            qos=qos,
+            interface_name,
+            interface_path,
+            payload,
+            timestamp,
+            self._get_qos(interface_name, interface_path),
         )
 
     def send_aggregate(
         self,
         interface_name: str,
         interface_path: str,
-        payload: dict,
+        payload: collections.abc.Mapping,
         timestamp: datetime | None = None,
     ) -> None:
         """
@@ -430,23 +420,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if not isinstance(payload, collections.abc.Mapping):
             raise TypeError("Payload for aggregate interfaces should be a dictionary")
 
-        (validation_success, validation_error_message) = self.__validate_data(
-            interface_name, interface_path, payload, timestamp
-        )
-        if not validation_success:
-            raise TypeError(validation_error_message)
-
-        # The payload should carry the aggregate object
-        object_payload = {"v": payload}
-        if timestamp:
-            object_payload["t"] = timestamp
-
-        qos = self._get_qos(interface_name)
-
         self.__send_generic(
-            f"{self.__get_base_topic()}/{interface_name}{interface_path}",
-            object_payload,
-            qos=qos,
+            interface_name, interface_path, payload, timestamp, self._get_qos(interface_name)
         )
 
     def unset_property(self, interface_name: str, interface_path: str) -> None:
@@ -471,31 +446,62 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 f"property."
             )
 
-        qos = self._get_qos(interface_name)
-
         self.__send_generic(
-            f"{self.__get_base_topic()}/{interface_name}{interface_path}", None, qos=qos
+            interface_name,
+            interface_path,
+            None,
+            None,
+            self._get_qos(interface_name, interface_path),
         )
 
-    def __send_generic(self, topic: str, object_payload: dict | None, qos: int = 2) -> None:
+    def __send_generic(
+        self,
+        interface_name: str,
+        interface_path: str,
+        payload: object | collections.abc.Mapping | None,
+        timestamp: datetime | None,
+        qos: int,
+    ) -> None:
         """
-        Utility function used to publish a generic payload to a MQTT topic
+        Utility function used to publish a generic payload to an Astarte interface.
 
         Parameters
         ----------
-        topic: str
-            The MQTT topic on which to publish the payload
-        object_payload: dict | None
-            The payload to publish
+        interface_name : str
+            The name of the Interface to send data to.
+        interface_path: str
+            The endpoint to send the data to
+        payload : object, collections.abc.Mapping, optional
+            The payload to send if present.
+        timestamp : datetime, optional
+            If the Datastream has explicit_timestamp, you can specify a datetime object which
+            will be registered as the timestamp for the value.
         qos: int
             The QoS to use for the publish
 
+        Raises
+        ------
+        TypeError
+            If the interface validation has failed.
+
         """
-        if object_payload:
-            payload = bson.dumps(object_payload)
-        else:
-            payload = b""
-        self.__mqtt_client.publish(topic, payload, qos=qos)
+
+        bson_payload = b""
+        if payload:
+            (validation_success, validation_error_message) = self.__validate_data(
+                interface_name, interface_path, payload, timestamp
+            )
+            if not validation_success:
+                raise TypeError(validation_error_message)
+
+            object_payload = {"v": payload}
+            if timestamp:
+                object_payload["t"] = timestamp
+            bson_payload = bson.dumps(object_payload)
+
+        self.__mqtt_client.publish(
+            f"{self.__get_base_topic()}/{interface_name}{interface_path}", bson_payload, qos=qos
+        )
 
     def __is_interface_aggregate(self, interface_name: str) -> bool:
         """
