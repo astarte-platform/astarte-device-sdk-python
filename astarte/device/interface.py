@@ -133,7 +133,7 @@ class Interface:
             The Mapping if found, None otherwise
         """
         for path, mapping in self.mappings.items():
-            regex = sub(r"%{\w+}", r"[^/]+", path)
+            regex = sub(r"%{\w+}", r"[^/+#]+", path)
             if match(regex + "$", endpoint):
                 return mapping
 
