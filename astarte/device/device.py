@@ -430,6 +430,12 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if not isinstance(payload, collections.abc.Mapping):
             raise TypeError("Payload for aggregate interfaces should be a dictionary")
 
+        (validation_success, validation_error_message) = self.__validate_data(
+            interface_name, interface_path, payload, timestamp
+        )
+        if not validation_success:
+            raise TypeError(validation_error_message)
+
         # The payload should carry the aggregate object
         object_payload = {"v": payload}
         if timestamp:
