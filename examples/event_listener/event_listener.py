@@ -24,12 +24,8 @@ server-owned interface.
 
 """
 import asyncio
-import json
-import os
 import signal
 import tempfile
-from os import listdir
-from os.path import join, isfile
 from pathlib import Path
 from threading import Thread
 from time import sleep
@@ -38,7 +34,8 @@ from typing import Optional, Tuple
 from astarte.device import Device
 
 _ROOT_DIR = Path(__file__).parent.absolute()
-_INTERFACES_DIR = os.path.join(_ROOT_DIR, "interfaces")
+_INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
+_INTERFACE_FILE = _INTERFACES_DIR.joinpath("org.astarte-platform.genericsensors.SamplingRate.json")
 _DEVICE_ID = "DEVICE_ID_HERE"
 _REALM = "REALM_HERE"
 _CREDENTIAL_SECRET = "CREDENTIAL_SECRET_HERE"
@@ -53,19 +50,6 @@ class ProgramKilled(Exception):
 def _signal_handler(signum, frame):
     print("Shutting Down...")
     raise ProgramKilled
-
-
-def _load_interfaces() -> [dict]:
-    files = [
-        join(_INTERFACES_DIR, f)
-        for f in listdir(_INTERFACES_DIR)
-        if isfile(join(_INTERFACES_DIR, f))
-    ]
-    interfaces = []
-    for file in files:
-        with open(file, "r") as interface_file:
-            interfaces.append(json.load(interface_file))
-    return interfaces
 
 
 def _start_background_loop(_loop: asyncio.AbstractEventLoop) -> None:
@@ -120,8 +104,8 @@ def main(cb_loop: Optional[asyncio.AbstractEventLoop] = None):
         loop=cb_loop,
     )
     # Load all the interfaces
-    for interface in _load_interfaces():
-        device.add_interface(interface)
+    device.add_interface_from_file(_INTERFACE_FILE)
+
     # Connect the device
     device.connect()
     # Attach the callback

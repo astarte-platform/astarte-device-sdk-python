@@ -36,9 +36,9 @@ device = Device(
     loop=None,
     ignore_ssl_errors=False,
 )
-# Add all the interfaces for this device
-for interface in interfaces:
-    device.add_interface(interface)
+# Add a single interface from a .json file
+device.add_interface_from_file(Path("interfaces/path/file.json"))
+# Use `device.add_interfaces_from_dir(Path("interfaces/path"))` instead to add all the interfaces in a directory
 # Connect to Astarte
 device.connect()
 ```
