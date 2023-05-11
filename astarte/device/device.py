@@ -32,6 +32,13 @@ import bson
 import paho.mqtt.client as mqtt
 from astarte.device import crypto, pairing_handler
 from astarte.device.introspection import Introspection
+from astarte.device.exceptions import (
+    ValidationError,
+    PersistencyDirectoryNotFoundError,
+    InterfaceFileNotFoundError,
+    InterfaceJsonNotParsableError,
+    InterfaceNotFoundError,
+)
 
 
 class Device:  # pylint: disable=too-many-instance-attributes
@@ -111,6 +118,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
             Useful if you're using the Device to connect to a test instance of Astarte with
             self-signed certificates, it is not recommended to leave this `true` in production.
             Defaults to `false`, if `true` the device will ignore SSL errors during connection.
+        Raises
+        ------
+        PersistencyDirectoryNotFoundError
+            If the provided persistency directory does not exists.
         """
         self.__device_id = device_id
         self.__realm = realm
@@ -131,7 +142,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         # Check if the persistency dir exists
         if not os.path.isdir(persistency_dir):
-            raise FileNotFoundError(f"{persistency_dir} is not a directory")
+            raise PersistencyDirectoryNotFoundError(f"{persistency_dir} is not a directory")
 
         if not os.path.isdir(os.path.join(persistency_dir, device_id)):
             os.mkdir(os.path.join(persistency_dir, device_id))
@@ -177,18 +188,20 @@ class Device:  # pylint: disable=too-many-instance-attributes
             An absolute path to an Astarte interface json file.
         Raises
         ------
-        FileNotFoundError
-            If specified file does not exists.
-        TypeError
-            If speficied file is not a .json file.
+        InterfaceFileNotFoundError
+            If the provided interface file does not exists.
+        InterfaceJsonNotParsableError
+            If speficied file is not a parsable .json file.
         """
         if not interface_file.is_file():
-            raise FileNotFoundError(f'"{interface_file}" does not exist or is not a file')
+            raise InterfaceFileNotFoundError(f'"{interface_file}" does not exist or is not a file')
         try:
             with open(interface_file, "r", encoding="utf-8") as interface_fp:
                 self.__introspection.add_interface(json.load(interface_fp))
         except json.JSONDecodeError as exc:
-            raise TypeError(f'"{interface_file}" is not a parsable json file') from exc
+            raise InterfaceJsonNotParsableError(
+                f'"{interface_file}" is not a parsable json file'
+            ) from exc
 
     def add_interfaces_from_dir(self, interfaces_dir: Path):
         """
@@ -204,15 +217,13 @@ class Device:  # pylint: disable=too-many-instance-attributes
             An absolute path to an a folder containing some Astarte interface .json files.
         Raises
         ------
-        FileNotFoundError
+        InterfaceFileNotFoundError
             If specified directory does not exists.
-        NotADirectoryError
-            If speficied directory exists but it's not a directory.
         """
         if not interfaces_dir.exists():
-            raise FileNotFoundError(f'"{interfaces_dir}" does not exist')
+            raise InterfaceFileNotFoundError(f'"{interfaces_dir}" does not exist')
         if not interfaces_dir.is_dir():
-            raise NotADirectoryError(f'"{interfaces_dir}" is not a directory')
+            raise InterfaceFileNotFoundError(f'"{interfaces_dir}" is not a directory')
         for interface_file in [i for i in interfaces_dir.iterdir() if i.suffix == ".json"]:
             self.add_interface_from_file(interface_file)
 
@@ -365,17 +376,17 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        TypeError
+        ValidationError
             If the interface or the payload are not compatible.
         """
         if self.__is_interface_aggregate(interface_name):
-            raise TypeError(
+            raise ValidationError(
                 f"Interface {interface_name} is an aggregate interface. You should use "
                 f"send_aggregate."
             )
 
         if isinstance(payload, collections.abc.Mapping):
-            raise TypeError("Payload for individual interfaces should not be a dictionary")
+            raise ValidationError("Payload for individual interfaces should not be a dictionary")
 
         self.__send_generic(
             interface_name,
@@ -409,16 +420,16 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        TypeError
+        ValidationError
             If the interface or the payload are not compatible.
         """
         if not self.__is_interface_aggregate(interface_name):
-            raise TypeError(
+            raise ValidationError(
                 f"Interface {interface_name} is not an aggregate interface. You should use send."
             )
 
         if not isinstance(payload, collections.abc.Mapping):
-            raise TypeError("Payload for aggregate interfaces should be a dictionary")
+            raise ValidationError("Payload for aggregate interfaces should be a dictionary")
 
         self.__send_generic(
             interface_name, interface_path, payload, timestamp, self._get_qos(interface_name)
@@ -437,11 +448,11 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        TypeError
+        ValidationError
             If the interface is of type datastream.
         """
         if not self.__is_interface_type_properties(interface_name):
-            raise TypeError(
+            raise ValidationError(
                 f"Interface {interface_name} is a datastream interface. You can only unset a "
                 f"property."
             )
@@ -451,7 +462,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
             interface_path,
             None,
             None,
-            self._get_qos(interface_name, interface_path),
+            self._get_qos(interface_name),
         )
 
     def __send_generic(
@@ -481,18 +492,18 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        TypeError
-            If the interface validation has failed.
+        AstarteError
+            If the interface/data pair validation has failed.
 
         """
 
         bson_payload = b""
         if payload:
-            (validation_success, validation_error_message) = self.__validate_data(
+            validation_result = self.__validate_data(
                 interface_name, interface_path, payload, timestamp
             )
-            if not validation_success:
-                raise TypeError(validation_error_message)
+            if validation_result:
+                raise validation_result
 
             object_payload = {"v": payload}
             if timestamp:
@@ -519,12 +530,14 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        FileNotFoundError
+        InterfaceNotFoundError
             If the interface is not declared in the introspection
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
-            raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
+            raise InterfaceNotFoundError(
+                f"Interface {interface_name} not declared in introspection"
+            )
 
         return interface.is_aggregation_object()
 
@@ -544,12 +557,12 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        FileNotFoundError
+        ValidationError
             If the interface is not declared in the introspection
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
-            raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
+            raise ValidationError(f"Interface {interface_name} not declared in introspection")
 
         return interface.is_type_properties()
 
@@ -573,7 +586,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         ----------
         flags: dict
             it contains response flags from the broker:
-            flags[‘session present’] - this flag is only useful for clients that are using
+            flags['session present'] - this flag is only useful for clients that are using
             [clean session] set to 0. If a client with [clean session] = 0 reconnects to a broker
             to which it has been connected previously, this flag indicates whether the broker still
             has the session information of the client. If 1, the session still exists.
@@ -752,19 +765,21 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        FileNotFoundError
+        InterfaceNotFoundError
             If the interface is not declared in the introspection
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
-            raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
+            raise InterfaceNotFoundError(
+                f"Interface {interface_name} not declared in introspection"
+            )
 
         # When aggregation object there is no need to specify the path as every map have the same
         # QoS
         if path:
             mapping = interface.get_mapping(path)
             if not mapping:
-                raise FileNotFoundError(f"Path {path} not declared in {interface_name}")
+                raise InterfaceNotFoundError(f"Path {path} not declared in {interface_name}")
         else:
             mapping = list(interface.mappings.values())[0]
 
@@ -776,7 +791,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         interface_path: str,
         payload: object,
         timestamp: datetime | None,
-    ) -> tuple[bool, str]:
+    ) -> ValidationError | None:
         """
         Verifies the data corresponds with the interface.
 
@@ -801,11 +816,13 @@ class Device:  # pylint: disable=too-many-instance-attributes
             Error message if success is False
         Raises
         ------
-        FileNotFoundError
+        InterfaceNotFoundError
             If the interface is not declared in the introspection
         """
         interface = self.__introspection.get_interface(interface_name)
         if not interface:
-            raise FileNotFoundError(f"Interface {interface_name} not declared in introspection")
+            raise InterfaceNotFoundError(
+                f"Interface {interface_name} not declared in introspection"
+            )
 
         return interface.validate(interface_path, payload, timestamp)

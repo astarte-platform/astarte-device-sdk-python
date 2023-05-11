@@ -45,3 +45,69 @@ class APIError(AstarteError):
 
     def __init__(self, body):
         self.body = body
+
+
+class ValidationError(AstarteError):
+    """Exception raised when validation has failed.
+
+    Attributes:
+        msg -- A message error carrying further details
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+
+
+class PersistencyDirectoryNotFoundError(AstarteError):
+    """Exception raised when the provided persistency directory is not found.
+
+    Attributes:
+        body -- the body of the API reply, which may carry further details
+    """
+
+    def __init__(self, body):
+        self.body = body
+
+
+class InterfaceFileNotFoundError(AstarteError):
+    """Exception raised when the passed file containing an interface definition does not exists.
+
+    Attributes:
+        msg -- A message error carrying further details
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+
+
+class InterfaceJsonNotParsableError(AstarteError):
+    """Exception raised when a interface .json file is not correctly formatted.
+
+    Attributes:
+        msg -- A message error carrying further details
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+
+
+class InterfaceNotFoundError(AstarteError):
+    """Exception raised when an interface is not found in the device introspection.
+
+    Attributes:
+        msg -- A message error carrying further details
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+
+
+class JWTGenerationError(AstarteError):
+    """Exception raised when an interface is not found in the device introspection.
+
+    Attributes:
+        msg -- A message error carrying further details
+    """
+
+    def __init__(self, msg):
+        self.msg = msg

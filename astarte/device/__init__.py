@@ -35,4 +35,8 @@ from .exceptions import (
     DeviceAlreadyRegisteredError,
     AuthorizationError,
     APIError,
+    ValidationError,
+    PersistencyDirectoryNotFoundError,
+    InterfaceFileNotFoundError,
+    InterfaceJsonNotParsableError,
 )
