@@ -412,7 +412,7 @@ def __generate_token(
             real_auth_paths = ["JOIN::.*", "WATCH::.*"]
         else:
             real_auth_paths = [".*::.*"]
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         claims = {api_claims[key_type]: real_auth_paths, "iat": now}
         if expiry > 0:
             claims["exp"] = now + datetime.timedelta(seconds=expiry)

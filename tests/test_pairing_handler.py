@@ -52,7 +52,7 @@ class UnitTests(unittest.TestCase):
     ):
         # Mock return values for __generate_token
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
 
         # Mock return values for __register_device
@@ -72,13 +72,12 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_called_once()
-        mock_datetime.datetime.utcnow.assert_called_once()
+        mock_datetime.datetime.now.assert_called_once_with(mock_datetime.timezone.utc)
         mock_datetime.timedelta.assert_called_once_with(seconds=30)
         expected_claims = {
             "a_pa": [".*::.*"],
-            "iat": mock_datetime.datetime.utcnow.return_value,
-            "exp": mock_datetime.datetime.utcnow.return_value
-            + mock_datetime.timedelta.return_value,
+            "iat": mock_datetime.datetime.now.return_value,
+            "exp": mock_datetime.datetime.now.return_value + mock_datetime.timedelta.return_value,
         }
         mock_jwt_encode.assert_called_once_with(
             expected_claims, "<private key content>", algorithm="RS256"
@@ -108,7 +107,7 @@ class UnitTests(unittest.TestCase):
     ):
         # Mock return values for __generate_token
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
 
         # Mock return values for __register_device
@@ -128,13 +127,12 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_called_once()
-        mock_datetime.datetime.utcnow.assert_called_once()
+        mock_datetime.datetime.now.assert_called_once_with(mock_datetime.timezone.utc)
         mock_datetime.timedelta.assert_called_once_with(seconds=30)
         expected_claims = {
             "a_pa": [".*::.*"],
-            "iat": mock_datetime.datetime.utcnow.return_value,
-            "exp": mock_datetime.datetime.utcnow.return_value
-            + mock_datetime.timedelta.return_value,
+            "iat": mock_datetime.datetime.now.return_value,
+            "exp": mock_datetime.datetime.now.return_value + mock_datetime.timedelta.return_value,
         }
         mock_jwt_encode.assert_called_once_with(
             expected_claims, "<private key content>", algorithm="RS256"
@@ -165,7 +163,7 @@ class UnitTests(unittest.TestCase):
         # Mock return values for __generate_token
         mock_open.side_effect = mock.Mock(side_effect=FileNotFoundError("Msg"))
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
 
         # Mock return values for __register_device
@@ -188,7 +186,7 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_not_called()
-        mock_datetime.datetime.utcnow.assert_not_called()
+        mock_datetime.datetime.now.assert_not_called()
         mock_datetime.timedelta.assert_not_called()
         mock_jwt_encode.assert_not_called()
         mock_jwt_encode.return_value.decode.assert_not_called()
@@ -205,7 +203,7 @@ class UnitTests(unittest.TestCase):
     ):
         # Mock return values for __generate_token
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
         mock_jwt_encode.side_effect = mock.Mock(side_effect=exceptions.DecodeError("Msg"))
 
@@ -229,13 +227,12 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_called_once()
-        mock_datetime.datetime.utcnow.assert_called_once()
+        mock_datetime.datetime.now.assert_called_once_with(mock_datetime.timezone.utc)
         mock_datetime.timedelta.assert_called_once_with(seconds=30)
         expected_claims = {
             "a_pa": [".*::.*"],
-            "iat": mock_datetime.datetime.utcnow.return_value,
-            "exp": mock_datetime.datetime.utcnow.return_value
-            + mock_datetime.timedelta.return_value,
+            "iat": mock_datetime.datetime.now.return_value,
+            "exp": mock_datetime.datetime.now.return_value + mock_datetime.timedelta.return_value,
         }
         mock_jwt_encode.assert_called_once_with(
             expected_claims, "<private key content>", algorithm="RS256"
@@ -254,7 +251,7 @@ class UnitTests(unittest.TestCase):
     ):
         # Mock return values for __generate_token
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
         mock_jwt_encode.return_value.decode.side_effect = mock.Mock(
             side_effect=exceptions.DecodeError("Msg")
@@ -280,13 +277,12 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_called_once()
-        mock_datetime.datetime.utcnow.assert_called_once()
+        mock_datetime.datetime.now.assert_called_once_with(mock_datetime.timezone.utc)
         mock_datetime.timedelta.assert_called_once_with(seconds=30)
         expected_claims = {
             "a_pa": [".*::.*"],
-            "iat": mock_datetime.datetime.utcnow.return_value,
-            "exp": mock_datetime.datetime.utcnow.return_value
-            + mock_datetime.timedelta.return_value,
+            "iat": mock_datetime.datetime.now.return_value,
+            "exp": mock_datetime.datetime.now.return_value + mock_datetime.timedelta.return_value,
         }
         mock_jwt_encode.assert_called_once_with(
             expected_claims, "<private key content>", algorithm="RS256"
@@ -305,7 +301,7 @@ class UnitTests(unittest.TestCase):
     ):
         # Mock return values for __generate_token
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
 
         # Mock return values for __register_device
@@ -328,13 +324,12 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_called_once()
-        mock_datetime.datetime.utcnow.assert_called_once()
+        mock_datetime.datetime.now.assert_called_once_with(mock_datetime.timezone.utc)
         mock_datetime.timedelta.assert_called_once_with(seconds=30)
         expected_claims = {
             "a_pa": [".*::.*"],
-            "iat": mock_datetime.datetime.utcnow.return_value,
-            "exp": mock_datetime.datetime.utcnow.return_value
-            + mock_datetime.timedelta.return_value,
+            "iat": mock_datetime.datetime.now.return_value,
+            "exp": mock_datetime.datetime.now.return_value + mock_datetime.timedelta.return_value,
         }
         mock_jwt_encode.assert_called_once_with(
             expected_claims, "<private key content>", algorithm="RS256"
@@ -363,7 +358,7 @@ class UnitTests(unittest.TestCase):
     ):
         # Mock return values for __generate_token
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
 
         # Mock return values for __register_device
@@ -386,13 +381,12 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_called_once()
-        mock_datetime.datetime.utcnow.assert_called_once()
+        mock_datetime.datetime.now.assert_called_once_with(mock_datetime.timezone.utc)
         mock_datetime.timedelta.assert_called_once_with(seconds=30)
         expected_claims = {
             "a_pa": [".*::.*"],
-            "iat": mock_datetime.datetime.utcnow.return_value,
-            "exp": mock_datetime.datetime.utcnow.return_value
-            + mock_datetime.timedelta.return_value,
+            "iat": mock_datetime.datetime.now.return_value,
+            "exp": mock_datetime.datetime.now.return_value + mock_datetime.timedelta.return_value,
         }
         mock_jwt_encode.assert_called_once_with(
             expected_claims, "<private key content>", algorithm="RS256"
@@ -421,7 +415,7 @@ class UnitTests(unittest.TestCase):
     ):
         # Mock return values for __generate_token
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
 
         # Mock return values for __register_device
@@ -444,13 +438,12 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_called_once()
-        mock_datetime.datetime.utcnow.assert_called_once()
+        mock_datetime.datetime.now.assert_called_once_with(mock_datetime.timezone.utc)
         mock_datetime.timedelta.assert_called_once_with(seconds=30)
         expected_claims = {
             "a_pa": [".*::.*"],
-            "iat": mock_datetime.datetime.utcnow.return_value,
-            "exp": mock_datetime.datetime.utcnow.return_value
-            + mock_datetime.timedelta.return_value,
+            "iat": mock_datetime.datetime.now.return_value,
+            "exp": mock_datetime.datetime.now.return_value + mock_datetime.timedelta.return_value,
         }
         mock_jwt_encode.assert_called_once_with(
             expected_claims, "<private key content>", algorithm="RS256"
@@ -479,7 +472,7 @@ class UnitTests(unittest.TestCase):
     ):
         # Mock return values for __generate_token
         mock_open.return_value.read.return_value = "<private key content>"
-        mock_datetime.datetime.utcnow.return_value = datetime.datetime.now()
+        mock_datetime.datetime.now.return_value = datetime.datetime.now()
         mock_datetime.timedelta.return_value = datetime.timedelta(seconds=30)
 
         # Mock return values for __register_device
@@ -502,13 +495,12 @@ class UnitTests(unittest.TestCase):
         # Checks for __generate_token
         mock_open.assert_called_once_with("<private key file>", "r", encoding="utf-8")
         mock_open.return_value.read.assert_called_once()
-        mock_datetime.datetime.utcnow.assert_called_once()
+        mock_datetime.datetime.now.assert_called_once_with(mock_datetime.timezone.utc)
         mock_datetime.timedelta.assert_called_once_with(seconds=30)
         expected_claims = {
             "a_pa": [".*::.*"],
-            "iat": mock_datetime.datetime.utcnow.return_value,
-            "exp": mock_datetime.datetime.utcnow.return_value
-            + mock_datetime.timedelta.return_value,
+            "iat": mock_datetime.datetime.now.return_value,
+            "exp": mock_datetime.datetime.now.return_value + mock_datetime.timedelta.return_value,
         }
         mock_jwt_encode.assert_called_once_with(
             expected_claims, "<private key content>", algorithm="RS256"

@@ -24,6 +24,7 @@
 import unittest
 from unittest import mock
 
+import datetime
 from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import serialization
@@ -240,7 +241,7 @@ class UnitTests(unittest.TestCase):
         self, open_mock, mock_default_backend, mock_load_pem_x509_certificate, mock_datetime
     ):
         open_mock.return_value.read.return_value = "certificate content"
-        mock_datetime.utcnow.return_value = 42
+        mock_datetime.now.return_value = 42
         mock_load_pem_x509_certificate.return_value.not_valid_before = 41
         mock_load_pem_x509_certificate.return_value.not_valid_after = 43
 
@@ -251,7 +252,7 @@ class UnitTests(unittest.TestCase):
         mock_load_pem_x509_certificate.assert_called_once_with(
             "certificate content".encode("ascii"), mock_default_backend.return_value
         )
-        mock_datetime.utcnow.assert_called_once()
+        mock_datetime.now.assert_called_once_with(datetime.timezone.utc)
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
@@ -267,7 +268,7 @@ class UnitTests(unittest.TestCase):
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
         mock_default_backend.assert_not_called()
         mock_load_pem_x509_certificate.assert_not_called()
-        mock_datetime.utcnow.assert_not_called()
+        mock_datetime.now.assert_not_called()
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
@@ -278,7 +279,7 @@ class UnitTests(unittest.TestCase):
     ):
         open_mock.return_value.read.return_value = "certificate content"
         mock_load_pem_x509_certificate.side_effect = mock.Mock(side_effect=ValueError("Msg"))
-        mock_datetime.utcnow.return_value = 42
+        mock_datetime.now.return_value = 42
         mock_load_pem_x509_certificate.return_value.not_valid_before = 41
         mock_load_pem_x509_certificate.return_value.not_valid_after = 43
 
@@ -289,7 +290,7 @@ class UnitTests(unittest.TestCase):
         mock_load_pem_x509_certificate.assert_called_once_with(
             "certificate content".encode("ascii"), mock_default_backend.return_value
         )
-        mock_datetime.utcnow.assert_not_called()
+        mock_datetime.now.assert_not_called()
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
@@ -299,7 +300,7 @@ class UnitTests(unittest.TestCase):
         self, open_mock, mock_default_backend, mock_load_pem_x509_certificate, mock_datetime
     ):
         open_mock.return_value.read.return_value = "certificate content"
-        mock_datetime.utcnow.return_value = 43
+        mock_datetime.now.return_value = 43
         mock_load_pem_x509_certificate.return_value.not_valid_before = 41
         mock_load_pem_x509_certificate.return_value.not_valid_after = 43
 
@@ -310,7 +311,7 @@ class UnitTests(unittest.TestCase):
         mock_load_pem_x509_certificate.assert_called_once_with(
             "certificate content".encode("ascii"), mock_default_backend.return_value
         )
-        mock_datetime.utcnow.assert_called_once()
+        mock_datetime.now.assert_called_once_with(datetime.timezone.utc)
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
@@ -320,7 +321,7 @@ class UnitTests(unittest.TestCase):
         self, open_mock, mock_default_backend, mock_load_pem_x509_certificate, mock_datetime
     ):
         open_mock.return_value.read.return_value = "certificate content"
-        mock_datetime.utcnow.return_value = 41
+        mock_datetime.now.return_value = 41
         mock_load_pem_x509_certificate.return_value.not_valid_before = 41
         mock_load_pem_x509_certificate.return_value.not_valid_after = 43
 
@@ -331,4 +332,4 @@ class UnitTests(unittest.TestCase):
         mock_load_pem_x509_certificate.assert_called_once_with(
             "certificate content".encode("ascii"), mock_default_backend.return_value
         )
-        mock_datetime.utcnow.assert_called_once()
+        mock_datetime.now.assert_called_once_with(datetime.timezone.utc)
