@@ -38,14 +38,12 @@ class UnitTests(unittest.TestCase):
     @mock.patch("astarte.device.crypto.hashes.SHA256")
     @mock.patch("astarte.device.crypto.x509.CertificateSigningRequestBuilder")
     @mock.patch("astarte.device.crypto.serialization.load_pem_private_key")
-    @mock.patch("astarte.device.crypto.default_backend", return_value="default backend")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
     @mock.patch("astarte.device.crypto.path.exists", return_value=True)
     def test_generate_csr_existing_key(
         self,
         mock_exist,
         open_mock,
-        mock_default_backend,
         mock_load_pem_private_key,
         mock_certificate_signing_request_builder,
         mock_sha256,
@@ -77,25 +75,21 @@ class UnitTests(unittest.TestCase):
         open_mock.assert_called_once_with("crypto store dir/device.key", "rb")
         fp_instance.read.assert_called_once()
         mock_load_pem_private_key.assert_called_once_with(
-            fp_instance.read.return_value, password=None, backend="default backend"
+            fp_instance.read.return_value, password=None
         )
 
         # Checks over the creation of the CSR
         mock_certificate_signing_request_builder.assert_called_once()
         csr_builder_instance.subject_name.assert_called_once_with(x509_name)
-        csr_builder_instance.sign.assert_called_once_with(
-            private_key, mock_sha256.return_value, "default backend"
-        )
+        csr_builder_instance.sign.assert_called_once_with(private_key, mock_sha256.return_value)
 
         # Generic checks
-        self.assertEqual(mock_default_backend.call_count, 2)
 
         csr_instance.public_bytes.assert_called_once_with(serialization.Encoding.PEM)
 
     @mock.patch("astarte.device.crypto.hashes.SHA256")
     @mock.patch("astarte.device.crypto.x509.CertificateSigningRequestBuilder")
     @mock.patch("astarte.device.crypto.serialization.NoEncryption")
-    @mock.patch("astarte.device.crypto.default_backend", return_value="default backend")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
     @mock.patch("astarte.device.crypto.ec.SECP256R1")
     @mock.patch("astarte.device.crypto.ec.generate_private_key")
@@ -106,7 +100,6 @@ class UnitTests(unittest.TestCase):
         mock_generate_private_key,
         mock_SECP256R1,
         open_mock,
-        mock_default_backend,
         mock_no_encryption,
         mock_certificate_signing_request_builder,
         mock_sha256,
@@ -135,9 +128,7 @@ class UnitTests(unittest.TestCase):
         crypto.generate_csr("realm name", "device id", "crypto store dir")
         # Checks over the creation of the key
         mock_exist.assert_called_once_with("crypto store dir/device.key")
-        mock_generate_private_key.assert_called_once_with(
-            curve=mock_SECP256R1.return_value, backend=mock_default_backend.return_value
-        )
+        mock_generate_private_key.assert_called_once_with(curve=mock_SECP256R1.return_value)
         open_mock.assert_called_once_with("crypto store dir/device.key", "wb")
         private_key.private_bytes.assert_called_once_with(
             encoding=serialization.Encoding.PEM,
@@ -149,26 +140,19 @@ class UnitTests(unittest.TestCase):
         # Checks over the creation of the CSR
         mock_certificate_signing_request_builder.assert_called_once()
         csr_builder_instance.subject_name.assert_called_once_with(x509_name)
-        csr_builder_instance.sign.assert_called_once_with(
-            private_key, mock_sha256.return_value, "default backend"
-        )
+        csr_builder_instance.sign.assert_called_once_with(private_key, mock_sha256.return_value)
 
         # Generic checks
-        self.assertEqual(mock_default_backend.call_count, 2)
 
         csr_instance.public_bytes.assert_called_once_with(serialization.Encoding.PEM)
 
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
-    @mock.patch("astarte.device.crypto.default_backend")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
-    def test_import_device_certificate(
-        self, mock_load_pem_x509_certificate, mock_default_backend, open_mock
-    ):
+    def test_import_device_certificate(self, mock_load_pem_x509_certificate, open_mock):
         crypto.import_device_certificate("client serialized certificate", "store directory")
 
-        mock_default_backend.assert_called_once()
         mock_load_pem_x509_certificate.assert_called_once_with(
-            "client serialized certificate".encode("ascii"), mock_default_backend.return_value
+            "client serialized certificate".encode("ascii")
         )
         open_mock.assert_called_once_with("store directory/device.crt", "wb")
         mock_load_pem_x509_certificate.return_value.public_bytes.assert_called_once_with(
@@ -234,11 +218,8 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
-    @mock.patch("astarte.device.crypto.default_backend")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
-    def test_certificate_is_valid(
-        self, open_mock, mock_default_backend, mock_load_pem_x509_certificate, mock_datetime
-    ):
+    def test_certificate_is_valid(self, open_mock, mock_load_pem_x509_certificate, mock_datetime):
         open_mock.return_value.read.return_value = "certificate content"
         mock_datetime.utcnow.return_value = 42
         mock_load_pem_x509_certificate.return_value.not_valid_before = 41
@@ -247,34 +228,30 @@ class UnitTests(unittest.TestCase):
         self.assertTrue(crypto.certificate_is_valid("store directory"))
 
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_default_backend.assert_called_once()
         mock_load_pem_x509_certificate.assert_called_once_with(
-            "certificate content".encode("ascii"), mock_default_backend.return_value
+            "certificate content".encode("ascii")
         )
         mock_datetime.utcnow.assert_called_once()
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
-    @mock.patch("astarte.device.crypto.default_backend")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
     def test_certificate_is_valid_empty_certificate(
-        self, open_mock, mock_default_backend, mock_load_pem_x509_certificate, mock_datetime
+        self, open_mock, mock_load_pem_x509_certificate, mock_datetime
     ):
         open_mock.return_value.read.return_value = ""
 
         self.assertFalse(crypto.certificate_is_valid("store directory"))
 
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_default_backend.assert_not_called()
         mock_load_pem_x509_certificate.assert_not_called()
         mock_datetime.utcnow.assert_not_called()
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
-    @mock.patch("astarte.device.crypto.default_backend")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
     def test_certificate_is_valid_load_certificate_raises(
-        self, open_mock, mock_default_backend, mock_load_pem_x509_certificate, mock_datetime
+        self, open_mock, mock_load_pem_x509_certificate, mock_datetime
     ):
         open_mock.return_value.read.return_value = "certificate content"
         mock_load_pem_x509_certificate.side_effect = mock.Mock(side_effect=ValueError("Msg"))
@@ -285,18 +262,16 @@ class UnitTests(unittest.TestCase):
         self.assertFalse(crypto.certificate_is_valid("store directory"))
 
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_default_backend.assert_called_once()
         mock_load_pem_x509_certificate.assert_called_once_with(
-            "certificate content".encode("ascii"), mock_default_backend.return_value
+            "certificate content".encode("ascii")
         )
         mock_datetime.utcnow.assert_not_called()
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
-    @mock.patch("astarte.device.crypto.default_backend")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
     def test_certificate_is_valid_too_old(
-        self, open_mock, mock_default_backend, mock_load_pem_x509_certificate, mock_datetime
+        self, open_mock, mock_load_pem_x509_certificate, mock_datetime
     ):
         open_mock.return_value.read.return_value = "certificate content"
         mock_datetime.utcnow.return_value = 43
@@ -306,18 +281,16 @@ class UnitTests(unittest.TestCase):
         self.assertFalse(crypto.certificate_is_valid("store directory"))
 
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_default_backend.assert_called_once()
         mock_load_pem_x509_certificate.assert_called_once_with(
-            "certificate content".encode("ascii"), mock_default_backend.return_value
+            "certificate content".encode("ascii")
         )
         mock_datetime.utcnow.assert_called_once()
 
     @mock.patch("astarte.device.crypto.datetime")
     @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
-    @mock.patch("astarte.device.crypto.default_backend")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
     def test_certificate_is_valid_too_recent(
-        self, open_mock, mock_default_backend, mock_load_pem_x509_certificate, mock_datetime
+        self, open_mock, mock_load_pem_x509_certificate, mock_datetime
     ):
         open_mock.return_value.read.return_value = "certificate content"
         mock_datetime.utcnow.return_value = 41
@@ -327,8 +300,7 @@ class UnitTests(unittest.TestCase):
         self.assertFalse(crypto.certificate_is_valid("store directory"))
 
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_default_backend.assert_called_once()
         mock_load_pem_x509_certificate.assert_called_once_with(
-            "certificate content".encode("ascii"), mock_default_backend.return_value
+            "certificate content".encode("ascii")
         )
         mock_datetime.utcnow.assert_called_once()
