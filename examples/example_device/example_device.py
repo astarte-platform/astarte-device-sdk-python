@@ -28,13 +28,9 @@ follows:
 3. Geolocation: to publish an object aggregated datastream
 
 """
-import json
-import os
 import signal
 import tempfile
 from datetime import datetime, timezone
-from os import listdir
-from os.path import join, isfile
 from pathlib import Path
 from random import random
 from time import sleep
@@ -42,7 +38,7 @@ from time import sleep
 from astarte.device import Device
 
 _ROOT_DIR = Path(__file__).parent.absolute()
-_INTERFACES_DIR = os.path.join(_ROOT_DIR, "interfaces")
+_INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
 _DEVICE_ID = "DEVICE_ID_HERE"
 _REALM = "REALM_HERE"
 _CREDENTIAL_SECRET = "CREDENTIAL_SECRET_HERE"
@@ -59,19 +55,6 @@ def signal_handler(signum, frame):
     raise ProgramKilled
 
 
-def _load_interfaces() -> [dict]:
-    files = [
-        join(_INTERFACES_DIR, f)
-        for f in listdir(_INTERFACES_DIR)
-        if isfile(join(_INTERFACES_DIR, f))
-    ]
-    interfaces = []
-    for file in files:
-        with open(file, "r") as interface_file:
-            interfaces.append(json.load(interface_file))
-    return interfaces
-
-
 def main():
     """
     Main function
@@ -86,8 +69,7 @@ def main():
         persistency_dir=_PERSISTENCY_DIR,
     )
     # Load all the interfaces
-    for interface in _load_interfaces():
-        device.add_interface(interface)
+    device.add_interfaces_from_dir(_INTERFACES_DIR)
     # Connect the device
     device.connect()
 
