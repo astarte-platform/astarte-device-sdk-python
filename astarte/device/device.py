@@ -583,6 +583,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         """
         if rc:
             print("Error while connecting: " + str(rc))
+            return
 
         self.__is_connected = True
 
