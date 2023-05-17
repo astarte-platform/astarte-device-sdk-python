@@ -67,17 +67,16 @@ def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
             )
 
     csr = (
-        x509.CertificateSigningRequestBuilder()
-        .subject_name(
+        x509.CertificateSigningRequestBuilder().subject_name(
             x509.Name(
                 [
                     # Provide various details about who we are.
                     x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Devices"),
                     x509.NameAttribute(NameOID.COMMON_NAME, f"{realm}/{device_id}"),
-                    # Sign the CSR with our private key.
                 ]
             )
         )
+        # Sign the CSR with our private key.
         .sign(key, hashes.SHA256(), default_backend())
     )
 

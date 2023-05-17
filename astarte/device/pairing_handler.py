@@ -337,7 +337,7 @@ def __register_device_headers_with_private_key(private_key_file) -> dict:
 
     Raises
     ------
-    TypeError
+    JWTGenerationError
         If there is an error generating the token from the certificate
     """
     headers = {}
@@ -346,8 +346,10 @@ def __register_device_headers_with_private_key(private_key_file) -> dict:
             "Authorization"
         ] = f'Bearer {__generate_token(private_key_file, key_type="pairing")}'
         return headers
-    except Exception as exc:
-        raise TypeError("Supplied Realm Key could not be used to generate a valid Token.") from exc
+    except jwt.exceptions.PyJWTError as exc:
+        raise exceptions.JWTGenerationError("Error encoding or decoding the JWT token.") from exc
+    except IOError as exc:
+        raise exceptions.JWTGenerationError("Error opening the private key file.") from exc
 
 
 def __register_device_headers_with_jwt_token(jwt_token: str) -> dict:

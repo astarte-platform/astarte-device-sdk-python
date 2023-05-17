@@ -22,6 +22,8 @@ from datetime import datetime
 from math import isfinite
 from typing import Union, List
 
+from astarte.device.exceptions import ValidationError
+
 # Astarte Types definition
 IntList = List[int]
 FloatList = List[float]
@@ -147,7 +149,7 @@ class Mapping:
             else:
                 self.reliability = 0
 
-    def validate(self, payload: MapType, timestamp: datetime) -> tuple[bool, str]:
+    def validate(self, payload: MapType, timestamp: datetime) -> ValidationError | None:
         """
         Mapping data validation
 
@@ -160,49 +162,45 @@ class Mapping:
 
         Returns
         -------
-        bool
-            Success of the validation operation
-        str
-            Error message if success is False
+        ValidationError or None
+            None in case of successful validation, ValidationError otherwise
         """
         min_supported_int = -2147483648
         max_supported_int = 2147483647
         # Check if the interface has explicit_timestamp when a timestamp is given (and viceversa)
         if self.explicit_timestamp and not timestamp:
-            return False, f"Timestamp required for {self.endpoint}"
+            return ValidationError(f"Timestamp required for {self.endpoint}")
         if not self.explicit_timestamp and timestamp:
-            return False, f"It's not possible to set the timestamp for {self.endpoint}"
+            return ValidationError(f"It's not possible to set the timestamp for {self.endpoint}")
         # Check the type of data is valid for that endpoint
         # pylint: disable-next=unidiomatic-typecheck
         if not type(payload) is self.__actual_type:
-            return (
-                False,
-                f"{self.endpoint} is {self.type} but {type(payload)} was provided",
+            return ValidationError(
+                f"{self.endpoint} is {self.type} but {type(payload)} was provided"
             )
         # Must return False when trying to send an integer outside allowed interval.
         if self.type == "integer" and not min_supported_int <= payload <= max_supported_int:
-            return False, f"Value out of int32 range for {self.endpoint}"
+            return ValidationError(f"Value out of int32 range for {self.endpoint}")
         # Must return False when trying to send a double value which is not a number
         if self.type == "double" and not isfinite(payload):
-            return False, f"Invalid float value for {self.endpoint}"
+            return ValidationError(f"Invalid float value for {self.endpoint}")
         # Check types of all element in a list
         if self.__actual_type == list:
             # Check coherence
             if any(not type(elem) is type(payload[0]) for elem in payload):
-                return False, "Type incoherence in payload elements"
+                return ValidationError("Type incoherence in payload elements")
             subtype: type = type_strings.get(self.type.replace("array", ""))
             # pylint: disable-next=unidiomatic-typecheck
             if not type(payload[0]) is subtype:
-                return (
-                    False,
-                    f"{self.endpoint} is {self.type} but {type(payload)} was provided",
+                return ValidationError(
+                    f"{self.endpoint} is {self.type} but a list of {type(payload[0])} was provided"
                 )
             # Must return False when trying to send an integer outside allowed interval.
             if self.type == "integerarray" and any(
                 elem < min_supported_int or elem > max_supported_int for elem in payload
             ):
-                return False, f"Value out of int32 range for {self.endpoint}"
+                return ValidationError(f"Value out of int32 range for {self.endpoint}")
             # Must return False when trying to send a double value which is not a number
             if self.type == "doublearray" and any(not isfinite(elem) for elem in payload):
-                return False, f"Invalid float value for {self.endpoint}"
-        return True, ""
+                return ValidationError(f"Invalid float value for {self.endpoint}")
+        return None
