@@ -22,6 +22,7 @@ from datetime import datetime
 from re import sub, match
 
 from astarte.device.mapping import Mapping
+from astarte.device.exceptions import ValidationError
 
 DEVICE = "device"
 SERVER = "server"
@@ -53,8 +54,8 @@ class Interface:
             Interface ownership
         aggregation: str
             Interface aggregation policy
-        mappings: Mapping
-            Interface mapping list
+        mappings: dict(Mapping)
+            Interface mapping dictionary, keys are the endpoint of each mapping
     """
 
     def __init__(self, interface_definition: dict):
@@ -78,12 +79,8 @@ class Interface:
             raise ValueError(f"Both Major and Minor versions set to 0 for interface {self.name}")
 
         self.type: str = interface_definition["type"]
-        self.ownership = "device"
-        if "ownership" in interface_definition:
-            self.ownership = interface_definition["ownership"]
-        self.aggregation = ""
-        if "aggregation" in interface_definition:
-            self.aggregation = interface_definition["aggregation"]
+        self.ownership = interface_definition.get("ownership", DEVICE)
+        self.aggregation = interface_definition.get("aggregation", "")
         self.mappings = {}
         for mapping_definition in interface_definition["mappings"]:
             mapping = Mapping(mapping_definition, self.type)
@@ -139,7 +136,7 @@ class Interface:
 
         return None
 
-    def validate(self, path: str, payload, timestamp: datetime) -> tuple[bool, str]:
+    def validate(self, path: str, payload, timestamp: datetime) -> ValidationError | None:
         """
         Interface Data validation
 
@@ -154,44 +151,41 @@ class Interface:
 
         Returns
         -------
-        bool
-            Success of the validation operation
-        str
-            Error message if success is False
+        ValidationError or None
+            None in case of successful validation, ValidationError otherwise
         """
         # Check the interface has device ownership
         if self.ownership != DEVICE:
-            return False, f"The interface {self.name} is not owned by the device "
+            return ValidationError(f"The interface {self.name} is not owned by the device.")
         if not self.is_aggregation_object():
             # Check the validity of the path
             mapping = self.get_mapping(path)
             if mapping:
                 return mapping.validate(payload, timestamp)
 
-            return False, f"Path {path} not in the {self.name} interface."
+            return ValidationError(f"Path {path} not in the {self.name} interface.")
 
         if not isinstance(payload, dict):
-            return (
-                False,
-                f"The interface {self.name} is aggregate, but the payload is not a dictionary",
+            return ValidationError(
+                f"The interface {self.name} is aggregate, but the payload is not a dictionary."
             )
 
         # Validate all paths
         for k, v in payload.items():
             mapping = self.get_mapping(f"{path}/{k}")
             if mapping:
-                result, errormsg = mapping.validate(v, timestamp)
-                if not result:
-                    return result, errormsg
+                result = mapping.validate(v, timestamp)
+                if result:
+                    return result
             else:
-                return False, f"Path {path} not in the {self.name} interface."
+                return ValidationError(f"Path {path}/{k} not in the {self.name} interface.")
 
         # Check all elements are present
         for endpoint in self.mappings:
             non_common_endpoint = "/".join(endpoint.split("/")[len(path.split("/")) :])
             if non_common_endpoint not in payload:
-                return (
-                    False,
-                    f"Path {endpoint} has no value in {self.name} interface.",
+                return ValidationError(
+                    f"Path {endpoint} of {self.name} interface is not in the payload."
                 )
-        return True, ""
+
+        return None

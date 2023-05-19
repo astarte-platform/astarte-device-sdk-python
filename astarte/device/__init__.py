@@ -35,4 +35,10 @@ from .exceptions import (
     DeviceAlreadyRegisteredError,
     AuthorizationError,
     APIError,
+    ValidationError,
+    PersistencyDirectoryNotFoundError,
+    InterfaceFileNotFoundError,
+    InterfaceFileDecodeError,
+    InterfaceNotFoundError,
+    JWTGenerationError,
 )
