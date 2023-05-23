@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import logging
 import asyncio
 import collections.abc
 import os
@@ -124,10 +125,21 @@ class Device:  # pylint: disable=too-many-instance-attributes
         PersistencyDirectoryNotFoundError
             If the provided persistency directory does not exists.
         """
+        if not os.path.isdir(persistency_dir):
+            raise PersistencyDirectoryNotFoundError(f"{persistency_dir} is not a directory")
+
+        if not os.path.isdir(os.path.join(persistency_dir, device_id)):
+            os.mkdir(os.path.join(persistency_dir, device_id))
+
+        crypto_dir = os.path.join(persistency_dir, device_id, "crypto")
+        if not os.path.isdir(crypto_dir):
+            os.mkdir(crypto_dir)
+
+        # Define private and public attributes
         self.__device_id = device_id
         self.__realm = realm
         self.__pairing_base_url = pairing_base_url
-        self.__persistency_dir = persistency_dir
+        self.__crypto_dir = crypto_dir
         self.__credentials_secret = credentials_secret
         # TODO: Implement device registration using token on connect
         # self.__jwt_token: str | None = None
@@ -141,15 +153,6 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self.on_disconnected: Callable[[Device, int], None] | None = None
         self.on_data_received: Callable[[Device, str, str, object], None] | None = None
 
-        # Check if the persistency dir exists
-        if not os.path.isdir(persistency_dir):
-            raise PersistencyDirectoryNotFoundError(f"{persistency_dir} is not a directory")
-
-        if not os.path.isdir(os.path.join(persistency_dir, device_id)):
-            os.mkdir(os.path.join(persistency_dir, device_id))
-
-        if not os.path.isdir(os.path.join(persistency_dir, device_id, "crypto")):
-            os.mkdir(os.path.join(persistency_dir, device_id, "crypto"))
         self.__setup_mqtt_client()
 
     def __setup_mqtt_client(self) -> None:
@@ -260,15 +263,13 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if self.__is_crypto_setup:
             return
 
-        if not crypto.device_has_certificate(
-            os.path.join(self.__persistency_dir, self.__device_id, "crypto")
-        ):
+        if not crypto.device_has_certificate(self.__crypto_dir):
             pairing_handler.obtain_device_certificate(
                 self.__device_id,
                 self.__realm,
                 self.__credentials_secret,
                 self.__pairing_base_url,
-                os.path.join(self.__persistency_dir, self.__device_id, "crypto"),
+                self.__crypto_dir,
                 self.__ignore_ssl_errors,
             )
         # Initialize MQTT Client
@@ -279,8 +280,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         self.__mqtt_client.tls_set(
             ca_certs=None,
-            certfile=os.path.join(self.__persistency_dir, self.__device_id, "crypto", "device.crt"),
-            keyfile=os.path.join(self.__persistency_dir, self.__device_id, "crypto", "device.key"),
+            certfile=os.path.join(self.__crypto_dir, "device.crt"),
+            keyfile=os.path.join(self.__crypto_dir, "device.key"),
             cert_reqs=cert_reqs,
             tls_version=ssl.PROTOCOL_TLS,
             ciphers=None,
@@ -562,15 +563,14 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         """
         if rc:
-            print("Error while connecting: " + str(rc))
+            logging.error("Connection failed! %s", rc)
             return
 
         self.__is_connected = True
 
         if not flags["session present"]:
-            # Setup subscription
+            logging.debug("Session flag is not present, performing a clean session procedure")
             self.__setup_subscriptions()
-            # Send the introspection
             self.__send_introspection()
             self.__send_empty_cache()
 
@@ -612,9 +612,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
             self.__mqtt_client.loop_stop()
         # Else check certificate expiration and try reconnection
         # TODO: check for MQTT_ERR_TLS when Paho correctly returns it
-        elif not crypto.certificate_is_valid(
-            os.path.join(self.__persistency_dir, self.__device_id, "crypto")
-        ):
+        elif not crypto.certificate_is_valid(self.__crypto_dir):
             self.__mqtt_client.loop_stop()
             # If the certificate must be regenerated, old mqtt client is no longer valid as it is
             # bound to the wrong TLS params and paho does not allow to replace them a second time
@@ -636,10 +634,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         """
         if not msg.topic.startswith(self.__get_base_topic()):
-            print(f"Received unexpected message on topic {msg.topic}, {msg.payload}")
+            logging.warning("Received unexpected message on topic %s, %s", msg.topic, msg.payload)
             return
         if msg.topic == f"{self.__get_base_topic()}/control/consumer/properties":
-            print(f"Received control message: {msg.payload}")
+            logging.info("Received control message: %s", msg.payload)
             return
 
         if not self.on_data_received:
@@ -649,9 +647,11 @@ class Device:  # pylint: disable=too-many-instance-attributes
         topic_tokens = real_topic.split("/")
         interface_name = topic_tokens[0]
         if not self.__introspection.get_interface(interface_name):
-            print(
-                f"Received unexpected message for unregistered interface {interface_name}:"
-                f" {msg.topic}, {msg.payload}"
+            logging.warning(
+                "Received unexpected message for unregistered interface %s: %s, %s",
+                interface_name,
+                msg.topic,
+                msg.payload,
             )
             return
 
@@ -660,7 +660,9 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if msg.payload:
             payload_object = bson.loads(msg.payload)
             if "v" not in payload_object:
-                print(f"Received unexpected BSON Object on topic {msg.topic}, {payload_object}")
+                logging.warning(
+                    "Received unexpected BSON Object on topic %s, %s", msg.topic, payload_object
+                )
                 return
             data_payload = payload_object["v"]
 
