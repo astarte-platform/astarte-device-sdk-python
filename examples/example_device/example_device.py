@@ -77,30 +77,34 @@ def main():
     sensor_id = "b2c5a6ed-ebe4-4c5c-9d8a-6d2f114fc6e5"
     device.send(
         "org.astarte-platform.genericsensors.AvailableSensors",
-        f"/{sensor_id}/interface_name",
+        f"/{sensor_id}/name",
         "randomThermometer",
     )
-    device.send("org.astarte-platform.genericsensors.AvailableSensors", f"/{sensor_id}/unit", "°C")
+    device.send(
+        "org.astarte-platform.genericsensors.AvailableSensors",
+        f"/{sensor_id}/unit",
+        "°C",
+    )
 
     # Unset property
     device.send(
         "org.astarte-platform.genericsensors.AvailableSensors",
-        "/wrongId/interface_name",
+        "/wrongId/name",
         "randomThermometer",
     )
-    device.unset_property(
-        "org.astarte-platform.genericsensors.AvailableSensors", "/wrongId/interface_name"
-    )
+    device.unset_property("org.astarte-platform.genericsensors.AvailableSensors", "/wrongId/name")
 
     max_temp = 30
     while True:
+        now = datetime.now(tz=timezone.utc)
+
         # Send single datastream
         temp = round(random() * max_temp, 2)
         device.send(
             "org.astarte-platform.genericsensors.Values",
             f"/{sensor_id}/value",
             temp,
-            datetime.now(tz=timezone.utc),
+            now,
         )
 
         # Send object aggregated datastream
@@ -108,12 +112,14 @@ def main():
             "accuracy": 1.0,
             "altitude": 331.81,
             "altitudeAccuracy": 1.0,
-            "heading": 0,
+            "heading": 0.0,
             "latitude": 43.32215,
             "longitude": 11.3259,
-            "speed": 0,
+            "speed": 0.0,
         }
-        device.send_aggregate("org.astarte-platform.genericsensors.Geolocation", "/gps", geo_data)
+        device.send_aggregate(
+            "org.astarte-platform.genericsensors.Geolocation", "/gps", geo_data, now
+        )
 
         sleep(5)
 
