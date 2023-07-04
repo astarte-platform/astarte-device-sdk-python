@@ -23,8 +23,8 @@ from datetime import datetime, timezone
 from threading import Lock
 from termcolor import cprint
 
-from e2etest.config import TestCfg
-from e2etest.http_requests import (
+from config import TestCfg
+from http_requests import (
     get_server_interface,
     post_server_interface,
     parse_received_data,

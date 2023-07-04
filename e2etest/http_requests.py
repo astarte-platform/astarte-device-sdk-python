@@ -24,7 +24,7 @@ import requests
 from dateutil import parser
 from termcolor import cprint
 
-from e2etest.config import TestCfg
+from config import TestCfg
 
 
 def get_server_interface(test_cfg: TestCfg, interface: str):
