@@ -498,7 +498,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         """
 
         bson_payload = b""
-        if payload:
+        if payload is not None:
             validation_result = self.__validate_data(
                 interface_name, interface_path, payload, timestamp
             )
