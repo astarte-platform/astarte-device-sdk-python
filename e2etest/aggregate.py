@@ -27,9 +27,9 @@ from dateutil import parser
 from termcolor import cprint
 
 from astarte.device import Device
-from e2etest.http_requests import get_server_interface, post_server_interface
+from http_requests import get_server_interface, post_server_interface
 
-from e2etest.config import TestCfg
+from config import TestCfg
 
 
 def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg):

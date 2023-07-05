@@ -27,16 +27,16 @@ from termcolor import cprint
 
 from astarte.device import Device
 
-from e2etest.config import TestCfg
+from config import TestCfg
 
-from e2etest.datastream import test_datastream_from_device_to_server
-from e2etest.datastream import test_datastream_from_server_to_device
+from datastream import test_datastream_from_device_to_server
+from datastream import test_datastream_from_server_to_device
 
-from e2etest.property import test_properties_from_device_to_server
-from e2etest.property import test_properties_from_server_to_device
+from property import test_properties_from_device_to_server
+from property import test_properties_from_server_to_device
 
-from e2etest.aggregate import test_aggregate_from_device_to_server
-from e2etest.aggregate import test_aggregate_from_server_to_device
+from aggregate import test_aggregate_from_device_to_server
+from aggregate import test_aggregate_from_server_to_device
 
 rx_data_lock = Lock()
 rx_data = {}
