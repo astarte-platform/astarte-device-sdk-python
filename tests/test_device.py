@@ -503,6 +503,45 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(Client, "publish")
     @mock.patch("astarte.device.device.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
+    def test_send_zero(self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_mapping = mock.MagicMock()
+        mock_mapping.reliability = "reliability value"
+        mock_interface = mock.MagicMock()
+        mock_interface.validate.return_value = None
+        mock_interface.get_mapping.return_value = mock_mapping
+        mock_interface.is_aggregation_object.return_value = False
+        mock_get_interface.return_value = mock_interface
+
+        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = 0
+        timestamp = datetime.now()
+        device.send(interface_name, interface_path, payload, timestamp)
+
+        calls = [
+            mock.call(interface_name),
+            mock.call(interface_name),
+            mock.call(interface_name),
+        ]
+        mock_get_interface.assert_has_calls(calls, any_order=True)
+        self.assertEqual(mock_get_interface.call_count, 3)
+        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_interface.get_mapping.assert_called_once_with(interface_path)
+        mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
+        mock_mqtt_publish.assert_called_once_with(
+            "realm_name/device_id/" + interface_name + interface_path,
+            bytes("bson content", "utf-8"),
+            qos="reliability value",
+        )
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
     def test_send_is_an_aggregate_raises_interface_not_found(
         self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
     ):
