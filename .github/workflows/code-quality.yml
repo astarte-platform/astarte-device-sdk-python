@@ -29,10 +29,11 @@ jobs:
       run: |
         python3 --version
         python3 -m pip install --upgrade pip
-        python3 -m pip install -e .
-        python3 -m pip install black==23.1.0 pylint==v2.16.2
+        python3 -m pip install -e .[static]
     - name: Linting
       run: python3 -m pylint $(git ls-files 'astarte')
+    - name: Format check (setup.py)
+      run: python3 -m black -l 100 --diff --check setup.py
     - name: Format check (main sources)
       run: python3 -m black -l 100 --diff --check $(git ls-files 'astarte')
     - name: Format check (secondary sources)

@@ -22,7 +22,13 @@ import re
 import os
 from setuptools import find_namespace_packages, setup
 
-DEPENDENCIES = ["requests>=2.22.0", "paho-mqtt", "cryptography", "bson", "PyJWT>=1.7.0"]
+DEPENDENCIES = [
+    "requests>=2.22.0",
+    "paho-mqtt",
+    "cryptography",
+    "bson",
+    "PyJWT>=1.7.0",
+]
 EXCLUDE_FROM_PACKAGES = ["contrib", "docs", "tests*", "venv"]
 CURDIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -48,14 +54,16 @@ setup(
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/astarte-platform/astarte-device-sdk-python",
-    packages=find_namespace_packages(include=['astarte.*'], exclude=EXCLUDE_FROM_PACKAGES),
+    packages=find_namespace_packages(include=["astarte.*"], exclude=EXCLUDE_FROM_PACKAGES),
     include_package_data=True,
     keywords=[],
     scripts=[],
     zip_safe=False,
     install_requires=DEPENDENCIES,
     extras_require={
-        "e2e": ["termcolor", "python-dateutil"]
+        "static": ["black", "pylint"],
+        "unit": ["setuptools", "pytest", "pytest-cov"],
+        "e2e": ["termcolor", "python-dateutil"],
     },
     test_suite="tests.test_project",
     python_requires=">=3.6",
