@@ -20,7 +20,6 @@ from datetime import datetime
 from os import path
 
 from cryptography import x509
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -49,7 +48,7 @@ def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
     # Do we need to generate a keypair?
     if not path.exists(path.join(crypto_store_dir, "device.key")):
         # Generate our key
-        key = ec.generate_private_key(curve=ec.SECP256R1(), backend=default_backend())
+        key = ec.generate_private_key(curve=ec.SECP256R1())
         # Write our key to disk for safe keeping
         with open(path.join(crypto_store_dir, "device.key"), "wb") as f:
             f.write(
@@ -62,9 +61,7 @@ def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
     else:
         # Load the key
         with open(path.join(crypto_store_dir, "device.key"), "rb") as key_file:
-            key = serialization.load_pem_private_key(
-                key_file.read(), password=None, backend=default_backend()
-            )
+            key = serialization.load_pem_private_key(key_file.read(), password=None)
 
     csr = (
         x509.CertificateSigningRequestBuilder().subject_name(
@@ -77,7 +74,7 @@ def generate_csr(realm: str, device_id: str, crypto_store_dir: str) -> bytes:
             )
         )
         # Sign the CSR with our private key.
-        .sign(key, hashes.SHA256(), default_backend())
+        .sign(key, hashes.SHA256())
     )
 
     # Return the CSR
@@ -96,7 +93,7 @@ def import_device_certificate(client_crt: str, crypto_store_dir: str) -> None:
         Directory where to store the public bytes of the certificate
 
     """
-    certificate = x509.load_pem_x509_certificate(client_crt.encode("ascii"), default_backend())
+    certificate = x509.load_pem_x509_certificate(client_crt.encode("ascii"))
 
     # Store the certificate
     with open(path.join(crypto_store_dir, "device.crt"), "wb") as f:
@@ -146,7 +143,7 @@ def certificate_is_valid(crypto_store_dir: str) -> bool:
         data = file.read()
     if data:
         try:
-            certificate = x509.load_pem_x509_certificate(data.encode("ascii"), default_backend())
+            certificate = x509.load_pem_x509_certificate(data.encode("ascii"))
         except ValueError:
             return False
         return certificate.not_valid_before < datetime.utcnow() < certificate.not_valid_after
