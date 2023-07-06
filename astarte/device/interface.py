@@ -22,7 +22,7 @@ from datetime import datetime
 from re import sub, match
 
 from astarte.device.mapping import Mapping
-from astarte.device.exceptions import ValidationError
+from astarte.device.exceptions import ValidationError, InterfaceNotFoundError
 
 DEVICE = "device"
 SERVER = "server"
@@ -81,10 +81,10 @@ class Interface:
         self.type: str = interface_definition["type"]
         self.ownership = interface_definition.get("ownership", DEVICE)
         self.aggregation = interface_definition.get("aggregation", "")
-        self.mappings = {}
+        self.mappings = []
         for mapping_definition in interface_definition["mappings"]:
             mapping = Mapping(mapping_definition, self.type)
-            self.mappings[mapping.endpoint] = mapping
+            self.mappings.append(mapping)
 
     def is_aggregation_object(self) -> bool:
         """
@@ -129,12 +129,38 @@ class Interface:
         Mapping or None
             The Mapping if found, None otherwise
         """
-        for path, mapping in self.mappings.items():
-            regex = sub(r"%{\w+}", r"[^/+#]+", path)
+        for mapping in self.mappings:
+            regex = sub(r"%{\w+}", r"[^/+#]+", mapping.endpoint)
             if match(regex + "$", endpoint):
                 return mapping
 
         return None
+
+    def get_reliability(self, endpoint: str) -> int:
+        """
+        Get the reliability for the mapping corresponding to the provided endpoint.
+
+        Parameters
+        ----------
+        endpoint : str
+            The Mapping endpoint to deduce reliability from.
+
+        Returns
+        -------
+        int
+            The deduced reliability, one of [0,1,2].
+
+        Raises
+        ------
+        InterfaceNotFoundError
+            If the interface is not declared in the introspection.
+        """
+        if not self.is_aggregation_object():
+            mapping = self.get_mapping(endpoint)
+            if not mapping:
+                raise InterfaceNotFoundError(f"Path {endpoint} not declared in {self.name}")
+            return mapping.reliability
+        return 2
 
     def validate(self, path: str, payload, timestamp: datetime) -> ValidationError | None:
         """
@@ -157,20 +183,19 @@ class Interface:
         # Check the interface has device ownership
         if self.ownership != DEVICE:
             return ValidationError(f"The interface {self.name} is not owned by the device.")
+
+        # Validate the payload for the individual mapping
         if not self.is_aggregation_object():
-            # Check the validity of the path
             mapping = self.get_mapping(path)
             if mapping:
                 return mapping.validate(payload, timestamp)
-
             return ValidationError(f"Path {path} not in the {self.name} interface.")
 
+        # Validate the payload for the aggregate mapping
         if not isinstance(payload, dict):
             return ValidationError(
                 f"The interface {self.name} is aggregate, but the payload is not a dictionary."
             )
-
-        # Validate all paths
         for k, v in payload.items():
             mapping = self.get_mapping(f"{path}/{k}")
             if mapping:
@@ -179,10 +204,10 @@ class Interface:
                     return result
             else:
                 return ValidationError(f"Path {path}/{k} not in the {self.name} interface.")
-
-        # Check all elements are present
-        for endpoint in self.mappings:
-            non_common_endpoint = "/".join(endpoint.split("/")[len(path.split("/")) :])
+        # Check all the mappings are present in the payload
+        path_segments = path.count("/") + 1
+        for endpoint in [m.endpoint for m in self.mappings]:
+            non_common_endpoint = "/".join(endpoint.split("/")[path_segments:])
             if non_common_endpoint not in payload:
                 return ValidationError(
                     f"Path {endpoint} of {self.name} interface is not in the payload."

@@ -21,7 +21,8 @@
 
 import unittest
 from unittest import mock
-from astarte.device import ValidationError, Interface, Mapping
+from astarte.device import Interface, Mapping
+from astarte.device.exceptions import ValidationError, InterfaceNotFoundError
 
 
 class UnitTests(unittest.TestCase):
@@ -50,7 +51,7 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(interface_basic.type, "datastream")
         self.assertEqual(interface_basic.ownership, "device")
         self.assertEqual(interface_basic.aggregation, "")
-        self.assertEqual(interface_basic.mappings, {"/test/int": mock_instance})
+        self.assertEqual(interface_basic.mappings, [mock_instance])
         mock_mapping.assert_called_once_with(
             {"endpoint": "/test/int", "type": "integer"}, "datastream"
         )
@@ -65,7 +66,7 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(interface_basic.type, "properties")
         self.assertEqual(interface_basic.ownership, "server")
         self.assertEqual(interface_basic.aggregation, "")
-        self.assertEqual(interface_basic.mappings, {"/test/int": mock_instance})
+        self.assertEqual(interface_basic.mappings, [mock_instance])
         mock_mapping.assert_called_once_with(
             {"endpoint": "/test/int", "type": "integer"}, "properties"
         )
@@ -371,4 +372,20 @@ class UnitTests(unittest.TestCase):
         assert (
             result.msg
             == r"Path /test/%{some_id}/two of com.astarte.Test interface is not in the payload."
+        )
+
+    def test_get_reliability_individual(self):
+        interface_simple_endpoint = Interface(self.interface_minimal_dict)
+        self.assertEqual(interface_simple_endpoint.get_reliability("/test/int"), 0)
+
+    def test_get_reliability_aggregate(self):
+        self.interface_minimal_dict["aggregation"] = "object"
+        interface_simple_endpoint = Interface(self.interface_minimal_dict)
+        self.assertEqual(interface_simple_endpoint.get_reliability("/test/int"), 2)
+
+    def test_get_reliability_non_existent_path(self):
+        interface_simple_endpoint = Interface(self.interface_minimal_dict)
+        self.assertRaises(
+            InterfaceNotFoundError,
+            lambda: interface_simple_endpoint.get_reliability("/missing/endpoint"),
         )
