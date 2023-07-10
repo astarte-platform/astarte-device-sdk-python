@@ -467,12 +467,10 @@ class UnitTests(unittest.TestCase):
     def test_send(self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
         mock_interface = mock.MagicMock()
-        mock_interface.validate.return_value = None
-        mock_interface.get_mapping.return_value = mock_mapping
+        mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = False
+        mock_interface.validate.return_value = None
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
@@ -483,21 +481,15 @@ class UnitTests(unittest.TestCase):
         timestamp = datetime.now()
         device.send(interface_name, interface_path, payload, timestamp)
 
-        calls = [
-            mock.call(interface_name),
-            mock.call(interface_name),
-            mock.call(interface_name),
-        ]
-        mock_get_interface.assert_has_calls(calls, any_order=True)
-        self.assertEqual(mock_get_interface.call_count, 3)
+        mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
-        mock_interface.get_mapping.assert_called_once_with(interface_path)
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
+        mock_interface.get_reliability.assert_called_once_with(interface_path)
         mock_mqtt_publish.assert_called_once_with(
             "realm_name/device_id/" + interface_name + interface_path,
             bytes("bson content", "utf-8"),
-            qos="reliability value",
+            qos=mock_interface.get_reliability.return_value,
         )
 
     @mock.patch.object(Client, "publish")
@@ -506,12 +498,10 @@ class UnitTests(unittest.TestCase):
     def test_send_zero(self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
         mock_interface = mock.MagicMock()
-        mock_interface.validate.return_value = None
-        mock_interface.get_mapping.return_value = mock_mapping
+        mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = False
+        mock_interface.validate.return_value = None
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
@@ -522,27 +512,21 @@ class UnitTests(unittest.TestCase):
         timestamp = datetime.now()
         device.send(interface_name, interface_path, payload, timestamp)
 
-        calls = [
-            mock.call(interface_name),
-            mock.call(interface_name),
-            mock.call(interface_name),
-        ]
-        mock_get_interface.assert_has_calls(calls, any_order=True)
-        self.assertEqual(mock_get_interface.call_count, 3)
+        mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
-        mock_interface.get_mapping.assert_called_once_with(interface_path)
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
+        mock_interface.get_reliability.assert_called_once_with(interface_path)
         mock_mqtt_publish.assert_called_once_with(
             "realm_name/device_id/" + interface_name + interface_path,
             bytes("bson content", "utf-8"),
-            qos="reliability value",
+            qos=mock_interface.get_reliability.return_value,
         )
 
     @mock.patch.object(Client, "publish")
     @mock.patch("astarte.device.device.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
-    def test_send_is_an_aggregate_raises_interface_not_found(
+    def test_send_non_existing_interface_raises_interface_not_found(
         self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
     ):
         device = self.helper_initialize_device(loop=None)
@@ -570,15 +554,7 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
-        mock_interface = mock.MagicMock()
-        mock_interface.validate.return_value = None
-        mock_interface.get_mapping.return_value = mock_mapping
-        mock_interface.is_aggregation_object.return_value = True
-        mock_get_interface.return_value = mock_interface
-
-        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+        mock_get_interface.return_value.is_aggregation_object.return_value = True
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -589,9 +565,7 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with("interface name")
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_not_called()
-        mock_interface.get_mapping.assert_not_called()
+        mock_get_interface.return_value.is_aggregation_object.assert_called_once_with()
         mock_bson_dumps.assert_not_called()
         mock_mqtt_publish.assert_not_called()
 
@@ -603,15 +577,7 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
-        mock_interface = mock.MagicMock()
-        mock_interface.validate.return_value = None
-        mock_interface.get_mapping.return_value = mock_mapping
-        mock_interface.is_aggregation_object.return_value = False
-        mock_get_interface.return_value = mock_interface
-
-        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+        mock_get_interface.return_value.is_aggregation_object.return_value = False
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -622,108 +588,7 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with("interface name")
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_not_called()
-        mock_interface.get_mapping.assert_not_called()
-        mock_bson_dumps.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch("astarte.device.device.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_get_qos_no_interface_raises(
-        self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device(loop=None)
-
-        mock_interface = mock.MagicMock()
-        mock_interface.is_aggregation_object.return_value = False
-        mock_get_interface.side_effect = [mock_interface, None]
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            InterfaceNotFoundError,
-            lambda: device.send(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_has_calls([mock.call(interface_name)], any_order=True)
-        self.assertEqual(mock_get_interface.call_count, 2)
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_bson_dumps.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch("astarte.device.device.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_get_qos_no_mapping_raises(
-        self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device(loop=None)
-
-        mock_interface = mock.MagicMock()
-        mock_interface.get_mapping.return_value = None
-        mock_interface.is_aggregation_object.return_value = False
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            InterfaceNotFoundError,
-            lambda: device.send(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_has_calls(
-            [mock.call(interface_name), mock.call(interface_name)], any_order=True
-        )
-        self.assertEqual(mock_get_interface.call_count, 2)
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.get_mapping.assert_called_once_with(interface_path)
-        mock_bson_dumps.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch("astarte.device.device.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_interface_validate_raises_not_found_err(
-        self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device(loop=None)
-
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
-        mock_interface = mock.MagicMock()
-        mock_interface.validate.return_value = None
-        mock_interface.get_mapping.return_value = mock_mapping
-        mock_interface.is_aggregation_object.return_value = False
-        mock_get_interface.side_effect = [mock_interface, mock_interface, None]
-
-        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            InterfaceNotFoundError,
-            lambda: device.send(interface_name, interface_path, payload, timestamp),
-        )
-
-        calls = [
-            mock.call(interface_name),
-            mock.call(interface_name),
-            mock.call(interface_name),
-        ]
-        mock_get_interface.assert_has_calls(calls, any_order=True)
-        self.assertEqual(mock_get_interface.call_count, 3)
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.get_mapping.assert_called_once_with(interface_path)
-        mock_interface.validate.assert_not_called()
-
+        mock_get_interface.return_value.is_aggregation_object.assert_called_once()
         mock_bson_dumps.assert_not_called()
         mock_mqtt_publish.assert_not_called()
 
@@ -735,15 +600,11 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
         mock_interface = mock.MagicMock()
-        mock_interface.validate.return_value = ValidationError("Error msg")
-        mock_interface.get_mapping.return_value = mock_mapping
+        mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = False
+        mock_interface.validate.return_value = ValidationError("Error msg")
         mock_get_interface.return_value = mock_interface
-
-        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -753,18 +614,11 @@ class UnitTests(unittest.TestCase):
             ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
         )
 
-        calls = [
-            mock.call(interface_name),
-            mock.call(interface_name),
-            mock.call(interface_name),
-        ]
-        mock_get_interface.assert_has_calls(calls, any_order=True)
-        self.assertEqual(mock_get_interface.call_count, 3)
+        mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.get_mapping.assert_called_once_with(interface_path)
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
-
         mock_bson_dumps.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
         mock_mqtt_publish.assert_not_called()
 
     @mock.patch.object(Client, "publish")
@@ -773,12 +627,10 @@ class UnitTests(unittest.TestCase):
     def test_send_aggregate(self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
         mock_interface = mock.MagicMock()
-        mock_interface.mappings = {"mapping endpoint": mock_mapping}
-        mock_interface.validate.return_value = None
+        mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = True
+        mock_interface.validate.return_value = None
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
@@ -789,21 +641,39 @@ class UnitTests(unittest.TestCase):
         timestamp = datetime.now()
         device.send_aggregate(interface_name, interface_path, payload, timestamp)
 
-        calls = [
-            mock.call(interface_name),
-            mock.call(interface_name),
-            mock.call(interface_name),
-        ]
-        mock_get_interface.assert_has_calls(calls, any_order=True)
-        self.assertEqual(mock_get_interface.call_count, 3)
+        mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
+        mock_interface.get_reliability.assert_called_once_with(interface_path)
         mock_mqtt_publish.assert_called_once_with(
             "realm_name/device_id/" + interface_name + interface_path,
             bytes("bson content", "utf-8"),
-            qos="reliability value",
+            qos=mock_interface.get_reliability.return_value,
         )
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_send_aggregate_non_existing_interface_raises_interface_not_found(
+        self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_get_interface.return_value = None
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = {"something": 12}
+        timestamp = datetime.now()
+        self.assertRaises(
+            InterfaceNotFoundError,
+            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+        )
+
+        mock_get_interface.assert_called_once_with("interface name")
+        mock_bson_dumps.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
 
     @mock.patch.object(Client, "publish")
     @mock.patch("astarte.device.device.bson.dumps")
@@ -813,15 +683,9 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
         mock_interface = mock.MagicMock()
-        mock_interface.validate.return_value = None
-        mock_interface.get_mapping.return_value = mock_mapping
         mock_interface.is_aggregation_object.return_value = False
         mock_get_interface.return_value = mock_interface
-
-        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -832,11 +696,11 @@ class UnitTests(unittest.TestCase):
             lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
         )
 
-        mock_get_interface.assert_called_once_with("interface name")
+        mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_not_called()
-        mock_interface.get_mapping.assert_not_called()
         mock_bson_dumps.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
         mock_mqtt_publish.assert_not_called()
 
     @mock.patch.object(Client, "publish")
@@ -847,15 +711,9 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
         mock_interface = mock.MagicMock()
-        mock_interface.validate.return_value = None
-        mock_interface.get_mapping.return_value = mock_mapping
         mock_interface.is_aggregation_object.return_value = True
         mock_get_interface.return_value = mock_interface
-
-        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -866,11 +724,11 @@ class UnitTests(unittest.TestCase):
             lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
         )
 
-        mock_get_interface.assert_called_once_with("interface name")
+        mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_not_called()
-        mock_interface.get_mapping.assert_not_called()
         mock_bson_dumps.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
         mock_mqtt_publish.assert_not_called()
 
     @mock.patch.object(Client, "publish")
@@ -879,10 +737,8 @@ class UnitTests(unittest.TestCase):
     def test_unset_property(self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
         mock_interface = mock.MagicMock()
-        mock_interface.mappings = {"mapping endpoint": mock_mapping}
+        mock_interface.name = "interface name"
         mock_interface.is_type_properties.return_value = True
         mock_get_interface.return_value = mock_interface
 
@@ -890,43 +746,35 @@ class UnitTests(unittest.TestCase):
         interface_path = "interface path"
         device.unset_property(interface_name, interface_path)
 
-        calls = [
-            mock.call(interface_name),
-            mock.call(interface_name),
-        ]
-        mock_get_interface.assert_has_calls(calls, any_order=True)
-        self.assertEqual(mock_get_interface.call_count, 2)
+        mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_type_properties.assert_called_once()
+        mock_interface.validate.assert_not_called()
         mock_bson_dumps.assert_not_called()
+        mock_interface.get_reliability.assert_called_once_with(interface_path)
         mock_mqtt_publish.assert_called_once_with(
             "realm_name/device_id/" + interface_name + interface_path,
             bytes("", "utf-8"),
-            qos="reliability value",
+            qos=mock_interface.get_reliability.return_value,
         )
 
     @mock.patch.object(Client, "publish")
     @mock.patch("astarte.device.device.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
-    def test_unset_property_interface_not_found_raises(
+    def test_unset_property_non_existing_interface_raises_interface_not_found(
         self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
     ):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
-        mock_interface = mock.MagicMock()
-        mock_interface.mappings = {"mapping endpoint": mock_mapping}
-        mock_interface.is_type_properties.return_value = True
         mock_get_interface.return_value = None
 
         interface_name = "interface name"
         interface_path = "interface path"
         self.assertRaises(
-            ValidationError, lambda: device.unset_property(interface_name, interface_path)
+            InterfaceNotFoundError,
+            lambda: device.unset_property(interface_name, interface_path),
         )
 
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.assert_not_called()
+        mock_get_interface.assert_called_once_with("interface name")
         mock_bson_dumps.assert_not_called()
         mock_mqtt_publish.assert_not_called()
 
@@ -938,10 +786,8 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        mock_mapping = mock.MagicMock()
-        mock_mapping.reliability = "reliability value"
         mock_interface = mock.MagicMock()
-        mock_interface.mappings = {"mapping endpoint": mock_mapping}
+        mock_interface.name = "interface name"
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
 
@@ -953,19 +799,19 @@ class UnitTests(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_type_properties.assert_called_once()
+        mock_interface.validate.assert_not_called()
         mock_bson_dumps.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
         mock_mqtt_publish.assert_not_called()
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(Introspection, "get_all_interfaces")
-    @mock.patch.object(Introspection, "get_interface")
     @mock.patch.object(Introspection, "get_all_server_owned_interfaces")
     @mock.patch.object(Client, "subscribe")
     def test__on_connect(
         self,
         mock_subscribe,
         mock_get_all_server_owned_interfaces,
-        mock_get_interface,
         mock_get_all_interfaces,
         mock_publish,
     ):
@@ -974,14 +820,13 @@ class UnitTests(unittest.TestCase):
         # Mocks for __setup_subscriptions
         mapping_1 = mock.MagicMock()
         interface_1 = mock.MagicMock()
-        interface_1.name = "<interface 1>"
+        interface_1.name = "<interface 1 name>"
         interface_1.mappings = {"mapping endpoint": mapping_1}
         mapping_2 = mock.MagicMock()
         interface_2 = mock.MagicMock()
-        interface_2.name = "<interface 2>"
+        interface_2.name = "<interface 2 name>"
         interface_2.mappings = {"mapping endpoint": mapping_2}
         mock_get_all_server_owned_interfaces.return_value = [interface_1, interface_2]
-        mock_get_interface.side_effect = [interface_1, interface_2]
 
         # Mocks for __send_introspection
         interface_3 = mock.MagicMock()
@@ -1003,18 +848,13 @@ class UnitTests(unittest.TestCase):
         mock_subscribe.assert_has_calls(
             [
                 mock.call("realm_name/device_id/control/consumer/properties", qos=2),
-                mock.call("realm_name/device_id/<interface 1>/#", qos=mapping_1.reliability),
-                mock.call("realm_name/device_id/<interface 2>/#", qos=mapping_2.reliability),
+                mock.call("realm_name/device_id/<interface 1 name>/#", qos=2),
+                mock.call("realm_name/device_id/<interface 2 name>/#", qos=2),
             ],
             any_order=True,
         )
         self.assertEqual(mock_subscribe.call_count, 3)
         mock_get_all_server_owned_interfaces.assert_called_once()
-
-        mock_get_interface.assert_has_calls(
-            [mock.call(interface_1.name), mock.call(interface_2.name)], any_order=True
-        )
-        self.assertEqual(mock_get_interface.call_count, 2)
 
         # Checks for __send_introspection and __send_empty_cache
         mock_get_all_interfaces.assert_called_once()
@@ -1035,41 +875,16 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(Introspection, "get_all_interfaces")
-    @mock.patch.object(Introspection, "get_interface")
     @mock.patch.object(Introspection, "get_all_server_owned_interfaces")
     @mock.patch.object(Client, "subscribe")
     def test__on_connect_connection_result_no_connection(
         self,
         mock_subscribe,
         mock_get_all_server_owned_interfaces,
-        mock_get_interface,
         mock_get_all_interfaces,
         mock_publish,
     ):
         device = self.helper_initialize_device(loop=None)
-
-        # Mocks for __setup_subscriptions
-        mapping_1 = mock.MagicMock()
-        interface_1 = mock.MagicMock()
-        interface_1.name = "<interface 1>"
-        interface_1.mappings = {"mapping endpoint": mapping_1}
-        mapping_2 = mock.MagicMock()
-        interface_2 = mock.MagicMock()
-        interface_2.name = "<interface 2>"
-        interface_2.mappings = {"mapping endpoint": mapping_2}
-        mock_get_all_server_owned_interfaces.return_value = [interface_1, interface_2]
-        mock_get_interface.side_effect = [interface_1, interface_2]
-
-        # Mocks for __send_introspection
-        interface_3 = mock.MagicMock()
-        interface_3.name = "<interface 3 name>"
-        interface_3.version_major = "<interface 3 vers major>"
-        interface_3.version_minor = "<interface 3 vers minor>"
-        interface_4 = mock.MagicMock()
-        interface_4.name = "<interface 4 name>"
-        interface_4.version_major = "<interface 4 vers major>"
-        interface_4.version_minor = "<interface 4 vers minor>"
-        mock_get_all_interfaces.return_value = [interface_3, interface_4]
 
         device.on_connected = mock.MagicMock()
         device._Device__on_connect(
@@ -1080,8 +895,6 @@ class UnitTests(unittest.TestCase):
         mock_subscribe.assert_not_called()
         mock_get_all_server_owned_interfaces.assert_not_called()
 
-        mock_get_interface.assert_not_called()
-
         # Checks for __send_introspection and __send_empty_cache
         mock_get_all_interfaces.assert_not_called()
         mock_publish.assert_not_called()
@@ -1091,14 +904,12 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(Introspection, "get_all_interfaces")
-    @mock.patch.object(Introspection, "get_interface")
     @mock.patch.object(Introspection, "get_all_server_owned_interfaces")
     @mock.patch.object(Client, "subscribe")
     def test__on_connect_with_threading(
         self,
         mock_subscribe,
         mock_get_all_server_owned_interfaces,
-        mock_get_interface,
         mock_get_all_interfaces,
         mock_publish,
     ):
@@ -1108,14 +919,13 @@ class UnitTests(unittest.TestCase):
         # Mocks for __setup_subscriptions
         mapping_1 = mock.MagicMock()
         interface_1 = mock.MagicMock()
-        interface_1.name = "<interface 1>"
+        interface_1.name = "<interface 1 name>"
         interface_1.mappings = {"mapping endpoint": mapping_1}
         mapping_2 = mock.MagicMock()
         interface_2 = mock.MagicMock()
-        interface_2.name = "<interface 2>"
+        interface_2.name = "<interface 2 name>"
         interface_2.mappings = {"mapping endpoint": mapping_2}
         mock_get_all_server_owned_interfaces.return_value = [interface_1, interface_2]
-        mock_get_interface.side_effect = [interface_1, interface_2]
 
         # Mocks for __send_introspection
         interface_3 = mock.MagicMock()
@@ -1137,18 +947,13 @@ class UnitTests(unittest.TestCase):
         mock_subscribe.assert_has_calls(
             [
                 mock.call("realm_name/device_id/control/consumer/properties", qos=2),
-                mock.call("realm_name/device_id/<interface 1>/#", qos=mapping_1.reliability),
-                mock.call("realm_name/device_id/<interface 2>/#", qos=mapping_2.reliability),
+                mock.call("realm_name/device_id/<interface 1 name>/#", qos=2),
+                mock.call("realm_name/device_id/<interface 2 name>/#", qos=2),
             ],
             any_order=True,
         )
         self.assertEqual(mock_subscribe.call_count, 3)
         mock_get_all_server_owned_interfaces.assert_called_once()
-
-        mock_get_interface.assert_has_calls(
-            [mock.call(interface_1.name), mock.call(interface_2.name)], any_order=True
-        )
-        self.assertEqual(mock_get_interface.call_count, 2)
 
         # Checks for __send_introspection and __send_empty_cache
         mock_get_all_interfaces.assert_called_once()

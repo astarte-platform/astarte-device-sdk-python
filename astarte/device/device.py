@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import logging
 import asyncio
 import collections.abc
 import os
@@ -31,6 +32,7 @@ from urllib.parse import urlparse
 import bson
 import paho.mqtt.client as mqtt
 from astarte.device import crypto, pairing_handler
+from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
 from astarte.device.exceptions import (
     ValidationError,
@@ -123,10 +125,21 @@ class Device:  # pylint: disable=too-many-instance-attributes
         PersistencyDirectoryNotFoundError
             If the provided persistency directory does not exists.
         """
+        if not os.path.isdir(persistency_dir):
+            raise PersistencyDirectoryNotFoundError(f"{persistency_dir} is not a directory")
+
+        if not os.path.isdir(os.path.join(persistency_dir, device_id)):
+            os.mkdir(os.path.join(persistency_dir, device_id))
+
+        crypto_dir = os.path.join(persistency_dir, device_id, "crypto")
+        if not os.path.isdir(crypto_dir):
+            os.mkdir(crypto_dir)
+
+        # Define private and public attributes
         self.__device_id = device_id
         self.__realm = realm
         self.__pairing_base_url = pairing_base_url
-        self.__persistency_dir = persistency_dir
+        self.__crypto_dir = crypto_dir
         self.__credentials_secret = credentials_secret
         # TODO: Implement device registration using token on connect
         # self.__jwt_token: str | None = None
@@ -140,15 +153,6 @@ class Device:  # pylint: disable=too-many-instance-attributes
         self.on_disconnected: Callable[[Device, int], None] | None = None
         self.on_data_received: Callable[[Device, str, str, object], None] | None = None
 
-        # Check if the persistency dir exists
-        if not os.path.isdir(persistency_dir):
-            raise PersistencyDirectoryNotFoundError(f"{persistency_dir} is not a directory")
-
-        if not os.path.isdir(os.path.join(persistency_dir, device_id)):
-            os.mkdir(os.path.join(persistency_dir, device_id))
-
-        if not os.path.isdir(os.path.join(persistency_dir, device_id, "crypto")):
-            os.mkdir(os.path.join(persistency_dir, device_id, "crypto"))
         self.__setup_mqtt_client()
 
     def __setup_mqtt_client(self) -> None:
@@ -259,15 +263,13 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if self.__is_crypto_setup:
             return
 
-        if not crypto.device_has_certificate(
-            os.path.join(self.__persistency_dir, self.__device_id, "crypto")
-        ):
+        if not crypto.device_has_certificate(self.__crypto_dir):
             pairing_handler.obtain_device_certificate(
                 self.__device_id,
                 self.__realm,
                 self.__credentials_secret,
                 self.__pairing_base_url,
-                os.path.join(self.__persistency_dir, self.__device_id, "crypto"),
+                self.__crypto_dir,
                 self.__ignore_ssl_errors,
             )
         # Initialize MQTT Client
@@ -278,8 +280,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         self.__mqtt_client.tls_set(
             ca_certs=None,
-            certfile=os.path.join(self.__persistency_dir, self.__device_id, "crypto", "device.crt"),
-            keyfile=os.path.join(self.__persistency_dir, self.__device_id, "crypto", "device.key"),
+            certfile=os.path.join(self.__crypto_dir, "device.crt"),
+            keyfile=os.path.join(self.__crypto_dir, "device.key"),
             cert_reqs=cert_reqs,
             tls_version=ssl.PROTOCOL_TLS,
             ciphers=None,
@@ -300,8 +302,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if self.__is_connected:
             return
 
-        if not self.__is_crypto_setup:
-            self.__setup_crypto()
+        self.__setup_crypto()
 
         transport_info = pairing_handler.obtain_device_transport_information(
             self.__device_id,
@@ -376,10 +377,17 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
+        InterfaceNotFoundError
+            If the interface is not declared in the introspection
         ValidationError
             If the interface or the payload are not compatible.
         """
-        if self.__is_interface_aggregate(interface_name):
+        interface = self.__introspection.get_interface(interface_name)
+        if not interface:
+            raise InterfaceNotFoundError(
+                f"Interface {interface_name} not declared in introspection"
+            )
+        if interface.is_aggregation_object():
             raise ValidationError(
                 f"Interface {interface_name} is an aggregate interface. You should use "
                 f"send_aggregate."
@@ -389,11 +397,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
             raise ValidationError("Payload for individual interfaces should not be a dictionary")
 
         self.__send_generic(
-            interface_name,
+            interface,
             interface_path,
             payload,
             timestamp,
-            self._get_qos(interface_name, interface_path),
         )
 
     def send_aggregate(
@@ -420,10 +427,17 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
+        InterfaceNotFoundError
+            If the interface is not declared in the introspection
         ValidationError
             If the interface or the payload are not compatible.
         """
-        if not self.__is_interface_aggregate(interface_name):
+        interface = self.__introspection.get_interface(interface_name)
+        if not interface:
+            raise InterfaceNotFoundError(
+                f"Interface {interface_name} not declared in introspection"
+            )
+        if not interface.is_aggregation_object():
             raise ValidationError(
                 f"Interface {interface_name} is not an aggregate interface. You should use send."
             )
@@ -432,7 +446,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
             raise ValidationError("Payload for aggregate interfaces should be a dictionary")
 
         self.__send_generic(
-            interface_name, interface_path, payload, timestamp, self._get_qos(interface_name)
+            interface,
+            interface_path,
+            payload,
+            timestamp,
         )
 
     def unset_property(self, interface_name: str, interface_path: str) -> None:
@@ -448,38 +465,44 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
+        InterfaceNotFoundError
+            If the interface is not declared in the introspection
         ValidationError
             If the interface is of type datastream.
         """
-        if not self.__is_interface_type_properties(interface_name):
+
+        interface = self.__introspection.get_interface(interface_name)
+        if not interface:
+            raise InterfaceNotFoundError(
+                f"Interface {interface_name} not declared in introspection"
+            )
+        if not interface.is_type_properties():
             raise ValidationError(
                 f"Interface {interface_name} is a datastream interface. You can only unset a "
                 f"property."
             )
 
         self.__send_generic(
-            interface_name,
+            interface,
             interface_path,
             None,
             None,
-            self._get_qos(interface_name),
         )
 
     def __send_generic(
         self,
-        interface_name: str,
+        interface: Interface,
         interface_path: str,
         payload: object | collections.abc.Mapping | None,
         timestamp: datetime | None,
-        qos: int,
     ) -> None:
         """
         Utility function used to publish a generic payload to an Astarte interface.
 
         Parameters
         ----------
-        interface_name : str
-            The name of the Interface to send data to.
+        interface : Interface
+            The Interface to send data to.
         interface_path: str
             The endpoint to send the data to
         payload : object, collections.abc.Mapping, optional
@@ -487,8 +510,6 @@ class Device:  # pylint: disable=too-many-instance-attributes
         timestamp : datetime, optional
             If the Datastream has explicit_timestamp, you can specify a datetime object which
             will be registered as the timestamp for the value.
-        qos: int
-            The QoS to use for the publish
 
         Raises
         ------
@@ -496,12 +517,9 @@ class Device:  # pylint: disable=too-many-instance-attributes
             If the interface/data pair validation has failed.
 
         """
-
         bson_payload = b""
         if payload is not None:
-            validation_result = self.__validate_data(
-                interface_name, interface_path, payload, timestamp
-            )
+            validation_result = interface.validate(interface_path, payload, timestamp)
             if validation_result:
                 raise validation_result
 
@@ -511,60 +529,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
             bson_payload = bson.dumps(object_payload)
 
         self.__mqtt_client.publish(
-            f"{self.__get_base_topic()}/{interface_name}{interface_path}", bson_payload, qos=qos
+            f"{self.__get_base_topic()}/{interface.name}{interface_path}",
+            bson_payload,
+            qos=interface.get_reliability(interface_path),
         )
-
-    def __is_interface_aggregate(self, interface_name: str) -> bool:
-        """
-        Utility Function used to check if an interface is of type datastream and object aggregated
-
-        Parameters
-        ----------
-        interface_name: str
-            The name of the interface to check
-
-        Returns
-        -------
-        bool
-            True if the interface has aggregation "object", False otherwise
-
-        Raises
-        ------
-        InterfaceNotFoundError
-            If the interface is not declared in the introspection
-        """
-        interface = self.__introspection.get_interface(interface_name)
-        if not interface:
-            raise InterfaceNotFoundError(
-                f"Interface {interface_name} not declared in introspection"
-            )
-
-        return interface.is_aggregation_object()
-
-    def __is_interface_type_properties(self, interface_name: str) -> bool:
-        """
-        Utility Function used to check if an interface is of type "Properties"
-
-        Parameters
-        ----------
-        interface_name: str
-            The name of the interface to check
-
-        Returns
-        -------
-        bool
-            True if the interface is of type "Properties", False otherwise
-
-        Raises
-        ------
-        ValidationError
-            If the interface is not declared in the introspection
-        """
-        interface = self.__introspection.get_interface(interface_name)
-        if not interface:
-            raise ValidationError(f"Interface {interface_name} not declared in introspection")
-
-        return interface.is_type_properties()
 
     def __get_base_topic(self) -> str:
         """
@@ -595,15 +563,14 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         """
         if rc:
-            print("Error while connecting: " + str(rc))
+            logging.error("Connection failed! %s", rc)
             return
 
         self.__is_connected = True
 
         if not flags["session present"]:
-            # Setup subscription
+            logging.debug("Session flag is not present, performing a clean session procedure")
             self.__setup_subscriptions()
-            # Send the introspection
             self.__send_introspection()
             self.__send_empty_cache()
 
@@ -645,9 +612,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
             self.__mqtt_client.loop_stop()
         # Else check certificate expiration and try reconnection
         # TODO: check for MQTT_ERR_TLS when Paho correctly returns it
-        elif not crypto.certificate_is_valid(
-            os.path.join(self.__persistency_dir, self.__device_id, "crypto")
-        ):
+        elif not crypto.certificate_is_valid(self.__crypto_dir):
             self.__mqtt_client.loop_stop()
             # If the certificate must be regenerated, old mqtt client is no longer valid as it is
             # bound to the wrong TLS params and paho does not allow to replace them a second time
@@ -669,10 +634,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         """
         if not msg.topic.startswith(self.__get_base_topic()):
-            print(f"Received unexpected message on topic {msg.topic}, {msg.payload}")
+            logging.warning("Received unexpected message on topic %s, %s", msg.topic, msg.payload)
             return
         if msg.topic == f"{self.__get_base_topic()}/control/consumer/properties":
-            print(f"Received control message: {msg.payload}")
+            logging.info("Received control message: %s", msg.payload)
             return
 
         if not self.on_data_received:
@@ -682,9 +647,11 @@ class Device:  # pylint: disable=too-many-instance-attributes
         topic_tokens = real_topic.split("/")
         interface_name = topic_tokens[0]
         if not self.__introspection.get_interface(interface_name):
-            print(
-                f"Received unexpected message for unregistered interface {interface_name}:"
-                f" {msg.topic}, {msg.payload}"
+            logging.warning(
+                "Received unexpected message for unregistered interface %s: %s, %s",
+                interface_name,
+                msg.topic,
+                msg.payload,
             )
             return
 
@@ -693,7 +660,9 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if msg.payload:
             payload_object = bson.loads(msg.payload)
             if "v" not in payload_object:
-                print(f"Received unexpected BSON Object on topic {msg.topic}, {payload_object}")
+                logging.warning(
+                    "Received unexpected BSON Object on topic %s, %s", msg.topic, payload_object
+                )
                 return
             data_payload = payload_object["v"]
 
@@ -709,6 +678,16 @@ class Device:  # pylint: disable=too-many-instance-attributes
         else:
             self.on_data_received(self, interface_name, interface_path, data_payload)
 
+    def __setup_subscriptions(self) -> None:
+        """
+        Utility function used to subscribe to the server owned interfaces
+        """
+        self.__mqtt_client.subscribe(
+            f"{self.__get_base_topic()}/control/consumer/properties", qos=2
+        )
+        for interface in self.__introspection.get_all_server_owned_interfaces():
+            self.__mqtt_client.subscribe(f"{self.__get_base_topic()}/{interface.name}/#", qos=2)
+
     def __send_introspection(self) -> None:
         """
         Utility function used to send the introspection to Astarte
@@ -723,19 +702,6 @@ class Device:  # pylint: disable=too-many-instance-attributes
         introspection_message = introspection_message[:-1]
         self.__mqtt_client.publish(self.__get_base_topic(), introspection_message, 2)
 
-    def __setup_subscriptions(self) -> None:
-        """
-        Utility function used to subscribe to the server owned interfaces
-        """
-        self.__mqtt_client.subscribe(
-            f"{self.__get_base_topic()}/control/consumer/properties", qos=2
-        )
-        for interface in self.__introspection.get_all_server_owned_interfaces():
-            interface_qos = self._get_qos(interface.name)
-            self.__mqtt_client.subscribe(
-                f"{self.__get_base_topic()}/{interface.name}/#", qos=interface_qos
-            )
-
     def __send_empty_cache(self) -> None:
         """
         Utility function used to send the "empty cache" message to Astarte
@@ -746,83 +712,3 @@ class Device:  # pylint: disable=too-many-instance-attributes
             retain=False,
             qos=2,
         )
-
-    def _get_qos(self, interface_name, path=None) -> int:
-        """
-        Deduce the QoS to be used, based on the reliability of the interface.
-
-        Parameters
-        ----------
-        interface_name : str
-            The interface name to deduce QoS for.
-        path : str
-            The path on the Interface to deduce QoS for.
-
-        Returns
-        -------
-        int
-            The deduced QoS, one of [0,1,2], default is 2
-
-        Raises
-        ------
-        InterfaceNotFoundError
-            If the interface is not declared in the introspection
-        """
-        interface = self.__introspection.get_interface(interface_name)
-        if not interface:
-            raise InterfaceNotFoundError(
-                f"Interface {interface_name} not declared in introspection"
-            )
-
-        # When aggregation object there is no need to specify the path as every map have the same
-        # QoS
-        if path:
-            mapping = interface.get_mapping(path)
-            if not mapping:
-                raise InterfaceNotFoundError(f"Path {path} not declared in {interface_name}")
-        else:
-            mapping = list(interface.mappings.values())[0]
-
-        return mapping.reliability
-
-    def __validate_data(
-        self,
-        interface_name: str,
-        interface_path: str,
-        payload: object,
-        timestamp: datetime | None,
-    ) -> ValidationError | None:
-        """
-        Verifies the data corresponds with the interface.
-
-        Parameters
-        ----------
-        interface_name : str
-            The name of an the Interface to send data to.
-        interface_path : str
-            The path on the Interface to send data to.
-        payload : object
-            The value to be sent. The type should be compatible to the one specified in the
-            interface path.
-        timestamp : datetime, optional
-            If sending a Datastream with explicit_timestamp, you can specify a datetime object
-            which will be registered as the timestamp for the value.
-
-        Returns
-        -------
-        bool
-            Success of the validation operation
-        str
-            Error message if success is False
-        Raises
-        ------
-        InterfaceNotFoundError
-            If the interface is not declared in the introspection
-        """
-        interface = self.__introspection.get_interface(interface_name)
-        if not interface:
-            raise InterfaceNotFoundError(
-                f"Interface {interface_name} not declared in introspection"
-            )
-
-        return interface.validate(interface_path, payload, timestamp)

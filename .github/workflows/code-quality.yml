@@ -31,13 +31,13 @@ jobs:
         python3 -m pip install --upgrade pip
         python3 -m pip install -e .[static]
     - name: Linting
-      run: python3 -m pylint $(git ls-files 'astarte')
+      run: python3 -m pylint astarte/device/*.py
     - name: Format check (setup.py)
       run: python3 -m black -l 100 --diff --check setup.py
     - name: Format check (main sources)
-      run: python3 -m black -l 100 --diff --check $(git ls-files 'astarte')
+      run: python3 -m black -l 100 --diff --check astarte/device/
     - name: Format check (secondary sources)
       run: |
-        python3 -m black -l 100 --diff --check examples/**/*.py
-        python3 -m black -l 100 --diff --check e2etest/*.py
-        python3 -m black -l 100 --diff --check tests/*.py
+        python3 -m black -l 100 --diff --check examples/
+        python3 -m black -l 100 --diff --check e2etest/
+        python3 -m black -l 100 --diff --check tests/
