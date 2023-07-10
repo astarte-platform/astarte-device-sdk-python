@@ -22,7 +22,11 @@
 import unittest
 from unittest import mock
 from astarte.device import Interface, Mapping
-from astarte.device.exceptions import ValidationError, InterfaceNotFoundError
+from astarte.device.exceptions import (
+    ValidationError,
+    InterfaceNotFoundError,
+    InterfaceFileDecodeError,
+)
 
 
 class UnitTests(unittest.TestCase):
@@ -74,6 +78,14 @@ class UnitTests(unittest.TestCase):
     def test_initialize_same_minor_major_version_raises(self):
         self.interface_minimal_dict["version_minor"] = 0
         self.assertRaises(ValueError, lambda: Interface(self.interface_minimal_dict))
+
+    def test_initialize_duplicate_mapping_raises(self):
+        duplicate_mapping = {
+            "endpoint": "/test/int",
+            "type": "integer",
+        }
+        self.interface_minimal_dict["mappings"].append(duplicate_mapping)
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(self.interface_minimal_dict))
 
     def test_is_aggregation_object(self):
         # Defaults to individual when it misses the aggregation field

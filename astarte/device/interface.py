@@ -22,7 +22,11 @@ from datetime import datetime
 from re import sub, match
 
 from astarte.device.mapping import Mapping
-from astarte.device.exceptions import ValidationError, InterfaceNotFoundError
+from astarte.device.exceptions import (
+    ValidationError,
+    InterfaceNotFoundError,
+    InterfaceFileDecodeError,
+)
 
 DEVICE = "device"
 SERVER = "server"
@@ -82,9 +86,15 @@ class Interface:
         self.ownership = interface_definition.get("ownership", DEVICE)
         self.aggregation = interface_definition.get("aggregation", "")
         self.mappings = []
+        endpoints = []
         for mapping_definition in interface_definition["mappings"]:
             mapping = Mapping(mapping_definition, self.type)
+            if mapping.endpoint in endpoints:
+                raise InterfaceFileDecodeError(
+                    f"Interface {self.name} mapping {mapping.endpoint} is duplicated."
+                )
             self.mappings.append(mapping)
+            endpoints.append(mapping.endpoint)
 
     def is_aggregation_object(self) -> bool:
         """
