@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from math import isfinite
+from re import sub, match
 from typing import Union, List
 
 from astarte.device.exceptions import ValidationError
@@ -149,7 +150,26 @@ class Mapping:
             else:
                 self.reliability = 0
 
-    def validate(self, payload: MapType, timestamp: datetime) -> ValidationError | None:
+    def validate_path(self, path: str) -> ValidationError | None:
+        """
+        Mapping data validation
+
+        Parameters
+        ----------
+        path: Str
+            Path to validate.
+
+        Returns
+        -------
+        ValidationError or None
+            None in case of successful validation, ValidationError otherwise
+        """
+        regex = sub(r"%{\w+}", r"[^/+#]+", self.endpoint)
+        if not match(regex + "$", path):
+            return ValidationError(f"Path {path} does not match the endpoint {self.endpoint}")
+        return None
+
+    def validate_payload(self, payload: MapType, timestamp: datetime) -> ValidationError | None:
         """
         Mapping data validation
 
@@ -167,6 +187,8 @@ class Mapping:
         """
         min_supported_int = -2147483648
         max_supported_int = 2147483647
+        if not payload:
+            return ValidationError(f"Attempting to validate an empty payload for {self.endpoint}")
         # Check if the interface has explicit_timestamp when a timestamp is given (and viceversa)
         if self.explicit_timestamp and not timestamp:
             return ValidationError(f"Timestamp required for {self.endpoint}")

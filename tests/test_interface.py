@@ -117,64 +117,53 @@ class UnitTests(unittest.TestCase):
         interface_property = Interface(self.interface_minimal_dict)
         assert interface_property.is_type_properties()
 
-    def test_get_mapping(self):
+    @mock.patch.object(Mapping, "validate_path")
+    def test_get_mapping(self, mock_validate_path):
+        new_mappings = [
+            {"endpoint": "/test/one", "type": "integer"},
+            {"endpoint": "/test/two", "type": "boolean"},
+        ]
+        self.interface_minimal_dict["mappings"] = new_mappings
         interface_simple_endpoint = Interface(self.interface_minimal_dict)
-        mapping = interface_simple_endpoint.get_mapping("/test/int")
-        self.assertIsNotNone(mapping)
-        self.assertEqual(mapping.endpoint, "/test/int")
 
-        mapping = interface_simple_endpoint.get_mapping("/something/test/int")
-        self.assertIsNone(mapping)
+        path = "/test/two"
+        mock_validate_res = mock.MagicMock()
+        mock_validate_path.side_effect = [mock_validate_res, None]
 
-        mapping = interface_simple_endpoint.get_mapping("/test/int/else")
-        self.assertIsNone(mapping)
+        self.assertIsNotNone(interface_simple_endpoint.get_mapping(path))
 
-    def test_get_mapping_parametric(self):
-        mapping_with_variable = {
-            "endpoint": r"/%{var}/int",
-            "type": "integer",
-            "database_retention_policy": "use_ttl",
-            "database_retention_ttl": 31536000,
-        }
-        self.interface_minimal_dict["mappings"].append(mapping_with_variable)
-        interface_complex_endpoint = Interface(self.interface_minimal_dict)
+        mock_validate_path.assert_has_calls([mock.call("/test/two"), mock.call("/test/two")])
+        self.assertEqual(mock_validate_path.call_count, 2)
 
-        # Valid parameter and endpoint
-        mapping = interface_complex_endpoint.get_mapping("/2asf-esef33/int")
-        self.assertIsNotNone(mapping)
-        self.assertEqual(mapping.endpoint, r"/%{var}/int")
+    @mock.patch.object(Mapping, "validate_path")
+    def test_get_mapping_no_mapping(self, mock_validate_path):
+        new_mappings = [
+            {"endpoint": "/test/one", "type": "integer"},
+            {"endpoint": "/test/two", "type": "boolean"},
+        ]
+        self.interface_minimal_dict["mappings"] = new_mappings
+        interface_simple_endpoint = Interface(self.interface_minimal_dict)
 
-        # Valid parameter, invalid endpoint
-        mapping = interface_complex_endpoint.get_mapping("/something/esef33/int")
-        self.assertIsNone(mapping)
+        path = "/test/three"
+        mock_validate_res = mock.MagicMock()
+        mock_validate_path.side_effect = [mock_validate_res, mock_validate_res]
 
-        # Valid parameter, invalid endpoint
-        mapping = interface_complex_endpoint.get_mapping("/2asfesef33/int/else")
-        self.assertIsNone(mapping)
+        self.assertIsNone(interface_simple_endpoint.get_mapping(path))
 
-        # Invvalid parameter (contains /), valid endpoint
-        mapping = interface_complex_endpoint.get_mapping("/2asfe/sef33/int")
-        self.assertIsNone(mapping)
+        mock_validate_path.assert_has_calls([mock.call("/test/three"), mock.call("/test/three")])
+        self.assertEqual(mock_validate_path.call_count, 2)
 
-        # Invvalid parameter (contains +), valid endpoint
-        mapping = interface_complex_endpoint.get_mapping("/2asfe+sef33/int")
-        self.assertIsNone(mapping)
-
-        # Invvalid parameter (contains #), valid endpoint
-        mapping = interface_complex_endpoint.get_mapping("/2asfe#sef33/int")
-        self.assertIsNone(mapping)
-
-    @mock.patch.object(Mapping, "validate")
-    def test_validate_individual(self, mock_validate):
+    @mock.patch.object(Mapping, "validate_payload")
+    def test_validate_individual(self, mock_validate_payload):
         interface_individual = Interface(self.interface_minimal_dict)
 
-        mock_validate.return_value = "Map validate return value"
+        mock_validate_payload.return_value = "Map validate return value"
         result = interface_individual.validate("/test/int", 42, None)
         self.assertEqual("Map validate return value", result)
-        mock_validate.assert_called_once_with(42, None)
+        mock_validate_payload.assert_called_once_with(42, None)
 
-    @mock.patch.object(Mapping, "validate")
-    def test_validate_individual_parametric(self, mock_validate):
+    @mock.patch.object(Mapping, "validate_payload")
+    def test_validate_individual_parametric(self, mock_validate_payload):
         new_mappings = [
             {
                 "endpoint": r"/test/%{var}/int",
@@ -186,10 +175,10 @@ class UnitTests(unittest.TestCase):
         self.interface_minimal_dict["mappings"] = new_mappings
         interface_individual = Interface(self.interface_minimal_dict)
 
-        mock_validate.return_value = "Map validate return value"
+        mock_validate_payload.return_value = "Map validate return value"
         result = interface_individual.validate("/test/11/int", 42, None)
         self.assertEqual("Map validate return value", result)
-        mock_validate.assert_called_once_with(42, None)
+        mock_validate_payload.assert_called_once_with(42, None)
 
     def test_validate_aggregate(self):
         self.interface_minimal_dict["aggregation"] = "object"
@@ -242,13 +231,6 @@ class UnitTests(unittest.TestCase):
         }
         result = interface_aggregate.validate("/test/43", payload, None)
         self.assertIsNone(result)
-
-    def test_validate_server_owned_err(self):
-        self.interface_minimal_dict["ownership"] = "server"
-        interface_server = Interface(self.interface_minimal_dict)
-        result = interface_server.validate("/test/int", 42, None)
-        assert isinstance(result, ValidationError)
-        assert result.msg == "The interface com.astarte.Test is not owned by the device."
 
     def test_validate_individual_endpoint_not_existing_err(self):
         interface_server = Interface(self.interface_minimal_dict)

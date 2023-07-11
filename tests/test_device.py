@@ -470,6 +470,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = False
+        mock_interface.is_server_owned.return_value = False
         mock_interface.validate.return_value = None
         mock_get_interface.return_value = mock_interface
 
@@ -501,6 +502,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = False
+        mock_interface.is_server_owned.return_value = False
         mock_interface.validate.return_value = None
         mock_get_interface.return_value = mock_interface
 
@@ -595,6 +597,31 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(Client, "publish")
     @mock.patch("astarte.device.device.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
+    def test_send_to_a_server_owned_interface_raises(
+        self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_get_interface.return_value.is_aggregation_object.return_value = False
+        mock_get_interface.return_value.is_server_owned.return_value = True
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = 12
+        timestamp = datetime.now()
+        self.assertRaises(
+            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
+        )
+
+        mock_get_interface.assert_called_once_with("interface name")
+        mock_get_interface.return_value.is_aggregation_object.assert_called_once()
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
+        mock_bson_dumps.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
     def test_send_interface_validate_raises_other_err(
         self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
     ):
@@ -603,6 +630,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = False
+        mock_interface.is_server_owned.return_value = False
         mock_interface.validate.return_value = ValidationError("Error msg")
         mock_get_interface.return_value = mock_interface
 
@@ -616,6 +644,7 @@ class UnitTests(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_server_owned.assert_called_once()
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
         mock_bson_dumps.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
@@ -630,6 +659,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = True
+        mock_interface.is_server_owned.return_value = False
         mock_interface.validate.return_value = None
         mock_get_interface.return_value = mock_interface
 
@@ -643,6 +673,7 @@ class UnitTests(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_server_owned.assert_called_once()
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
         mock_interface.get_reliability.assert_called_once_with(interface_path)
@@ -740,6 +771,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_type_properties.return_value = True
+        mock_interface.is_server_owned.return_value = False
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -748,8 +780,10 @@ class UnitTests(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_type_properties.assert_called_once()
+        mock_interface.is_server_owned.assert_called_once()
         mock_interface.validate.assert_not_called()
         mock_bson_dumps.assert_not_called()
+        mock_interface.get_mapping.assert_called_once_with(interface_path)
         mock_interface.get_reliability.assert_called_once_with(interface_path)
         mock_mqtt_publish.assert_called_once_with(
             "realm_name/device_id/" + interface_name + interface_path,
@@ -801,6 +835,36 @@ class UnitTests(unittest.TestCase):
         mock_interface.is_type_properties.assert_called_once()
         mock_interface.validate.assert_not_called()
         mock_bson_dumps.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_unset_property_non_existing_mapping_raises(
+        self, mock_get_interface, mock_bson_dumps, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_type_properties.return_value = True
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.get_mapping.return_value = None
+        mock_get_interface.return_value = mock_interface
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        self.assertRaises(
+            ValidationError, lambda: device.unset_property(interface_name, interface_path)
+        )
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_type_properties.assert_called_once()
+        mock_interface.is_server_owned.assert_called_once()
+        mock_interface.validate.assert_not_called()
+        mock_bson_dumps.assert_not_called()
+        mock_interface.get_mapping.assert_called_once_with(interface_path)
         mock_interface.get_reliability.assert_not_called()
         mock_mqtt_publish.assert_not_called()
 

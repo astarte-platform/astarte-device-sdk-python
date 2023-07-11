@@ -492,7 +492,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
     def __send_generic(
         self,
         interface: Interface,
-        interface_path: str,
+        path: str,
         payload: object | collections.abc.Mapping | None,
         timestamp: datetime | None,
     ) -> None:
@@ -503,7 +503,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         ----------
         interface : Interface
             The Interface to send data to.
-        interface_path: str
+        path: str
             The endpoint to send the data to
         payload : object, collections.abc.Mapping, optional
             The payload to send if present.
@@ -513,13 +513,19 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        AstarteError
-            If the interface/data pair validation has failed.
-
+        ValidationError
+            When:
+            - Attempting to send to a server owned interface.
+            - Sending to an endpoint that is not present in the interface.
+            - The payload validation fails.
         """
+        # Check the interface has device ownership
+        if interface.is_server_owned():
+            raise ValidationError(f"The interface {interface.name} is not owned by the device.")
+
         bson_payload = b""
         if payload is not None:
-            validation_result = interface.validate(interface_path, payload, timestamp)
+            validation_result = interface.validate(path, payload, timestamp)
             if validation_result:
                 raise validation_result
 
@@ -527,11 +533,13 @@ class Device:  # pylint: disable=too-many-instance-attributes
             if timestamp:
                 object_payload["t"] = timestamp
             bson_payload = bson.dumps(object_payload)
+        elif not interface.get_mapping(path):
+            raise ValidationError(f"Path {path} not in the {interface.name} interface.")
 
         self.__mqtt_client.publish(
-            f"{self.__get_base_topic()}/{interface.name}{interface_path}",
+            f"{self.__get_base_topic()}/{interface.name}{path}",
             bson_payload,
-            qos=interface.get_reliability(interface_path),
+            qos=interface.get_reliability(path),
         )
 
     def __get_base_topic(self) -> str:
