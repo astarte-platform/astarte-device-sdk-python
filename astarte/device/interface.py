@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from re import sub, match
 
 from astarte.device.mapping import Mapping
 from astarte.device.exceptions import (
@@ -140,10 +139,8 @@ class Interface:
             The Mapping if found, None otherwise
         """
         for mapping in self.mappings:
-            regex = sub(r"%{\w+}", r"[^/+#]+", mapping.endpoint)
-            if match(regex + "$", endpoint):
+            if not mapping.validate_path(endpoint):
                 return mapping
-
         return None
 
     def get_reliability(self, endpoint: str) -> int:
@@ -190,15 +187,11 @@ class Interface:
         ValidationError or None
             None in case of successful validation, ValidationError otherwise
         """
-        # Check the interface has device ownership
-        if self.ownership != DEVICE:
-            return ValidationError(f"The interface {self.name} is not owned by the device.")
-
         # Validate the payload for the individual mapping
         if not self.is_aggregation_object():
             mapping = self.get_mapping(path)
             if mapping:
-                return mapping.validate(payload, timestamp)
+                return mapping.validate_payload(payload, timestamp)
             return ValidationError(f"Path {path} not in the {self.name} interface.")
 
         # Validate the payload for the aggregate mapping
@@ -209,7 +202,7 @@ class Interface:
         for k, v in payload.items():
             mapping = self.get_mapping(f"{path}/{k}")
             if mapping:
-                result = mapping.validate(v, timestamp)
+                result = mapping.validate_payload(v, timestamp)
                 if result:
                     return result
             else:

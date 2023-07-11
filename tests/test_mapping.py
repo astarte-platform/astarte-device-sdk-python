@@ -214,120 +214,135 @@ class UnitTests(unittest.TestCase):
 
     def test_mapping_validate_ok(self):
         mapping_no_timestamp = Mapping(self.mapping_no_timestamp_dict, "datastream")
-        validate_res = mapping_no_timestamp.validate(True, None)
+        validate_res = mapping_no_timestamp.validate_payload(True, None)
         assert validate_res is None
 
         mapping_integer = Mapping(self.mapping_integer_dict, "properties")
-        validate_res = mapping_integer.validate(42, datetime.now())
+        validate_res = mapping_integer.validate_payload(42, datetime.now())
         assert validate_res is None
 
         mapping_longinteger = Mapping(self.mapping_longinteger_dict, "properties")
-        validate_res = mapping_longinteger.validate(42, datetime.now())
+        validate_res = mapping_longinteger.validate_payload(42, datetime.now())
         assert validate_res is None
 
         mapping_double = Mapping(self.mapping_double_dict, "datastream")
-        validate_res = mapping_double.validate(42.0, datetime.now())
+        validate_res = mapping_double.validate_payload(42.0, datetime.now())
         assert validate_res is None
 
         mapping_string = Mapping(self.mapping_string_dict, "datastream")
-        validate_res = mapping_string.validate("my string", datetime.now())
+        validate_res = mapping_string.validate_payload("my string", datetime.now())
         assert validate_res is None
 
         mapping_binaryblob = Mapping(self.mapping_binaryblob_dict, "datastream")
-        validate_res = mapping_binaryblob.validate(b"hello", datetime.now())
+        validate_res = mapping_binaryblob.validate_payload(b"hello", datetime.now())
         assert validate_res is None
 
         mapping_boolean = Mapping(self.mapping_boolean_dict, "datastream")
-        validate_res = mapping_boolean.validate(True, datetime.now())
+        validate_res = mapping_boolean.validate_payload(True, datetime.now())
         assert validate_res is None
 
         mapping_datetime = Mapping(self.mapping_datetime_dict, "datastream")
-        validate_res = mapping_datetime.validate(datetime.now(), datetime.now())
+        validate_res = mapping_datetime.validate_payload(datetime.now(), datetime.now())
         assert validate_res is None
 
         mapping_integerarray = Mapping(self.mapping_integerarray_dict, "datastream")
-        validate_res = mapping_integerarray.validate([42], datetime.now())
+        validate_res = mapping_integerarray.validate_payload([42], datetime.now())
         assert validate_res is None
 
         mapping_longintegerarray = Mapping(self.mapping_longintegerarray_dict, "datastream")
-        validate_res = mapping_longintegerarray.validate([42], datetime.now())
+        validate_res = mapping_longintegerarray.validate_payload([42], datetime.now())
         assert validate_res is None
 
         mapping_doublearray = Mapping(self.mapping_doublearray_dict, "datastream")
-        validate_res = mapping_doublearray.validate([42.1], datetime.now())
+        validate_res = mapping_doublearray.validate_payload([42.1], datetime.now())
         assert validate_res is None
 
         mapping_stringarray = Mapping(self.mapping_stringarray_dict, "properties")
-        validate_res = mapping_stringarray.validate(["my string"], datetime.now())
+        validate_res = mapping_stringarray.validate_payload(["my string"], datetime.now())
         assert validate_res is None
 
         mapping_binaryblobarray = Mapping(self.mapping_binaryblobarray_dict, "properties")
-        validate_res = mapping_binaryblobarray.validate([b"hello", b"world"], datetime.now())
+        validate_res = mapping_binaryblobarray.validate_payload(
+            [b"hello", b"world"], datetime.now()
+        )
         assert validate_res is None
 
         mapping_booleanarray = Mapping(self.mapping_booleanarray_dict, "properties")
-        validate_res = mapping_booleanarray.validate([True, False], datetime.now())
+        validate_res = mapping_booleanarray.validate_payload([True, False], datetime.now())
         assert validate_res is None
 
         mapping_datetimearray = Mapping(self.mapping_datetimearray_dict, "properties")
-        validate_res = mapping_datetimearray.validate([datetime.now()], datetime.now())
+        validate_res = mapping_datetimearray.validate_payload([datetime.now()], datetime.now())
         assert validate_res is None
+
+    def test_mapping_validate_empty_payload_err(self):
+        basic_mapping = {
+            "endpoint": "/test/one",
+            "type": "boolean",
+        }
+        mapping_basic = Mapping(basic_mapping, "datastream")
+        validate_res = mapping_basic.validate_payload(None, None)
+        assert isinstance(validate_res, ValidationError)
+        assert validate_res.msg == "Attempting to validate an empty payload for /test/one"
+        validate_res = mapping_basic.validate_payload([], None)
+        assert isinstance(validate_res, ValidationError)
+        assert validate_res.msg == "Attempting to validate an empty payload for /test/one"
 
     def test_mapping_validate_missing_timestamp_err(self):
         mapping_integer = Mapping(self.mapping_integer_dict, "datastream")
-        validate_res = mapping_integer.validate(42, None)
+        validate_res = mapping_integer.validate_payload(42, None)
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Timestamp required for /test/one"
 
     def test_mapping_validate_not_required_timestamp_err(self):
         mapping_no_timestamp = Mapping(self.mapping_no_timestamp_dict, "datastream")
-        validate_res = mapping_no_timestamp.validate(True, datetime.now())
+        validate_res = mapping_no_timestamp.validate_payload(True, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "It's not possible to set the timestamp for /test/two"
 
     def test_mapping_validate_incorrect_type_err(self):
         mapping_integer = Mapping(self.mapping_integer_dict, "datastream")
-        validate_res = mapping_integer.validate(True, datetime.now())
+        validate_res = mapping_integer.validate_payload(True, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is integer but <class 'bool'> was provided"
 
         mapping_longinteger = Mapping(self.mapping_longinteger_dict, "datastream")
-        validate_res = mapping_longinteger.validate(True, datetime.now())
+        validate_res = mapping_longinteger.validate_payload(True, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is longinteger but <class 'bool'> was provided"
 
         mapping_double = Mapping(self.mapping_double_dict, "datastream")
-        validate_res = mapping_double.validate(24, datetime.now())
+        validate_res = mapping_double.validate_payload(24, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is double but <class 'int'> was provided"
 
         mapping_string = Mapping(self.mapping_string_dict, "datastream")
-        validate_res = mapping_string.validate(b"hello", datetime.now())
+        validate_res = mapping_string.validate_payload(b"hello", datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is string but <class 'bytes'> was provided"
 
         mapping_binaryblob = Mapping(self.mapping_binaryblob_dict, "datastream")
-        validate_res = mapping_binaryblob.validate(True, datetime.now())
+        validate_res = mapping_binaryblob.validate_payload(True, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is binaryblob but <class 'bool'> was provided"
 
         mapping_boolean = Mapping(self.mapping_boolean_dict, "datastream")
-        validate_res = mapping_boolean.validate("Hello", datetime.now())
+        validate_res = mapping_boolean.validate_payload("Hello", datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is boolean but <class 'str'> was provided"
 
         mapping_datetime = Mapping(self.mapping_datetime_dict, "datastream")
-        validate_res = mapping_datetime.validate(42, datetime.now())
+        validate_res = mapping_datetime.validate_payload(42, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is datetime but <class 'int'> was provided"
 
         mapping_integerarray = Mapping(self.mapping_integerarray_dict, "datastream")
-        validate_res = mapping_integerarray.validate(12, datetime.now())
+        validate_res = mapping_integerarray.validate_payload(12, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is integerarray but <class 'int'> was provided"
 
         mapping_integerarray = Mapping(self.mapping_integerarray_dict, "datastream")
-        validate_res = mapping_integerarray.validate([True], datetime.now())
+        validate_res = mapping_integerarray.validate_payload([True], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert (
             validate_res.msg
@@ -335,7 +350,7 @@ class UnitTests(unittest.TestCase):
         )
 
         mapping_longintegerarray = Mapping(self.mapping_longintegerarray_dict, "datastream")
-        validate_res = mapping_longintegerarray.validate([""], datetime.now())
+        validate_res = mapping_longintegerarray.validate_payload([""], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert (
             validate_res.msg
@@ -343,19 +358,19 @@ class UnitTests(unittest.TestCase):
         )
 
         mapping_doublearray = Mapping(self.mapping_doublearray_dict, "datastream")
-        validate_res = mapping_doublearray.validate(True, datetime.now())
+        validate_res = mapping_doublearray.validate_payload(True, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "/test/one is doublearray but <class 'bool'> was provided"
 
         mapping_stringarray = Mapping(self.mapping_stringarray_dict, "datastream")
-        validate_res = mapping_stringarray.validate([12], datetime.now())
+        validate_res = mapping_stringarray.validate_payload([12], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert (
             validate_res.msg == "/test/one is stringarray but a list of <class 'int'> was provided"
         )
 
         mapping_binaryblobarray = Mapping(self.mapping_binaryblobarray_dict, "datastream")
-        validate_res = mapping_binaryblobarray.validate([True], datetime.now())
+        validate_res = mapping_binaryblobarray.validate_payload([True], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert (
             validate_res.msg
@@ -363,14 +378,14 @@ class UnitTests(unittest.TestCase):
         )
 
         mapping_booleanarray = Mapping(self.mapping_booleanarray_dict, "datastream")
-        validate_res = mapping_booleanarray.validate([12], datetime.now())
+        validate_res = mapping_booleanarray.validate_payload([12], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert (
             validate_res.msg == "/test/one is booleanarray but a list of <class 'int'> was provided"
         )
 
         mapping_datetimearray = Mapping(self.mapping_datetimearray_dict, "datastream")
-        validate_res = mapping_datetimearray.validate([32], datetime.now())
+        validate_res = mapping_datetimearray.validate_payload([32], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert (
             validate_res.msg
@@ -379,68 +394,102 @@ class UnitTests(unittest.TestCase):
 
     def test_mapping_validate_incoherent_type_in_list_err(self):
         mapping_integerarray = Mapping(self.mapping_integerarray_dict, "datastream")
-        validate_res = mapping_integerarray.validate([12, True], datetime.now())
+        validate_res = mapping_integerarray.validate_payload([12, True], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Type incoherence in payload elements"
 
         mapping_longintegerarray = Mapping(self.mapping_longintegerarray_dict, "datastream")
-        validate_res = mapping_longintegerarray.validate([12, ""], datetime.now())
+        validate_res = mapping_longintegerarray.validate_payload([12, ""], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Type incoherence in payload elements"
 
         mapping_doublearray = Mapping(self.mapping_doublearray_dict, "datastream")
-        validate_res = mapping_doublearray.validate([12.3, 12], datetime.now())
+        validate_res = mapping_doublearray.validate_payload([12.3, 12], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Type incoherence in payload elements"
 
         mapping_stringarray = Mapping(self.mapping_stringarray_dict, "datastream")
-        validate_res = mapping_stringarray.validate(["23", b""], datetime.now())
+        validate_res = mapping_stringarray.validate_payload(["23", b""], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Type incoherence in payload elements"
 
         mapping_binaryblobarray = Mapping(self.mapping_binaryblobarray_dict, "datastream")
-        validate_res = mapping_binaryblobarray.validate([b"22", ""], datetime.now())
+        validate_res = mapping_binaryblobarray.validate_payload([b"22", ""], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Type incoherence in payload elements"
 
         mapping_booleanarray = Mapping(self.mapping_booleanarray_dict, "datastream")
-        validate_res = mapping_booleanarray.validate([True, 11], datetime.now())
+        validate_res = mapping_booleanarray.validate_payload([True, 11], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Type incoherence in payload elements"
 
         mapping_datetimearray = Mapping(self.mapping_datetimearray_dict, "datastream")
-        validate_res = mapping_datetimearray.validate([datetime.now(), 11], datetime.now())
+        validate_res = mapping_datetimearray.validate_payload([datetime.now(), 11], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Type incoherence in payload elements"
 
     def test_mapping_validate_out_of_range_integer_err(self):
         mapping_integer = Mapping(self.mapping_integer_dict, "datastream")
-        validate_res = mapping_integer.validate(-2147483649, datetime.now())
+        validate_res = mapping_integer.validate_payload(-2147483649, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Value out of int32 range for /test/one"
 
         mapping_integer = Mapping(self.mapping_integer_dict, "datastream")
-        validate_res = mapping_integer.validate(2147483648, datetime.now())
+        validate_res = mapping_integer.validate_payload(2147483648, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Value out of int32 range for /test/one"
 
         mapping_integerarray = Mapping(self.mapping_integerarray_dict, "datastream")
-        validate_res = mapping_integerarray.validate([-2147483649], datetime.now())
+        validate_res = mapping_integerarray.validate_payload([-2147483649], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Value out of int32 range for /test/one"
 
         mapping_integerarray = Mapping(self.mapping_integerarray_dict, "datastream")
-        validate_res = mapping_integerarray.validate([2147483648], datetime.now())
+        validate_res = mapping_integerarray.validate_payload([2147483648], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Value out of int32 range for /test/one"
 
     def test_mapping_validate_nan_double_err(self):
         mapping_double = Mapping(self.mapping_double_dict, "datastream")
-        validate_res = mapping_double.validate(nan, datetime.now())
+        validate_res = mapping_double.validate_payload(nan, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Invalid float value for /test/one"
 
         mapping_doublearray = Mapping(self.mapping_doublearray_dict, "datastream")
-        validate_res = mapping_doublearray.validate([nan], datetime.now())
+        validate_res = mapping_doublearray.validate_payload([nan], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Invalid float value for /test/one"
+
+    def test_mapping_validate_path(self):
+        basic_mapping = {
+            "endpoint": "/test/one",
+            "type": "boolean",
+        }
+        mapping_basic = Mapping(basic_mapping, "datastream")
+        self.assertIsNone(mapping_basic.validate_path("/test/one"))
+        self.assertIsInstance(mapping_basic.validate_path("test/one"), ValidationError)
+        self.assertIsInstance(mapping_basic.validate_path("/tests/one"), ValidationError)
+        self.assertIsInstance(mapping_basic.validate_path("/test/one/more"), ValidationError)
+        self.assertIsInstance(mapping_basic.validate_path("/test/one/"), ValidationError)
+        self.assertIsInstance(mapping_basic.validate_path("more/test/one"), ValidationError)
+
+        param_mapping = {
+            "endpoint": r"/%{param}/one",
+            "type": "boolean",
+        }
+        mapping_param = Mapping(param_mapping, "datastream")
+        self.assertIsNone(mapping_param.validate_path("/21smt/one"))
+        self.assertIsInstance(mapping_param.validate_path("/more/21/one"), ValidationError)
+        self.assertIsInstance(mapping_param.validate_path("/21/more/one"), ValidationError)
+        self.assertIsInstance(mapping_param.validate_path("/21+/one"), ValidationError)
+        self.assertIsInstance(mapping_param.validate_path("/21#/one"), ValidationError)
+
+        two_param_mapping = {
+            "endpoint": r"/%{param1}/%{param2}/one",
+            "type": "boolean",
+        }
+        mapping_two_param = Mapping(two_param_mapping, "datastream")
+        self.assertIsNone(mapping_two_param.validate_path("/aa/bb/one"))
+        self.assertIsInstance(mapping_two_param.validate_path("/21/one"), ValidationError)
+        self.assertIsInstance(mapping_two_param.validate_path("/aa/bb/more/one"), ValidationError)
+        self.assertIsInstance(mapping_two_param.validate_path("more/aa/bb/one"), ValidationError)
