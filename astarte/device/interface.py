@@ -74,26 +74,45 @@ class Interface:
         ValueError
             if both version_major and version_minor numbers are set to 0
         """
-        self.name: str = interface_definition["interface_name"]
-        self.version_major: int = interface_definition["version_major"]
-        self.version_minor: int = interface_definition["version_minor"]
+        self.name: str = interface_definition.get("interface_name")
+        self.version_major: int = interface_definition.get("version_major")
+        self.version_minor: int = interface_definition.get("version_minor")
+        self.type: str = interface_definition.get("type")
+        self.ownership = interface_definition.get("ownership")
+
+        if not (
+            isinstance(self.name, str)
+            and isinstance(self.version_major, int)
+            and isinstance(self.version_minor, int)
+            and self.type in {"datastream", "properties"}
+            and self.ownership in (DEVICE, SERVER)
+        ):
+            raise InterfaceFileDecodeError(
+                f"Error parsing the following interface definition: {interface_definition}"
+            )
 
         if not self.version_major and not self.version_minor:
-            raise ValueError(f"Both Major and Minor versions set to 0 for interface {self.name}")
+            raise InterfaceFileDecodeError(
+                f"Both Major and Minor versions set to 0 for interface {self.name}"
+            )
 
-        self.type: str = interface_definition["type"]
-        self.ownership = interface_definition.get("ownership", DEVICE)
-        self.aggregation = interface_definition.get("aggregation", "")
+        self.aggregation = interface_definition.get("aggregation", "individual")
+        if self.aggregation not in {"individual", "object"}:
+            raise InterfaceFileDecodeError(f"Invalid aggregation type for interface {self.name}.")
+
         self.mappings = []
         endpoints = []
-        for mapping_definition in interface_definition["mappings"]:
+        for mapping_definition in interface_definition.get("mappings", []):
             mapping = Mapping(mapping_definition, self.type)
             if mapping.endpoint in endpoints:
                 raise InterfaceFileDecodeError(
-                    f"Interface {self.name} mapping {mapping.endpoint} is duplicated."
+                    f"Duplicated mapping {mapping.endpoint} for interface {self.name}."
                 )
             self.mappings.append(mapping)
             endpoints.append(mapping.endpoint)
+
+        if not self.mappings:
+            raise InterfaceFileDecodeError(f"No mappings in interface {self.name}.")
 
     def is_aggregation_object(self) -> bool:
         """
@@ -113,7 +132,7 @@ class Interface:
         bool
             True if ownership: server
         """
-        return self.ownership == "server"
+        return self.ownership == SERVER
 
     def is_type_properties(self):
         """
