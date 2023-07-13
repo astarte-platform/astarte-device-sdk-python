@@ -36,6 +36,7 @@ class UnitTests(unittest.TestCase):
             "version_major": 0,
             "version_minor": 1,
             "type": "datastream",
+            "ownership": "device",
             "mappings": [
                 {
                     "endpoint": "/test/int",
@@ -46,46 +47,190 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch("astarte.device.interface.Mapping")
     def test_initialize(self, mock_mapping):
-        mock_instance = mock_mapping.return_value
-        mock_instance.endpoint = "/test/int"
-        interface_basic = Interface(self.interface_minimal_dict)
-        self.assertEqual(interface_basic.name, "com.astarte.Test")
-        self.assertEqual(interface_basic.version_major, 0)
-        self.assertEqual(interface_basic.version_minor, 1)
-        self.assertEqual(interface_basic.type, "datastream")
-        self.assertEqual(interface_basic.ownership, "device")
-        self.assertEqual(interface_basic.aggregation, "")
-        self.assertEqual(interface_basic.mappings, [mock_instance])
-        mock_mapping.assert_called_once_with(
-            {"endpoint": "/test/int", "type": "integer"}, "datastream"
-        )
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {"mapping": "number 1"},
+            ],
+        }
+
+        basic_interface = Interface(basic_interface_dict)
+
+        mock_mapping.assert_called_once_with({"mapping": "number 1"}, "datastream")
+        self.assertEqual(basic_interface.name, "com.astarte.Test")
+        self.assertEqual(basic_interface.version_major, 0)
+        self.assertEqual(basic_interface.version_minor, 1)
+        self.assertEqual(basic_interface.type, "datastream")
+        self.assertEqual(basic_interface.ownership, "device")
+        self.assertEqual(basic_interface.aggregation, "individual")
+        self.assertEqual(basic_interface.mappings, [mock_mapping.return_value])
 
         mock_mapping.reset_mock()
-        self.interface_minimal_dict["type"] = "properties"
-        self.interface_minimal_dict["ownership"] = "server"
-        interface_basic = Interface(self.interface_minimal_dict)
-        self.assertEqual(interface_basic.name, "com.astarte.Test")
-        self.assertEqual(interface_basic.version_major, 0)
-        self.assertEqual(interface_basic.version_minor, 1)
-        self.assertEqual(interface_basic.type, "properties")
-        self.assertEqual(interface_basic.ownership, "server")
-        self.assertEqual(interface_basic.aggregation, "")
-        self.assertEqual(interface_basic.mappings, [mock_instance])
-        mock_mapping.assert_called_once_with(
-            {"endpoint": "/test/int", "type": "integer"}, "properties"
-        )
 
-    def test_initialize_same_minor_major_version_raises(self):
-        self.interface_minimal_dict["version_minor"] = 0
-        self.assertRaises(ValueError, lambda: Interface(self.interface_minimal_dict))
+        mock_instance1 = mock.MagicMock()
+        mock_instance2 = mock.MagicMock()
+        mock_mapping.side_effect = [mock_instance1, mock_instance2]
+
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {"mapping": "number 1"},
+                {"mapping": "number 2"},
+            ],
+        }
+
+        basic_interface = Interface(basic_interface_dict)
+
+        calls = [
+            mock.call({"mapping": "number 1"}, "datastream"),
+            mock.call({"mapping": "number 2"}, "datastream"),
+        ]
+        mock_mapping.assert_has_calls(calls)
+        self.assertEqual(mock_mapping.call_count, 2)
+        self.assertEqual(basic_interface.name, "com.astarte.Test")
+        self.assertEqual(basic_interface.version_major, 0)
+        self.assertEqual(basic_interface.version_minor, 1)
+        self.assertEqual(basic_interface.type, "datastream")
+        self.assertEqual(basic_interface.ownership, "device")
+        self.assertEqual(basic_interface.aggregation, "object")
+        self.assertEqual(basic_interface.mappings, [mock_instance1, mock_instance2])
+
+    @mock.patch("astarte.device.interface.Mapping")
+    def test_initialize_missing_interface_name_raises(self, mock_mapping):
+        basic_interface_dict = {
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {"mapping": "number 1"},
+            ],
+        }
+
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
+        mock_mapping.assert_not_called()
+
+    @mock.patch("astarte.device.interface.Mapping")
+    def test_initialize_missing_version_major_raises(self, mock_mapping):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {"mapping": "number 1"},
+            ],
+        }
+
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
+        mock_mapping.assert_not_called()
+
+    @mock.patch("astarte.device.interface.Mapping")
+    def test_initialize_missing_version_minor_raises(self, mock_mapping):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {"mapping": "number 1"},
+            ],
+        }
+
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
+        mock_mapping.assert_not_called()
+
+    @mock.patch("astarte.device.interface.Mapping")
+    def test_initialize_incorrect_type_raises(self, mock_mapping):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "foo",
+            "ownership": "device",
+            "mappings": [
+                {"mapping": "number 1"},
+            ],
+        }
+
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
+        mock_mapping.assert_not_called()
+
+    @mock.patch("astarte.device.interface.Mapping")
+    def test_initialize_incorrect_ownership_raises(self, mock_mapping):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "foo",
+            "mappings": [
+                {"mapping": "number 1"},
+            ],
+        }
+
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
+        mock_mapping.assert_not_called()
+
+    @mock.patch("astarte.device.interface.Mapping")
+    def test_initialize_same_minor_major_version_raises(self, mock_mapping):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 0,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {"mapping": "number 1"},
+            ],
+        }
+
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
+        mock_mapping.assert_not_called()
+
+    @mock.patch("astarte.device.interface.Mapping")
+    def test_initialize_incorrect_aggregation_raises(self, mock_mapping):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "foo",
+            "mappings": [
+                {"mapping": "number 1"},
+            ],
+        }
+
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
+        mock_mapping.assert_not_called()
 
     def test_initialize_duplicate_mapping_raises(self):
-        duplicate_mapping = {
-            "endpoint": "/test/int",
-            "type": "integer",
-        }
-        self.interface_minimal_dict["mappings"].append(duplicate_mapping)
+        self.interface_minimal_dict["mappings"].append(self.interface_minimal_dict["mappings"][0])
         self.assertRaises(InterfaceFileDecodeError, lambda: Interface(self.interface_minimal_dict))
+
+    @mock.patch("astarte.device.interface.Mapping")
+    def test_initialize_missing_mappings_raises(self, mock_mapping):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "individual",
+        }
+
+        self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
+        mock_mapping.assert_not_called()
 
     def test_is_aggregation_object(self):
         # Defaults to individual when it misses the aggregation field

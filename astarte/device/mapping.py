@@ -23,7 +23,7 @@ from math import isfinite
 from re import sub, match
 from typing import Union, List
 
-from astarte.device.exceptions import ValidationError
+from astarte.device.exceptions import ValidationError, InterfaceFileDecodeError
 
 # Astarte Types definition
 IntList = List[int]
@@ -86,7 +86,7 @@ class Mapping:
     type: str
         Type of the Mapping (see notes)
     explicit_timestamp: bool
-        Flag that defines if the Mapping requires a timestamp associated to the Payload before send
+        Flag that defines if the Mapping requires a timestamp associated to the Payload before send.
     reliability:
         Reliability level of the Mapping (see notes)
 
@@ -139,16 +139,24 @@ class Mapping:
         interface_type:
             Type of the parent Interface, used to determine the default reliability
         """
-        self.endpoint: str = mapping_definition["endpoint"]
-        self.type: str = mapping_definition["type"]
-        self.__actual_type = type_strings.get(mapping_definition["type"])
+        self.endpoint: str = mapping_definition.get("endpoint")
+        self.type: str = mapping_definition.get("type")
+        self.__actual_type = type_strings.get(mapping_definition.get("type"))
         self.explicit_timestamp = mapping_definition.get("explicit_timestamp", False)
-        self.reliability = 2
-        if interface_type == "datastream":
-            if "reliability" in mapping_definition:
-                self.reliability = QOS_MAP[mapping_definition["reliability"]]
-            else:
-                self.reliability = 0
+        default_reliability = "unreliable" if interface_type == "datastream" else "unique"
+        self.reliability = QOS_MAP.get(mapping_definition.get("reliability", default_reliability))
+        self.allow_unset = mapping_definition.get("allow_unset", False)
+
+        if not (isinstance(self.endpoint, str) and self.__actual_type):
+            raise InterfaceFileDecodeError("Error parsing the mapping.")
+        if (interface_type != "datastream") and any(
+            k in mapping_definition for k in ("explicit_timestamp", "reliability")
+        ):
+            raise InterfaceFileDecodeError(
+                "Fields 'reliability' and 'explicit_timestamp' have no meaning for properties."
+            )
+        if ("allow_unset" in mapping_definition) and (interface_type != "properties"):
+            raise InterfaceFileDecodeError("Field 'allow_unset' have no meaning for datastreams.")
 
     def validate_path(self, path: str) -> ValidationError | None:
         """

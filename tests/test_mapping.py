@@ -22,15 +22,11 @@
 import unittest
 from datetime import datetime
 from math import nan
-from astarte.device import Mapping, ValidationError
+from astarte.device import Mapping, ValidationError, InterfaceFileDecodeError
 
 
 class UnitTests(unittest.TestCase):
     def setUp(self):
-        self.mapping_no_timestamp_dict = {
-            "endpoint": "/test/two",
-            "type": "boolean",
-        }
         self.mapping_integer_dict = {
             "endpoint": "/test/one",
             "type": "integer",
@@ -102,7 +98,7 @@ class UnitTests(unittest.TestCase):
             "explicit_timestamp": True,
         }
 
-    def test_initialize_datastream(self):
+    def test_initialize(self):
         basic_mapping = {
             "endpoint": "/test/one",
             "type": "boolean",
@@ -157,7 +153,6 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(mapping_basic.explicit_timestamp, False)
         self.assertEqual(mapping_basic.reliability, 2)
 
-    def test_initialize_properties(self):
         basic_mapping = {
             "endpoint": "/test/one",
             "type": "boolean",
@@ -167,61 +162,103 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(mapping_basic.type, "boolean")
         self.assertEqual(mapping_basic.explicit_timestamp, False)
         self.assertEqual(mapping_basic.reliability, 2)
+        self.assertEqual(mapping_basic.allow_unset, False)
 
-        explicit_timestamp_mapping = {
-            "endpoint": "/test/two",
+        unsettable_mapping = {
+            "endpoint": "/test/one",
+            "type": "boolean",
+            "allow_unset": True,
+        }
+        mapping_basic = Mapping(unsettable_mapping, "properties")
+        self.assertEqual(mapping_basic.endpoint, "/test/one")
+        self.assertEqual(mapping_basic.type, "boolean")
+        self.assertEqual(mapping_basic.explicit_timestamp, False)
+        self.assertEqual(mapping_basic.reliability, 2)
+        self.assertEqual(mapping_basic.allow_unset, True)
+
+    def test_initialize_missing_endpoint_raises(self):
+        basic_mapping = {
+            "type": "boolean",
+        }
+        self.assertRaises(InterfaceFileDecodeError, lambda: Mapping(basic_mapping, "datastream"))
+
+    def test_initialize_missing_type_raises(self):
+        basic_mapping = {
+            "endpoint": "/test/one",
+        }
+        self.assertRaises(InterfaceFileDecodeError, lambda: Mapping(basic_mapping, "datastream"))
+
+    def test_initialize_non_existing_type_raises(self):
+        basic_mapping = {
+            "endpoint": "/test/one",
+            "type": "foo",
+        }
+        self.assertRaises(InterfaceFileDecodeError, lambda: Mapping(basic_mapping, "datastream"))
+
+    def test_initialize_explicit_timestamp_in_property_raises(self):
+        basic_mapping = {
+            "endpoint": "/test/one",
             "type": "integer",
             "explicit_timestamp": True,
         }
-        mapping_basic = Mapping(explicit_timestamp_mapping, "properties")
-        self.assertEqual(mapping_basic.endpoint, "/test/two")
-        self.assertEqual(mapping_basic.type, "integer")
-        self.assertEqual(mapping_basic.explicit_timestamp, True)
-        self.assertEqual(mapping_basic.reliability, 2)
+        self.assertRaises(InterfaceFileDecodeError, lambda: Mapping(basic_mapping, "properties"))
 
+    def test_initialize_reliability_in_property_raises(self):
         basic_mapping = {
             "endpoint": "/test/one",
-            "type": "boolean",
+            "type": "integer",
             "reliability": "unreliable",
         }
-        mapping_basic = Mapping(basic_mapping, "properties")
-        self.assertEqual(mapping_basic.endpoint, "/test/one")
-        self.assertEqual(mapping_basic.type, "boolean")
-        self.assertEqual(mapping_basic.explicit_timestamp, False)
-        self.assertEqual(mapping_basic.reliability, 2)
+        self.assertRaises(InterfaceFileDecodeError, lambda: Mapping(basic_mapping, "properties"))
 
+    def test_initialize_unsettability_in_datastreams_raises(self):
+        basic_mapping = {
+            "endpoint": "/test/one",
+            "type": "integer",
+            "allow_unset": True,
+        }
+        self.assertRaises(InterfaceFileDecodeError, lambda: Mapping(basic_mapping, "datastream"))
+
+    def test_validate_path(self):
         basic_mapping = {
             "endpoint": "/test/one",
             "type": "boolean",
-            "reliability": "guaranteed",
         }
-        mapping_basic = Mapping(basic_mapping, "properties")
-        self.assertEqual(mapping_basic.endpoint, "/test/one")
-        self.assertEqual(mapping_basic.type, "boolean")
-        self.assertEqual(mapping_basic.explicit_timestamp, False)
-        self.assertEqual(mapping_basic.reliability, 2)
+        mapping_basic = Mapping(basic_mapping, "datastream")
+        self.assertIsNone(mapping_basic.validate_path("/test/one"))
+        self.assertIsInstance(mapping_basic.validate_path("test/one"), ValidationError)
+        self.assertIsInstance(mapping_basic.validate_path("/tests/one"), ValidationError)
+        self.assertIsInstance(mapping_basic.validate_path("/test/one/more"), ValidationError)
+        self.assertIsInstance(mapping_basic.validate_path("/test/one/"), ValidationError)
+        self.assertIsInstance(mapping_basic.validate_path("more/test/one"), ValidationError)
 
-        basic_mapping = {
-            "endpoint": "/test/one",
+        param_mapping = {
+            "endpoint": r"/%{param}/one",
             "type": "boolean",
-            "reliability": "unique",
         }
-        mapping_basic = Mapping(basic_mapping, "properties")
-        self.assertEqual(mapping_basic.endpoint, "/test/one")
-        self.assertEqual(mapping_basic.type, "boolean")
-        self.assertEqual(mapping_basic.explicit_timestamp, False)
-        self.assertEqual(mapping_basic.reliability, 2)
+        mapping_param = Mapping(param_mapping, "datastream")
+        self.assertIsNone(mapping_param.validate_path("/21smt/one"))
+        self.assertIsInstance(mapping_param.validate_path("/more/21/one"), ValidationError)
+        self.assertIsInstance(mapping_param.validate_path("/21/more/one"), ValidationError)
+        self.assertIsInstance(mapping_param.validate_path("/21+/one"), ValidationError)
+        self.assertIsInstance(mapping_param.validate_path("/21#/one"), ValidationError)
 
-    def test_mapping_validate_ok(self):
-        mapping_no_timestamp = Mapping(self.mapping_no_timestamp_dict, "datastream")
-        validate_res = mapping_no_timestamp.validate_payload(True, None)
-        assert validate_res is None
+        two_param_mapping = {
+            "endpoint": r"/%{param1}/%{param2}/one",
+            "type": "boolean",
+        }
+        mapping_two_param = Mapping(two_param_mapping, "datastream")
+        self.assertIsNone(mapping_two_param.validate_path("/aa/bb/one"))
+        self.assertIsInstance(mapping_two_param.validate_path("/21/one"), ValidationError)
+        self.assertIsInstance(mapping_two_param.validate_path("/aa/bb/more/one"), ValidationError)
+        self.assertIsInstance(mapping_two_param.validate_path("more/aa/bb/one"), ValidationError)
 
-        mapping_integer = Mapping(self.mapping_integer_dict, "properties")
+    def test_validate_payload(self):
+        mapping_integer = Mapping(self.mapping_integer_dict, "datastream")
         validate_res = mapping_integer.validate_payload(42, datetime.now())
         assert validate_res is None
 
-        mapping_longinteger = Mapping(self.mapping_longinteger_dict, "properties")
+        mapping_longinteger = Mapping(self.mapping_longinteger_dict, "datastream")
         validate_res = mapping_longinteger.validate_payload(42, datetime.now())
         assert validate_res is None
 
@@ -257,25 +294,25 @@ class UnitTests(unittest.TestCase):
         validate_res = mapping_doublearray.validate_payload([42.1], datetime.now())
         assert validate_res is None
 
-        mapping_stringarray = Mapping(self.mapping_stringarray_dict, "properties")
+        mapping_stringarray = Mapping(self.mapping_stringarray_dict, "datastream")
         validate_res = mapping_stringarray.validate_payload(["my string"], datetime.now())
         assert validate_res is None
 
-        mapping_binaryblobarray = Mapping(self.mapping_binaryblobarray_dict, "properties")
+        mapping_binaryblobarray = Mapping(self.mapping_binaryblobarray_dict, "datastream")
         validate_res = mapping_binaryblobarray.validate_payload(
             [b"hello", b"world"], datetime.now()
         )
         assert validate_res is None
 
-        mapping_booleanarray = Mapping(self.mapping_booleanarray_dict, "properties")
+        mapping_booleanarray = Mapping(self.mapping_booleanarray_dict, "datastream")
         validate_res = mapping_booleanarray.validate_payload([True, False], datetime.now())
         assert validate_res is None
 
-        mapping_datetimearray = Mapping(self.mapping_datetimearray_dict, "properties")
+        mapping_datetimearray = Mapping(self.mapping_datetimearray_dict, "datastream")
         validate_res = mapping_datetimearray.validate_payload([datetime.now()], datetime.now())
         assert validate_res is None
 
-    def test_mapping_validate_empty_payload_err(self):
+    def test_validate_payload_empty_payload_err(self):
         basic_mapping = {
             "endpoint": "/test/one",
             "type": "boolean",
@@ -288,19 +325,28 @@ class UnitTests(unittest.TestCase):
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Attempting to validate an empty payload for /test/one"
 
-    def test_mapping_validate_missing_timestamp_err(self):
-        mapping_integer = Mapping(self.mapping_integer_dict, "datastream")
+    def test_validate_payload_missing_timestamp_err(self):
+        basic_mapping = {
+            "endpoint": "/test/one",
+            "type": "integer",
+            "explicit_timestamp": True,
+        }
+        mapping_integer = Mapping(basic_mapping, "datastream")
         validate_res = mapping_integer.validate_payload(42, None)
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Timestamp required for /test/one"
 
-    def test_mapping_validate_not_required_timestamp_err(self):
-        mapping_no_timestamp = Mapping(self.mapping_no_timestamp_dict, "datastream")
+    def test_validate_payload_not_required_timestamp_err(self):
+        basic_mapping = {
+            "endpoint": "/test/two",
+            "type": "boolean",
+        }
+        mapping_no_timestamp = Mapping(basic_mapping, "datastream")
         validate_res = mapping_no_timestamp.validate_payload(True, datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "It's not possible to set the timestamp for /test/two"
 
-    def test_mapping_validate_incorrect_type_err(self):
+    def test_validate_payload_incorrect_type_err(self):
         mapping_integer = Mapping(self.mapping_integer_dict, "datastream")
         validate_res = mapping_integer.validate_payload(True, datetime.now())
         assert isinstance(validate_res, ValidationError)
@@ -392,7 +438,7 @@ class UnitTests(unittest.TestCase):
             == "/test/one is datetimearray but a list of <class 'int'> was provided"
         )
 
-    def test_mapping_validate_incoherent_type_in_list_err(self):
+    def test_validate_payload_incoherent_type_in_list_err(self):
         mapping_integerarray = Mapping(self.mapping_integerarray_dict, "datastream")
         validate_res = mapping_integerarray.validate_payload([12, True], datetime.now())
         assert isinstance(validate_res, ValidationError)
@@ -428,7 +474,7 @@ class UnitTests(unittest.TestCase):
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Type incoherence in payload elements"
 
-    def test_mapping_validate_out_of_range_integer_err(self):
+    def test_validate_payload_out_of_range_integer_err(self):
         mapping_integer = Mapping(self.mapping_integer_dict, "datastream")
         validate_res = mapping_integer.validate_payload(-2147483649, datetime.now())
         assert isinstance(validate_res, ValidationError)
@@ -449,7 +495,7 @@ class UnitTests(unittest.TestCase):
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Value out of int32 range for /test/one"
 
-    def test_mapping_validate_nan_double_err(self):
+    def test_validate_payload_nan_double_err(self):
         mapping_double = Mapping(self.mapping_double_dict, "datastream")
         validate_res = mapping_double.validate_payload(nan, datetime.now())
         assert isinstance(validate_res, ValidationError)
@@ -459,37 +505,3 @@ class UnitTests(unittest.TestCase):
         validate_res = mapping_doublearray.validate_payload([nan], datetime.now())
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Invalid float value for /test/one"
-
-    def test_mapping_validate_path(self):
-        basic_mapping = {
-            "endpoint": "/test/one",
-            "type": "boolean",
-        }
-        mapping_basic = Mapping(basic_mapping, "datastream")
-        self.assertIsNone(mapping_basic.validate_path("/test/one"))
-        self.assertIsInstance(mapping_basic.validate_path("test/one"), ValidationError)
-        self.assertIsInstance(mapping_basic.validate_path("/tests/one"), ValidationError)
-        self.assertIsInstance(mapping_basic.validate_path("/test/one/more"), ValidationError)
-        self.assertIsInstance(mapping_basic.validate_path("/test/one/"), ValidationError)
-        self.assertIsInstance(mapping_basic.validate_path("more/test/one"), ValidationError)
-
-        param_mapping = {
-            "endpoint": r"/%{param}/one",
-            "type": "boolean",
-        }
-        mapping_param = Mapping(param_mapping, "datastream")
-        self.assertIsNone(mapping_param.validate_path("/21smt/one"))
-        self.assertIsInstance(mapping_param.validate_path("/more/21/one"), ValidationError)
-        self.assertIsInstance(mapping_param.validate_path("/21/more/one"), ValidationError)
-        self.assertIsInstance(mapping_param.validate_path("/21+/one"), ValidationError)
-        self.assertIsInstance(mapping_param.validate_path("/21#/one"), ValidationError)
-
-        two_param_mapping = {
-            "endpoint": r"/%{param1}/%{param2}/one",
-            "type": "boolean",
-        }
-        mapping_two_param = Mapping(two_param_mapping, "datastream")
-        self.assertIsNone(mapping_two_param.validate_path("/aa/bb/one"))
-        self.assertIsInstance(mapping_two_param.validate_path("/21/one"), ValidationError)
-        self.assertIsInstance(mapping_two_param.validate_path("/aa/bb/more/one"), ValidationError)
-        self.assertIsInstance(mapping_two_param.validate_path("more/aa/bb/one"), ValidationError)
