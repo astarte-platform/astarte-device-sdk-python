@@ -177,7 +177,27 @@ class Mapping:
             return ValidationError(f"Path {path} does not match the endpoint {self.endpoint}")
         return None
 
-    def validate_payload(self, payload: MapType, timestamp: datetime) -> ValidationError | None:
+    def validate_timestamp(self, timestamp: datetime | None) -> ValidationError | None:
+        """
+        Mapping timestamp validation
+
+        Parameters
+        ----------
+        timestamp: datetime or None
+            Timestamp associated to the payload
+
+        Returns
+        -------
+        ValidationError or None
+            None in case of successful validation, ValidationError otherwise
+        """
+        if self.explicit_timestamp and not timestamp:
+            return ValidationError(f"Timestamp required for {self.endpoint}")
+        if not self.explicit_timestamp and timestamp:
+            return ValidationError(f"It's not possible to set the timestamp for {self.endpoint}")
+        return None
+
+    def validate_payload(self, payload: MapType) -> ValidationError | None:
         """
         Mapping data validation
 
@@ -185,8 +205,6 @@ class Mapping:
         ----------
         payload: MapType
             Data to validate
-        timestamp: datetime or None
-            Timestamp associated to the payload
 
         Returns
         -------
@@ -198,10 +216,6 @@ class Mapping:
         if not payload:
             return ValidationError(f"Attempting to validate an empty payload for {self.endpoint}")
         # Check if the interface has explicit_timestamp when a timestamp is given (and viceversa)
-        if self.explicit_timestamp and not timestamp:
-            return ValidationError(f"Timestamp required for {self.endpoint}")
-        if not self.explicit_timestamp and timestamp:
-            return ValidationError(f"It's not possible to set the timestamp for {self.endpoint}")
         # Check the type of data is valid for that endpoint
         # pylint: disable-next=unidiomatic-typecheck
         if not type(payload) is self.__actual_type:

@@ -1099,6 +1099,8 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         mock_bson_loads.return_value = {"v": "payload_value"}
+        mock_get_interface.return_value.validate_path.return_value = None
+        mock_get_interface.return_value.validate_payload.return_value = None
 
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
@@ -1107,7 +1109,15 @@ class UnitTests(unittest.TestCase):
         device._Device__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
         mock_bson_loads.assert_called_once_with(mock_message.payload)
+        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
+        mock_get_interface.return_value.validate_path.assert_called_once_with(
+            "/endpoint/path", "payload_value"
+        )
+        mock_get_interface.return_value.validate_payload.assert_called_once_with(
+            "/endpoint/path", "payload_value"
+        )
         device.on_data_received.assert_called_once_with(
             device, "interface_name", "/endpoint/path", "payload_value"
         )
@@ -1119,6 +1129,8 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=mock_loop)
 
         mock_bson_loads.return_value = {"v": "payload_value"}
+        mock_get_interface.return_value.validate_path.return_value = None
+        mock_get_interface.return_value.validate_payload.return_value = None
 
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
@@ -1127,7 +1139,15 @@ class UnitTests(unittest.TestCase):
         device._Device__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
         mock_bson_loads.assert_called_once_with(mock_message.payload)
+        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
+        mock_get_interface.return_value.validate_path.assert_called_once_with(
+            "/endpoint/path", "payload_value"
+        )
+        mock_get_interface.return_value.validate_payload.assert_called_once_with(
+            "/endpoint/path", "payload_value"
+        )
         mock_loop.call_soon_threadsafe.assert_called_once_with(
             device.on_data_received, device, "interface_name", "/endpoint/path", "payload_value"
         )
@@ -1137,8 +1157,6 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_incorrect_base_topic(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
-
-        mock_bson_loads.return_value = {"v": "payload_value"}
 
         mock_message = mock.MagicMock()
         mock_message.topic = "something/device_id/interface_name/endpoint/path"
@@ -1155,8 +1173,6 @@ class UnitTests(unittest.TestCase):
     def test__on_message_control_message(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
 
-        mock_bson_loads.return_value = {"v": "payload_value"}
-
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/control/consumer/properties"
 
@@ -1172,8 +1188,6 @@ class UnitTests(unittest.TestCase):
     def test__on_message_no_callback(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
 
-        mock_bson_loads.return_value = {"v": "payload_value"}
-
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
@@ -1184,10 +1198,8 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch("astarte.device.device.bson.loads")
     @mock.patch.object(Introspection, "get_interface", return_value=None)
-    def test__on_message_incorrect_interface(self, mock_get_interface, mock_bson_loads):
+    def test__on_message_unregistered_interface_name(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
-
-        mock_bson_loads.return_value = {"v": "payload_value"}
 
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
@@ -1197,10 +1209,32 @@ class UnitTests(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_bson_loads.assert_not_called()
+        device.on_data_received.assert_not_called()
 
     @mock.patch("astarte.device.device.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
-    def test__on_message_incorrect_payload(self, mock_get_interface, mock_bson_loads):
+    def test__on_message_device_owned_interface(self, mock_get_interface, mock_bson_loads):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_get_interface.return_value.is_server_owned.return_value = False
+
+        mock_message = mock.MagicMock()
+        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
+
+        device.on_data_received = mock.MagicMock()
+        device._Device__on_message(None, None, msg=mock_message)
+
+        mock_get_interface.assert_called_once_with("interface_name")
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
+        mock_bson_loads.assert_not_called()
+        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
+        mock_get_interface.return_value.validate_path.assert_not_called()
+        mock_get_interface.return_value.validate_payload.assert_not_called()
+        device.on_data_received.assert_not_called()
+
+    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch.object(Introspection, "get_interface")
+    def test__on_message_payload_missing_value_field(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
 
         mock_bson_loads.return_value = {}
@@ -1212,5 +1246,83 @@ class UnitTests(unittest.TestCase):
         device._Device__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
         mock_bson_loads.assert_called_once_with(mock_message.payload)
+        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
+        mock_get_interface.return_value.validate_path.assert_not_called()
+        mock_get_interface.return_value.validate_payload.assert_not_called()
+        device.on_data_received.assert_not_called()
+
+    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch.object(Introspection, "get_interface")
+    def test__on_message_empty_payload_but_not_a_property(
+        self, mock_get_interface, mock_bson_loads
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_get_interface.return_value.is_property_endpoint_resettable.return_value = False
+
+        mock_message = mock.MagicMock()
+        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
+        mock_message.payload = None
+
+        device.on_data_received = mock.MagicMock()
+        device._Device__on_message(None, None, msg=mock_message)
+
+        mock_get_interface.assert_called_once_with("interface_name")
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
+        mock_bson_loads.assert_not_called()
+        mock_get_interface.return_value.is_property_endpoint_resettable.assert_called_once()
+        mock_get_interface.return_value.validate_path.assert_not_called()
+        mock_get_interface.return_value.validate_payload.assert_not_called()
+        device.on_data_received.assert_not_called()
+
+    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch.object(Introspection, "get_interface")
+    def test__on_message_incorrect_path(self, mock_get_interface, mock_bson_loads):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_bson_loads.return_value = {"v": "payload_value"}
+        mock_get_interface.return_value.validate_payload.return_value = None
+
+        mock_message = mock.MagicMock()
+        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
+
+        device.on_data_received = mock.MagicMock()
+        device._Device__on_message(None, None, msg=mock_message)
+
+        mock_get_interface.assert_called_once_with("interface_name")
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
+        mock_bson_loads.assert_called_once_with(mock_message.payload)
+        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
+        mock_get_interface.return_value.validate_path.assert_called_once_with(
+            "/endpoint/path", "payload_value"
+        )
+        mock_get_interface.return_value.validate_payload.assert_not_called()
+        device.on_data_received.assert_not_called()
+
+    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch.object(Introspection, "get_interface")
+    def test__on_message_payload(self, mock_get_interface, mock_bson_loads):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_bson_loads.return_value = {"v": "payload_value"}
+        mock_get_interface.return_value.validate_path.return_value = None
+
+        mock_message = mock.MagicMock()
+        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
+
+        device.on_data_received = mock.MagicMock()
+        device._Device__on_message(None, None, msg=mock_message)
+
+        mock_get_interface.assert_called_once_with("interface_name")
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
+        mock_bson_loads.assert_called_once_with(mock_message.payload)
+        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
+        mock_get_interface.return_value.validate_path.assert_called_once_with(
+            "/endpoint/path", "payload_value"
+        )
+        mock_get_interface.return_value.validate_payload.assert_called_once_with(
+            "/endpoint/path", "payload_value"
+        )
         device.on_data_received.assert_not_called()

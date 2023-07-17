@@ -262,6 +262,69 @@ class UnitTests(unittest.TestCase):
         interface_property = Interface(self.interface_minimal_dict)
         assert interface_property.is_type_properties()
 
+    def test_is_property_endpoint_resettable(self):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "properties",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {"endpoint": "/test/endpoint/two", "type": "boolean", "allow_unset": True},
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+        self.assertFalse(interface_individual.is_property_endpoint_resettable("/test/endpoint/one"))
+        self.assertTrue(interface_individual.is_property_endpoint_resettable("/test/endpoint/two"))
+
+    @mock.patch.object(Interface, "get_mapping")
+    def test_is_property_endpoint_resettable_not_a_property(self, mock_get_mapping):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+
+        interface_individual = Interface(minimal_interface_dict)
+
+        self.assertFalse(interface_individual.is_property_endpoint_resettable("/test/endpoint/one"))
+        self.assertFalse(interface_individual.is_property_endpoint_resettable("/test/endpoint/two"))
+        mock_get_mapping.assert_not_called()
+
+    def test_is_property_endpoint_resettable_invalid_endpoint(self):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "properties",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {"endpoint": "/test/endpoint/two", "type": "boolean", "allow_unset": True},
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+        self.assertFalse(interface_individual.is_property_endpoint_resettable("/test/endint/one"))
+
     @mock.patch.object(Mapping, "validate_path")
     def test_get_mapping(self, mock_validate_path):
         new_mappings = [
@@ -298,110 +361,474 @@ class UnitTests(unittest.TestCase):
         mock_validate_path.assert_has_calls([mock.call("/test/three"), mock.call("/test/three")])
         self.assertEqual(mock_validate_path.call_count, 2)
 
-    @mock.patch.object(Mapping, "validate_payload")
-    def test_validate_individual(self, mock_validate_payload):
-        interface_individual = Interface(self.interface_minimal_dict)
-
-        mock_validate_payload.return_value = "Map validate return value"
-        result = interface_individual.validate("/test/int", 42, None)
-        self.assertEqual("Map validate return value", result)
-        mock_validate_payload.assert_called_once_with(42, None)
-
-    @mock.patch.object(Mapping, "validate_payload")
-    def test_validate_individual_parametric(self, mock_validate_payload):
-        new_mappings = [
-            {
-                "endpoint": r"/test/%{var}/int",
-                "type": "integer",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            }
-        ]
-        self.interface_minimal_dict["mappings"] = new_mappings
-        interface_individual = Interface(self.interface_minimal_dict)
-
-        mock_validate_payload.return_value = "Map validate return value"
-        result = interface_individual.validate("/test/11/int", 42, None)
-        self.assertEqual("Map validate return value", result)
-        mock_validate_payload.assert_called_once_with(42, None)
-
-    def test_validate_aggregate(self):
-        self.interface_minimal_dict["aggregation"] = "object"
-        new_mappings = [
-            {
-                "endpoint": "/test/one",
-                "type": "integer",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-            {
-                "endpoint": "/test/two",
-                "type": "boolean",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-        ]
-        self.interface_minimal_dict["mappings"] = new_mappings
-
-        interface_aggregate = Interface(self.interface_minimal_dict)
-        payload = {
-            "one": 42,
-            "two": True,
+    def test_validate_path_individual(self):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
         }
-        result = interface_aggregate.validate("/test", payload, None)
-        self.assertIsNone(result)
+        interface_individual = Interface(minimal_interface_dict)
+        self.assertIsNone(interface_individual.validate_path("/test/endpoint/one", 11))
 
-    def test_validate_aggregate_parametric(self):
-        self.interface_minimal_dict["aggregation"] = "object"
-        new_mappings = [
-            {
-                "endpoint": r"/test/%{var}/one",
-                "type": "integer",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-            {
-                "endpoint": r"/test/%{var}/two",
-                "type": "boolean",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-        ]
-        self.interface_minimal_dict["mappings"] = new_mappings
-
-        interface_aggregate = Interface(self.interface_minimal_dict)
-        payload = {
-            "one": 42,
-            "two": True,
+    def test_validate_path_individual_no_mapping_for_endpoint(self):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
         }
-        result = interface_aggregate.validate("/test/43", payload, None)
-        self.assertIsNone(result)
+        interface_individual = Interface(minimal_interface_dict)
+        res = interface_individual.validate_path("/test/endnt/one", 11)
+        self.assertIsInstance(res, ValidationError)
+        self.assertEqual(res.msg, "Path /test/endnt/one not in the com.astarte.Test interface.")
+
+    def test_validate_path_aggregate(self):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+        payload = {"endpoint/one": "payload 1", "endpoint/two": "payload_2"}
+        self.assertIsNone(interface_individual.validate_path("/test", payload))
+
+    def test_validate_path_aggregate_no_mapping_for_endpoint(self):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+        payload = {"endpoint/one": "payload 1", "endnt/two": "payload_2"}
+        res = interface_individual.validate_path("/test", payload)
+        self.assertIsInstance(res, ValidationError)
+        self.assertEqual(res.msg, "Path /test/endnt/two not in the com.astarte.Test interface.")
+
+    @mock.patch.object(Mapping, "validate_payload", return_value=None)
+    def test_validate_payload_individual(self, mock_validate_payload):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+
+        payload = mock.MagicMock()
+        self.assertIsNone(interface_individual.validate_payload("/test/endpoint/one", payload))
+
+        mock_validate_payload.assert_called_once_with(payload)
+
+    @mock.patch.object(Mapping, "validate_payload")
+    def test_validate_payload_individual_incorrect_payload(self, mock_validate_payload):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+
+        payload = mock.MagicMock()
+        self.assertEqual(
+            interface_individual.validate_payload("/test/endpoint/one", payload),
+            mock_validate_payload.return_value,
+        )
+
+        mock_validate_payload.assert_called_once_with(payload)
+
+    @mock.patch.object(Mapping, "validate_payload", return_value=None)
+    def test_validate_payload_aggregate(self, mock_validate_payload):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+
+        payload = {"one": mock.MagicMock(), "two": mock.MagicMock()}
+        self.assertIsNone(interface_individual.validate_payload("/test/endpoint", payload))
+
+        calls = [mock.call(payload["one"]), mock.call(payload["two"])]
+        mock_validate_payload.assert_has_calls(calls)
+        self.assertEqual(mock_validate_payload.call_count, 2)
+
+    @mock.patch.object(Mapping, "validate_payload")
+    def test_validate_payload_aggregate_payload_not_a_dict(self, mock_validate_payload):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+
+        payload = 42
+        res = interface_individual.validate_payload("/test/endpoint", payload)
+        self.assertIsInstance(res, ValidationError)
+        self.assertEqual(res.msg, "Payload not a dict for aggregated interface com.astarte.Test.")
+        mock_validate_payload.assert_not_called()
+
+    @mock.patch.object(Mapping, "validate_payload")
+    def test_validate_payload_aggregate_incorrect_payload(self, mock_validate_payload):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+
+        mock_payload_invalid = mock.MagicMock()
+        mock_validate_payload.side_effect = [None, mock_payload_invalid]
+
+        payload = {"one": mock.MagicMock(), "two": mock.MagicMock()}
+        self.assertEqual(
+            interface_individual.validate_payload("/test/endpoint", payload), mock_payload_invalid
+        )
+
+        calls = [mock.call(payload["one"]), mock.call(payload["two"])]
+        mock_validate_payload.assert_has_calls(calls)
+        self.assertEqual(mock_validate_payload.call_count, 2)
+
+    def test_validate_payload_aggregate_missing_one_endpoint_from_payload(self):
+        minimal_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/endpoint/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_individual = Interface(minimal_interface_dict)
+
+        payload = {"one": 22}
+        self.assertIsInstance(
+            interface_individual.validate_payload("/test/endpoint", payload), ValidationError
+        )
+
+    @mock.patch.object(Mapping, "validate_payload")
+    @mock.patch.object(Mapping, "validate_timestamp")
+    def test_validate_individual(self, mock_validate_timestamp, mock_validate_payload):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/int",
+                    "type": "integer",
+                }
+            ],
+        }
+        interface_individual = Interface(basic_interface_dict)
+
+        mock_validate_payload.return_value = None
+
+        mock_payload = mock.MagicMock()
+        mock_timestamp = mock.MagicMock()
+        result = interface_individual.validate("/test/int", mock_payload, mock_timestamp)
+        self.assertEqual(result, mock_validate_timestamp.return_value)
+
+        mock_validate_payload.assert_called_once_with(mock_payload)
+        mock_validate_timestamp.assert_called_once_with(mock_timestamp)
+
+    @mock.patch.object(Mapping, "validate_payload")
+    @mock.patch.object(Mapping, "validate_timestamp")
+    def test_validate_individual_parametric(self, mock_validate_timestamp, mock_validate_payload):
+        parametric_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": r"/test/%{var}/int",
+                    "type": "integer",
+                }
+            ],
+        }
+        interface_individual = Interface(parametric_interface_dict)
+
+        mock_validate_payload.return_value = None
+
+        mock_payload = mock.MagicMock()
+        mock_timestamp = mock.MagicMock()
+        result = interface_individual.validate("/test/11/int", mock_payload, mock_timestamp)
+        self.assertEqual(result, mock_validate_timestamp.return_value)
+
+        mock_validate_payload.assert_called_once_with(mock_payload)
+        mock_validate_timestamp.assert_called_once_with(mock_timestamp)
+
+    @mock.patch.object(Mapping, "validate_payload")
+    @mock.patch.object(Mapping, "validate_timestamp")
+    def test_validate_individual_non_valid_payload_err(
+        self, mock_validate_timestamp, mock_validate_payload
+    ):
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/int",
+                    "type": "integer",
+                }
+            ],
+        }
+        interface_individual = Interface(basic_interface_dict)
+
+        mock_payload = mock.MagicMock()
+        mock_timestamp = mock.MagicMock()
+        result = interface_individual.validate("/test/int", mock_payload, mock_timestamp)
+        self.assertEqual(result, mock_validate_payload.return_value)
+
+        mock_validate_payload.assert_called_once_with(mock_payload)
+        mock_validate_timestamp.assert_called_once_with(mock_timestamp)
 
     def test_validate_individual_endpoint_not_existing_err(self):
-        interface_server = Interface(self.interface_minimal_dict)
-        result = interface_server.validate("/test/something", 42, None)
+        basic_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "mappings": [
+                {
+                    "endpoint": "/test/int",
+                    "type": "integer",
+                }
+            ],
+        }
+        interface_individual = Interface(basic_interface_dict)
+        result = interface_individual.validate("/test/something", 42, None)
         assert isinstance(result, ValidationError)
         assert result.msg == "Path /test/something not in the com.astarte.Test interface."
 
+    @mock.patch.object(Mapping, "validate_payload")
+    @mock.patch.object(Mapping, "validate_timestamp")
+    def test_validate_aggregate(self, mock_validate_timestamp, mock_validate_payload):
+        aggregated_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_aggregate = Interface(aggregated_interface_dict)
+
+        mock_validate_payload.return_value = None
+        mock_validate_timestamp.return_value = None
+
+        payload = {
+            "one": mock.MagicMock(),
+            "two": mock.MagicMock(),
+        }
+        mock_timestamp = mock.MagicMock()
+        self.assertIsNone(interface_aggregate.validate("/test", payload, mock_timestamp))
+
+        calls = [mock.call(payload["one"]), mock.call(payload["two"])]
+        mock_validate_payload.assert_has_calls(calls)
+        self.assertEqual(mock_validate_payload.call_count, 2)
+        calls = [mock.call(mock_timestamp), mock.call(mock_timestamp)]
+        mock_validate_timestamp.assert_has_calls(calls)
+        self.assertEqual(mock_validate_timestamp.call_count, 2)
+
+    @mock.patch.object(Mapping, "validate_payload")
+    @mock.patch.object(Mapping, "validate_timestamp")
+    def test_validate_aggregate_parametric(self, mock_validate_timestamp, mock_validate_payload):
+        aggregated_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": r"/test/%{var}/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": r"/test/%{var}/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_aggregate = Interface(aggregated_interface_dict)
+
+        mock_validate_payload.return_value = None
+        mock_validate_timestamp.return_value = None
+
+        payload = {
+            "one": mock.MagicMock(),
+            "two": mock.MagicMock(),
+        }
+        mock_timestamp = mock.MagicMock()
+        self.assertIsNone(interface_aggregate.validate("/test/43", payload, mock_timestamp))
+
+        calls = [mock.call(payload["one"]), mock.call(payload["two"])]
+        mock_validate_payload.assert_has_calls(calls)
+        self.assertEqual(mock_validate_payload.call_count, 2)
+        calls = [mock.call(mock_timestamp), mock.call(mock_timestamp)]
+        mock_validate_timestamp.assert_has_calls(calls)
+        self.assertEqual(mock_validate_timestamp.call_count, 2)
+
     def test_validate_aggregate_payload_not_dict_err(self):
-        self.interface_minimal_dict["aggregation"] = "object"
-        new_mappings = [
-            {
-                "endpoint": "/test/one",
-                "type": "integer",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-            {
-                "endpoint": "/test/two",
-                "type": "boolean",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-        ]
-        self.interface_minimal_dict["mappings"] = new_mappings
-        interface_server = Interface(self.interface_minimal_dict)
-        result = interface_server.validate("/test/one", 42, None)
+        aggregated_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_aggregate = Interface(aggregated_interface_dict)
+        result = interface_aggregate.validate("/test/one", 42, None)
         assert isinstance(result, ValidationError)
         assert (
             result.msg
@@ -409,56 +836,122 @@ class UnitTests(unittest.TestCase):
         )
 
     def test_validate_aggregate_non_existing_endpoint_err(self):
-        self.interface_minimal_dict["aggregation"] = "object"
-        new_mappings = [
-            {
-                "endpoint": "/test/one",
-                "type": "integer",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-            {
-                "endpoint": "/test/two",
-                "type": "boolean",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-        ]
-        self.interface_minimal_dict["mappings"] = new_mappings
-        interface_server = Interface(self.interface_minimal_dict)
+        aggregated_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_aggregate = Interface(aggregated_interface_dict)
         payload = {
             "one": 42,
             "three": True,
         }
-        result = interface_server.validate("/test", payload, None)
+        result = interface_aggregate.validate("/test", payload, None)
         assert isinstance(result, ValidationError)
         assert result.msg == "Path /test/three not in the com.astarte.Test interface."
 
-    def test_validate_aggregate_non_valid_mapping_err(self):
-        self.interface_minimal_dict["aggregation"] = "object"
-        new_mappings = [
-            {
-                "endpoint": "/test/one",
-                "type": "integer",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-            {
-                "endpoint": "/test/two",
-                "type": "boolean",
-                "database_retention_policy": "use_ttl",
-                "database_retention_ttl": 31536000,
-            },
-        ]
-        self.interface_minimal_dict["mappings"] = new_mappings
-        interface_server = Interface(self.interface_minimal_dict)
-        payload = {
-            "one": True,
-            "two": True,
+    @mock.patch.object(Mapping, "validate_payload")
+    @mock.patch.object(Mapping, "validate_timestamp")
+    def test_validate_aggregate_non_valid_payload_err(
+        self, mock_validate_timestamp, mock_validate_payload
+    ):
+        aggregated_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/two",
+                    "type": "boolean",
+                },
+            ],
         }
-        result = interface_server.validate("/test", payload, None)
-        assert isinstance(result, ValidationError)
-        assert result.msg == "/test/one is integer but <class 'bool'> was provided"
+        interface_aggregate = Interface(aggregated_interface_dict)
+
+        mock_failed_validation = mock.MagicMock()
+        mock_validate_payload.side_effect = [None, mock_failed_validation]
+        mock_validate_timestamp.return_value = None
+
+        payload = {
+            "one": mock.MagicMock(),
+            "two": mock.MagicMock(),
+        }
+        mock_timestamp = mock.MagicMock()
+        self.assertEqual(
+            interface_aggregate.validate("/test", payload, mock_timestamp), mock_failed_validation
+        )
+
+        calls = [mock.call(payload["one"]), mock.call(payload["two"])]
+        mock_validate_payload.assert_has_calls(calls)
+        self.assertEqual(mock_validate_payload.call_count, 2)
+        calls = [mock.call(mock_timestamp), mock.call(mock_timestamp)]
+        mock_validate_timestamp.assert_has_calls(calls)
+        self.assertEqual(mock_validate_timestamp.call_count, 2)
+
+    @mock.patch.object(Mapping, "validate_payload")
+    @mock.patch.object(Mapping, "validate_timestamp")
+    def test_validate_aggregate_non_valid_timestamp_err(
+        self, mock_validate_timestamp, mock_validate_payload
+    ):
+        aggregated_interface_dict = {
+            "interface_name": "com.astarte.Test",
+            "version_major": 0,
+            "version_minor": 1,
+            "type": "datastream",
+            "ownership": "device",
+            "aggregation": "object",
+            "mappings": [
+                {
+                    "endpoint": "/test/one",
+                    "type": "integer",
+                },
+                {
+                    "endpoint": "/test/two",
+                    "type": "boolean",
+                },
+            ],
+        }
+        interface_aggregate = Interface(aggregated_interface_dict)
+
+        mock_failed_validation = mock.MagicMock()
+        mock_validate_payload.side_effect = [None, None]
+        mock_validate_timestamp.side_effect = [None, mock_failed_validation]
+
+        payload = {
+            "one": mock.MagicMock(),
+            "two": mock.MagicMock(),
+        }
+        mock_timestamp = mock.MagicMock()
+        self.assertEqual(
+            interface_aggregate.validate("/test", payload, mock_timestamp), mock_failed_validation
+        )
+
+        calls = [mock.call(payload["one"]), mock.call(payload["two"])]
+        mock_validate_payload.assert_has_calls(calls)
+        self.assertEqual(mock_validate_payload.call_count, 2)
+        calls = [mock.call(mock_timestamp), mock.call(mock_timestamp)]
+        mock_validate_timestamp.assert_has_calls(calls)
+        self.assertEqual(mock_validate_timestamp.call_count, 2)
 
     def test_validate_aggregate_missing_endpoint_err(self):
         self.interface_minimal_dict["aggregation"] = "object"
@@ -483,7 +976,7 @@ class UnitTests(unittest.TestCase):
         }
         result = interface_server.validate("/test", payload, None)
         assert isinstance(result, ValidationError)
-        assert result.msg == "Path /test/two of com.astarte.Test interface is not in the payload."
+        assert result.msg == "Path /test/two of com.astarte.Test interface not in payload."
 
     def test_validate_aggregate_parametric_missing_endpoint_err(self):
         self.interface_minimal_dict["aggregation"] = "object"
@@ -509,8 +1002,7 @@ class UnitTests(unittest.TestCase):
         result = interface_server.validate("/test/42", payload, None)
         assert isinstance(result, ValidationError)
         assert (
-            result.msg
-            == r"Path /test/%{some_id}/two of com.astarte.Test interface is not in the payload."
+            result.msg == r"Path /test/%{some_id}/two of com.astarte.Test interface not in payload."
         )
 
     def test_get_reliability_individual(self):
