@@ -641,20 +641,28 @@ class Device:  # pylint: disable=too-many-instance-attributes
         -------
 
         """
+        # Check correct base topic
         if not msg.topic.startswith(self.__get_base_topic()):
             logging.warning("Received unexpected message on topic %s, %s", msg.topic, msg.payload)
             return
+
+        # Parse control message in a separate function
         if msg.topic == f"{self.__get_base_topic()}/control/consumer/properties":
             logging.info("Received control message: %s", msg.payload)
             return
 
+        # Check if callback is set
         if not self.on_data_received:
             return
 
-        real_topic = msg.topic.replace(f"{self.__get_base_topic()}/", "")
-        topic_tokens = real_topic.split("/")
+        # Get interface name and path
+        topic_tokens = msg.topic.replace(f"{self.__get_base_topic()}/", "").split("/")
         interface_name = topic_tokens[0]
-        if not self.__introspection.get_interface(interface_name):
+        interface_path = "/" + "/".join(topic_tokens[1:])
+
+        # Check if interface name is correct
+        interface = self.__introspection.get_interface(interface_name)
+        if not interface:
             logging.warning(
                 "Received unexpected message for unregistered interface %s: %s, %s",
                 interface_name,
@@ -663,16 +671,55 @@ class Device:  # pylint: disable=too-many-instance-attributes
             )
             return
 
-        interface_path = "/" + "/".join(topic_tokens[1:])
+        # Check over ownership of the interface
+        if not interface.is_server_owned():
+            logging.warning(
+                "Received unexpected message for device owned interface %s: %s, %s",
+                interface_name,
+                msg.topic,
+                msg.payload,
+            )
+            return
+
+        # Extract payload from BSON
         data_payload = None
         if msg.payload:
             payload_object = bson.loads(msg.payload)
-            if "v" not in payload_object:
+            data_payload = payload_object.get("v")
+            if not data_payload:
                 logging.warning(
                     "Received unexpected BSON Object on topic %s, %s", msg.topic, payload_object
                 )
                 return
-            data_payload = payload_object["v"]
+        # Ensure that an empty payload is only for resettable properties
+        elif not interface.is_property_endpoint_resettable(interface_path):
+            logging.warning(
+                "Received empty payload for non property interface %s or non resettable %s endpoint",
+                interface_name,
+                interface_path,
+            )
+            return
+
+        # Check the received path corresponds to the one in the interface
+        if interface.validate_path(interface_path, data_payload):
+            logging.warning(
+                "Received message on incorrect endpoint for interface %s: %s, %s",
+                interface_name,
+                msg.topic,
+                msg.payload,
+            )
+            return
+
+        # Check the payload matches with the interface
+        if data_payload:
+            if interface.validate_payload(interface_path, data_payload):
+                logging.warning(
+                    "Received incompatible payload for interface %s: %s, %s",
+                    interface_name,
+                    msg.topic,
+                    payload_object,
+                )
+                return
 
         if self.__loop:
             # Use threadsafe, as we're in a different thread here
