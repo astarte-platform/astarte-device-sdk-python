@@ -328,7 +328,7 @@ class UnitTests(unittest.TestCase):
     def test_validate_payload_empty_payload_err(self):
         basic_mapping = {
             "endpoint": "/test/one",
-            "type": "boolean",
+            "type": "double",
         }
         mapping_basic = Mapping(basic_mapping, "datastream")
         validate_res = mapping_basic.validate_payload(None)
@@ -337,6 +337,7 @@ class UnitTests(unittest.TestCase):
         validate_res = mapping_basic.validate_payload([])
         assert isinstance(validate_res, ValidationError)
         assert validate_res.msg == "Attempting to validate an empty payload for /test/one"
+        self.assertIsNone(mapping_basic.validate_payload(0.0))
 
     def test_validate_payload_incorrect_type_err(self):
         mapping_integer = Mapping(self.mapping_integer_dict, "datastream")

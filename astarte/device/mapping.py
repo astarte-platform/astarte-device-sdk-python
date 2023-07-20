@@ -213,7 +213,7 @@ class Mapping:
         """
         min_supported_int = -2147483648
         max_supported_int = 2147483647
-        if not payload:
+        if payload in [None, []]:
             return ValidationError(f"Attempting to validate an empty payload for {self.endpoint}")
         # Check if the interface has explicit_timestamp when a timestamp is given (and viceversa)
         # Check the type of data is valid for that endpoint
