@@ -17,7 +17,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: Code Quality Checks
-on: [pull_request]
+
+on: [push, pull_request, create]
 
 jobs:
   static:

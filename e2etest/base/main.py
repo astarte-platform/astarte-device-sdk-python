@@ -24,8 +24,22 @@ import asyncio
 from pathlib import Path
 from threading import Thread, Lock
 from termcolor import cprint
+import importlib.util
+import sys
 
 from astarte.device import Device
+
+config_path = Path.joinpath(Path.cwd(), "e2etest", "common", "config.py")
+spec = importlib.util.spec_from_file_location("config", config_path)
+config = importlib.util.module_from_spec(spec)
+sys.modules["config"] = config
+spec.loader.exec_module(config)
+
+http_requests_path = Path.joinpath(Path.cwd(), "e2etest", "common", "http_requests.py")
+spec = importlib.util.spec_from_file_location("http_requests", http_requests_path)
+http_requests = importlib.util.module_from_spec(spec)
+sys.modules["http_requests"] = http_requests
+spec.loader.exec_module(http_requests)
 
 from config import TestCfg
 
@@ -70,7 +84,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     """
     Generate the device and run the end to end tests.
     """
-    persistency_dir = Path.joinpath(Path.cwd(), "e2etest", "build")
+    persistency_dir = Path.joinpath(Path.cwd(), "e2etest", "base", "build")
     if not Path.is_dir(persistency_dir):
         os.makedirs(persistency_dir)
     device = Device(
@@ -128,7 +142,7 @@ if __name__ == "__main__":
     call_back_thread.start()
 
     try:
-        main(call_back_loop, TestCfg())
+        main(call_back_loop, TestCfg(number=1))
     except Exception as e:
         call_back_loop.stop()
         call_back_thread.join(timeout=1)

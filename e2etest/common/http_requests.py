@@ -32,8 +32,8 @@ def get_server_interface(test_cfg: TestCfg, interface: str):
     Wrapper for a GET request for the server returning the specified interface data.
     """
     request_body = (
-        test_cfg.api_url
-        + "/appengine/v1/"
+        test_cfg.appengine_url
+        + "/v1/"
         + test_cfg.realm
         + "/devices/"
         + test_cfg.device_id
@@ -55,8 +55,8 @@ def post_server_interface(test_cfg: TestCfg, interface: str, endpoint: str, data
     Wrapper for a POST request for the server, uploading new values to an interface.
     """
     request_body = (
-        test_cfg.api_url
-        + "/appengine/v1/"
+        test_cfg.appengine_url
+        + "/v1/"
         + test_cfg.realm
         + "/devices/"
         + test_cfg.device_id
@@ -81,8 +81,8 @@ def delete_server_interface(test_cfg: TestCfg, interface: str, endpoint: str):
     Wrapper for a DELETE request for the server, deleting an endpoint.
     """
     request_body = (
-        test_cfg.api_url
-        + "/appengine/v1/"
+        test_cfg.appengine_url
+        + "/v1/"
         + test_cfg.realm
         + "/devices/"
         + test_cfg.device_id
@@ -118,11 +118,15 @@ def parse_received_data(data):
     Specifically, datetime and binaryblob should be converted manually from strings.
     """
     # Parse datetime from string to datetime
-    data["datetime_endpoint"] = parser.parse(data["datetime_endpoint"])
-    data["datetimearray_endpoint"] = [parser.parse(dt) for dt in data["datetimearray_endpoint"]]
+    if "datetime_endpoint" in data:
+        data["datetime_endpoint"] = parser.parse(data["datetime_endpoint"])
+    if "datetimearray_endpoint" in data:
+        data["datetimearray_endpoint"] = [parser.parse(dt) for dt in data["datetimearray_endpoint"]]
 
     # Decode binary blob from base64
-    data["binaryblob_endpoint"] = base64.b64decode(data["binaryblob_endpoint"])
-    data["binaryblobarray_endpoint"] = [
-        base64.b64decode(dt) for dt in data["binaryblobarray_endpoint"]
-    ]
+    if "binaryblob_endpoint" in data:
+        data["binaryblob_endpoint"] = base64.b64decode(data["binaryblob_endpoint"])
+    if "binaryblobarray_endpoint" in data:
+        data["binaryblobarray_endpoint"] = [
+            base64.b64decode(dt) for dt in data["binaryblobarray_endpoint"]
+        ]

@@ -18,13 +18,7 @@
 
 name: Build and Test
 
-on:
-  # Run when pushing to stable branches
-  push:
-  # Run on branch/tag creation
-  create:
-  # Run on pull requests
-  pull_request:
+on: [push, pull_request, create]
 
 jobs:
   build:
