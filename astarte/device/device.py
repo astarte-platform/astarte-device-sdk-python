@@ -24,6 +24,7 @@ import collections.abc
 import os
 import ssl
 import json
+import zlib
 from pathlib import Path
 from collections.abc import Callable
 from datetime import datetime
@@ -34,6 +35,7 @@ import paho.mqtt.client as mqtt
 from astarte.device import crypto, pairing_handler
 from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
+from astarte.device.database import AstarteDatabaseSQLite, AstarteDatabase
 from astarte.device.exceptions import (
     ValidationError,
     PersistencyDirectoryNotFoundError,
@@ -89,6 +91,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
         credentials_secret: str,
         pairing_base_url: str,
         persistency_dir: str,
+        database: AstarteDatabase | None = None,
         loop: asyncio.AbstractEventLoop | None = None,
         ignore_ssl_errors: bool = False,
     ):
@@ -110,7 +113,10 @@ class Device:  # pylint: disable=too-many-instance-attributes
             Path to an existing directory which will be used for holding persistency for this
             device: certificates, caching and more. It doesn't have to be unique per device,
             a subdirectory for the given Device ID will be created.
-        loop : asyncio.loop, optional
+        database : AstarteDatabase (optional)
+            User instantiated database to use for caching properties. When None, a native SQLite
+            database will be created and used in the persistency_dir.
+        loop : asyncio.loop (optional)
             An optional loop which will be used for invoking callbacks. When this is not none,
             Device will call any specified callback through loop.call_soon_threadsafe, ensuring
             that the callbacks will be run in thread the loop belongs to. Usually, you want
@@ -135,11 +141,20 @@ class Device:  # pylint: disable=too-many-instance-attributes
         if not os.path.isdir(crypto_dir):
             os.mkdir(crypto_dir)
 
+        caching_dir = os.path.join(persistency_dir, device_id, "caching")
+        if not database and not os.path.isdir(caching_dir):
+            os.mkdir(caching_dir)
+
         # Define private and public attributes
         self.__device_id = device_id
         self.__realm = realm
         self.__pairing_base_url = pairing_base_url
         self.__crypto_dir = crypto_dir
+        self.__prop_database = (
+            database
+            if database
+            else AstarteDatabaseSQLite(Path(os.path.join(caching_dir, "astarte.db")))
+        )
         self.__credentials_secret = credentials_secret
         # TODO: Implement device registration using token on connect
         # self.__jwt_token: str | None = None
@@ -288,6 +303,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
         )
         self.__mqtt_client.tls_insecure_set(self.__ignore_ssl_errors)
 
+        self.__is_crypto_setup = True
+
     def connect(self) -> None:
         """
         Connects the Device asynchronously.
@@ -340,6 +357,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
             return
 
         self.__mqtt_client.disconnect()
+        self.__mqtt_client.loop_stop(force=False)
 
     def is_connected(self) -> bool:
         """
@@ -536,6 +554,14 @@ class Device:  # pylint: disable=too-many-instance-attributes
         elif not interface.get_mapping(path):
             raise ValidationError(f"Path {path} not in the {interface.name} interface.")
 
+        if interface.is_type_properties():
+            self.__prop_database.store_prop(
+                interface.name,
+                interface.version_major,
+                path,
+                payload,
+            )
+
         self.__mqtt_client.publish(
             f"{self.__get_base_topic()}/{interface.name}{path}",
             bson_payload,
@@ -581,6 +607,7 @@ class Device:  # pylint: disable=too-many-instance-attributes
             self.__setup_subscriptions()
             self.__send_introspection()
             self.__send_empty_cache()
+            self.__send_device_owned_properties()
 
         if self.on_connected:
             if self.__loop:
@@ -648,7 +675,8 @@ class Device:  # pylint: disable=too-many-instance-attributes
 
         # Parse control message in a separate function
         if msg.topic == f"{self.__get_base_topic()}/control/consumer/properties":
-            logging.info("Received control message: %s", msg.payload)
+            logging.info("Received purge properties control message.")
+            self.__purge_server_properties(payload=msg.payload)
             return
 
         # Check if callback is set
@@ -721,6 +749,12 @@ class Device:  # pylint: disable=too-many-instance-attributes
                 )
                 return
 
+        # For properties, store them in the properties database
+        if interface.is_type_properties():
+            self.__prop_database.store_prop(
+                interface.name, interface.version_major, interface_path, data_payload
+            )
+
         if self.__loop:
             # Use threadsafe, as we're in a different thread here
             self.__loop.call_soon_threadsafe(
@@ -767,3 +801,57 @@ class Device:  # pylint: disable=too-many-instance-attributes
             retain=False,
             qos=2,
         )
+
+    def __send_device_owned_properties(self) -> None:
+        """
+        Utility function used to send all the device properties present in the database to Astarte.
+        It also sends the purge properties message to Astarte.
+        """
+        interfaces_list = []
+        for interface_name, _, interface_path, value in self.__prop_database.load_all_props():
+            interface = self.__introspection.get_interface(interface_name)
+            if not interface:
+                self.__prop_database.delete_prop(interface_name, interface_path)
+            elif not interface.is_server_owned():
+                self.__send_generic(interface, interface_path, value, timestamp=None)
+                interfaces_list += [interface_name + interface_path]
+        interfaces_str = ";".join(interfaces_list)
+        payload = bytearray(len(interfaces_str).to_bytes(4, byteorder="little"))
+        payload.extend(zlib.compress(interfaces_str.encode("utf-8")))
+
+        self.__mqtt_client.publish(
+            f"{self.__get_base_topic()}/control/producer/properties",
+            payload=payload,
+            retain=False,
+            qos=2,
+        )
+
+    def __purge_server_properties(self, payload) -> None:
+        """
+        Purges the server owned properties not contained in the payload.
+
+        Parameters
+        ----------
+        payload : str
+            The purge properties message payload, contains a list of properties to save from
+            purging.
+        """
+        allowed_properties = []
+        decompressed_payload = zlib.decompress(payload[4:]).decode("utf-8")
+        if decompressed_payload:
+            # Parse the received list of set properties.
+            for full_path in [p.split("/") for p in decompressed_payload.split(";")]:
+                interface_name = full_path[0]
+                if not self.__introspection.get_interface(interface_name):
+                    logging.debug("Purge list entry %s missing from introspection.", interface_name)
+                    continue
+                allowed_properties.append((interface_name, "/" + "/".join(full_path[1:])))
+
+        # Delete all the properties not in the received list.
+        for interface_name, _, interface_path, _ in self.__prop_database.load_all_props():
+            if (
+                self.__introspection.get_interface(interface_name).is_server_owned()
+                and (interface_name, interface_path) not in allowed_properties
+            ):
+                logging.debug("Removing the property at: %s/%s.", interface_name, interface_path)
+                self.__prop_database.delete_prop(interface_name, interface_path)
