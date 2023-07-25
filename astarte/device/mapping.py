@@ -65,7 +65,7 @@ type_strings = {
     "datetimearray": list,
 }
 
-""" Mapping quality of service """
+# Mapping quality of service
 QOS_MAP = {"unreliable": 0, "guaranteed": 1, "unique": 2}
 
 
@@ -97,22 +97,22 @@ class Mapping:
         The following types are supported:
 
         * double: A double-precision floating-point number as specified by binary64, by the IEEE
-        754 standard (NaNs and other non-numerical values are not supported).
+            754 standard (NaNs and other non-numerical values are not supported).
         * integer: A signed 32 bit integer.
         * boolean: Either true or false, adhering to JSON boolean type.
         * longinteger: A signed 64-bit integer (please note that longinteger is represented as a
-        string by default in JSON-based APIs.).
+            string by default in JSON-based APIs.).
         * string: An UTF-8 string, at most 65536 bytes long.
         * binaryblob: An arbitrary sequence of any byte that should be shorter than 64 KiB. (
-        binaryblob is represented as a base64 string by default in JSON-based APIs.).
+            binaryblob is represented as a base64 string by default in JSON-based APIs.).
         * datetime: A UTC timestamp, internally represented as milliseconds since 1st Jan 1970
-        using a signed 64 bits integer. (datetime is represented as an ISO 8601 string by default
-        in JSON based APIs.)
+            using a signed 64 bits integer. (datetime is represented as an ISO 8601 string by
+            default in JSON based APIs.)
         * doublearray, integerarray, booleanarray, longintegerarray, stringarray,
-        binaryblobarray, datetimearray: A list of values, represented as a JSON Array.
-        Arrays can have up to 1024 items and each item must respect the limits of its scalar type
-        (i.e. each string in a stringarray must be at most 65535 bytes long, each binary blob in
-        a binaryblobarray must be shorter than 64 KiB.)
+            binaryblobarray, datetimearray: A list of values, represented as a JSON Array.
+            Arrays can have up to 1024 items and each item must respect the limits of its scalar
+            type (i.e. each string in a stringarray must be at most 65535 bytes long, each binary
+            blob in a binaryblobarray must be shorter than 64 KiB.)
 
         **Quality of Service**
 
@@ -136,7 +136,7 @@ class Mapping:
         mapping_definition: dict
             Mapping from the mappings array of an Astarte Interface definition in the form of a
             Python dictionary. Usually obtained by using json.loads() on an Interface file.
-        interface_type:
+        interface_type: str
             Type of the parent Interface, used to determine the default reliability
         """
         self.endpoint: str = mapping_definition.get("endpoint")
