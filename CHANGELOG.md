@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The following exceptions: `ValidationError`, `PersistencyDirectoryNotFoundError`,
   `InterfaceFileNotFoundError`, `InterfaceFileDecodeError`, `InterfaceNotFoundError`,
   `JWTGenerationError`.
+- Persistency support for properties. Server and device properties values are now stored in
+  non volatile memory.
+  - The new `AstarteDatabase` abstract class has been created. Deriving this class allows to
+    provide custom databases implementations for caching of Astarte properties.
+  - An optional `database` parameter has been added to the constructor of the `Device`
+    class. It can be used to pass a custom database implementation that will be used
+    to cache properties.
+    If no custom database is specified, a native SQLite database will be used to store the
+    properties in a subdirectory of the `persistency_dir`.
 
 ### Fixed
 - Sending zero payloads for endpoints in property interfaces was unsetting the property.
