@@ -38,10 +38,10 @@ jobs:
           repository: astarte-platform/docs
           ssh-key: ${{ secrets.DOCS_DEPLOY_KEY }}
           path: docs
-      - name: Set up Python 3.7
+      - name: Set up Python 3.11
         uses: actions/setup-python@v1
         with:
-          python-version: 3.7
+          python-version: 3.11
       - name: Install dependencies
         working-directory: ./astarte-device-sdk-python/docs
         run: |
