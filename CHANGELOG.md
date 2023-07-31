@@ -4,15 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.12.0] - Unreleased
+## [0.12.0] - 2023-07-31
 ### Added
 - The following exceptions: `ValidationError`, `PersistencyDirectoryNotFoundError`,
   `InterfaceFileNotFoundError`, `InterfaceFileDecodeError`, `InterfaceNotFoundError`,
   `JWTGenerationError`.
 - Persistency support for properties. Server and device properties values are now stored in
   non volatile memory.
-  - The new `AstarteDatabase` abstract class has been created. Deriving this class allows to
-    provide custom databases implementations for caching of Astarte properties.
+  - The new `AstarteDatabase` abstract class has been created. This class can be derived to provide
+    a custom database implementation for caching Astarte properties.
   - An optional `database` parameter has been added to the constructor of the `Device`
     class. It can be used to pass a custom database implementation that will be used
     to cache properties.
