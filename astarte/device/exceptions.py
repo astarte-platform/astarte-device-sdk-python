@@ -22,7 +22,7 @@ class AstarteError(Exception):
 
 
 class DeviceAlreadyRegisteredError(AstarteError):
-    """Exception raised in case a Device being registered has already been registered."""
+    """Exception raised in case a device being registered has already been registered."""
 
 
 class AuthorizationError(AstarteError):

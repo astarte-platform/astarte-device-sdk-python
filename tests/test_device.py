@@ -32,7 +32,7 @@ import paho
 from paho.mqtt.client import Client
 
 from astarte.device.database import AstarteDatabaseSQLite
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 from astarte.device.introspection import Introspection
 from astarte.device.exceptions import (
     PersistencyDirectoryNotFoundError,
@@ -51,7 +51,7 @@ class UnitTests(unittest.TestCase):
     @mock.patch("astarte.device.device.os.mkdir")
     @mock.patch("astarte.device.device.os.path.isdir", side_effect=[True, False, False, False])
     def test_initialization_ok(self, isdir_mock, mkdir_mock, mock_db):
-        device = Device(
+        device = DeviceMqtt(
             "device_id",
             "realm_name",
             "credential_secret",
@@ -83,7 +83,7 @@ class UnitTests(unittest.TestCase):
     def test_initialization_raises(self):
         self.assertRaises(
             PersistencyDirectoryNotFoundError,
-            lambda: Device(
+            lambda: DeviceMqtt(
                 "device_id",
                 "realm_name",
                 "credential_secret",
@@ -97,7 +97,7 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(AstarteDatabaseSQLite, "__init__", return_value=None)
     @mock.patch("astarte.device.device.os.path.isdir", return_value=True)
     def helper_initialize_device(self, mock_isdir, mock_db, loop):
-        device = Device(
+        device = DeviceMqtt(
             "device_id",
             "realm_name",
             "credential_secret",
@@ -109,14 +109,6 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(mock_isdir.call_count, 4)
         mock_db.assert_called_once_with(Path("./tests/device_id/caching/astarte.db"))
         return device
-
-    @mock.patch.object(Introspection, "add_interface")
-    def test_add_interface(self, mock_add_interface):
-        device = self.helper_initialize_device(loop=None)
-
-        test_interface = {"field1": "field2"}
-        device.add_interface(test_interface)
-        mock_add_interface.assert_called_once_with(test_interface)
 
     @mock.patch("astarte.device.device.open", new_callable=mock.mock_open)
     @mock.patch("astarte.device.device.json.load", return_value="Fake json content")
@@ -165,7 +157,7 @@ class UnitTests(unittest.TestCase):
     )
     @mock.patch.object(Path, "is_dir", return_value=True)
     @mock.patch.object(Path, "exists", return_value=True)
-    @mock.patch.object(Device, "add_interface_from_file")
+    @mock.patch.object(DeviceMqtt, "add_interface_from_file")
     def test_add_interface_from_dir(
         self, mock_add_interface, mock_exists, mock_is_dir, mock_iterdir
     ):
@@ -293,7 +285,7 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        device._Device__is_connected = True
+        device._DeviceSDK__is_connected = True
 
         mock_urlparse.return_value.hostname = "mocked hostname"
         mock_urlparse.return_value.port = "mocked port"
@@ -333,7 +325,7 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        device._Device__is_crypto_setup = True
+        device._DeviceSDK__is_crypto_setup = True
 
         mock_urlparse.return_value.hostname = "mocked hostname"
         mock_urlparse.return_value.port = "mocked port"
@@ -424,7 +416,7 @@ class UnitTests(unittest.TestCase):
 
         device = self.helper_initialize_device(loop=None)
 
-        device._Device__ignore_ssl_errors = ignore_ssl_errors
+        device._DeviceSDK__ignore_ssl_errors = ignore_ssl_errors
 
         mock_urlparse.return_value.hostname = "mocked hostname"
         mock_urlparse.return_value.port = "mocked port"
@@ -463,7 +455,7 @@ class UnitTests(unittest.TestCase):
         device.disconnect()
         mock_disconnect.assert_not_called()
 
-        device._Device__is_connected = True
+        device._DeviceSDK__is_connected = True
 
         device.disconnect()
         mock_disconnect.assert_called_once()
@@ -473,7 +465,7 @@ class UnitTests(unittest.TestCase):
 
         self.assertFalse(device.is_connected())
 
-        device._Device__is_connected = True
+        device._DeviceSDK__is_connected = True
 
         self.assertTrue(device.is_connected())
 
@@ -1008,7 +1000,7 @@ class UnitTests(unittest.TestCase):
         mock_load_all_props.return_value = []
 
         device.on_connected = mock.MagicMock()
-        device._Device__on_connect(
+        device._DeviceSDK__on_connect(
             None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
         )
 
@@ -1049,7 +1041,7 @@ class UnitTests(unittest.TestCase):
         device.on_connected.assert_called_once_with(device)
 
     @mock.patch.object(Client, "publish")
-    @mock.patch.object(Device, "_Device__send_generic")
+    @mock.patch.object(DeviceMqtt, "_send_generic")
     @mock.patch.object(AstarteDatabaseSQLite, "delete_prop")
     @mock.patch.object(Introspection, "get_interface")
     @mock.patch.object(AstarteDatabaseSQLite, "load_all_props")
@@ -1111,7 +1103,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.side_effect = [interface_5, interface_6, None]
 
         device.on_connected = mock.MagicMock()
-        device._Device__on_connect(
+        device._DeviceSDK__on_connect(
             None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
         )
 
@@ -1180,7 +1172,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         device.on_connected = mock.MagicMock()
-        device._Device__on_connect(
+        device._DeviceSDK__on_connect(
             None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_NO_CONN
         )
 
@@ -1237,7 +1229,7 @@ class UnitTests(unittest.TestCase):
         mock_load_all_props.return_value = []
 
         device.on_connected = mock.MagicMock()
-        device._Device__on_connect(
+        device._DeviceSDK__on_connect(
             None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
         )
 
@@ -1283,7 +1275,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         device.on_disconnected = mock.MagicMock()
-        device._Device__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_SUCCESS)
+        device._DeviceSDK__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_SUCCESS)
 
         device.on_disconnected.assert_called_once_with(device, paho.mqtt.client.MQTT_ERR_SUCCESS)
         mock_loop_stop.assert_called_once()
@@ -1294,7 +1286,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=mock_loop)
 
         device.on_disconnected = mock.MagicMock()
-        device._Device__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_SUCCESS)
+        device._DeviceSDK__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_SUCCESS)
 
         device.on_disconnected.assert_not_called()
         mock_loop.call_soon_threadsafe.assert_called_once_with(
@@ -1302,7 +1294,7 @@ class UnitTests(unittest.TestCase):
         )
         mock_loop_stop.assert_called_once()
 
-    @mock.patch.object(Device, "connect")
+    @mock.patch.object(DeviceMqtt, "connect")
     @mock.patch.object(Client, "loop_stop")
     @mock.patch("astarte.device.device.crypto.certificate_is_valid", return_value=False)
     def test__on_disconnect_invalid_certificate(
@@ -1311,14 +1303,14 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         device.on_disconnected = mock.MagicMock()
-        device._Device__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
+        device._DeviceSDK__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
 
         device.on_disconnected.assert_called_once_with(device, paho.mqtt.client.MQTT_ERR_NO_CONN)
         mock_cartificate_is_valid.assert_called_once_with("./tests/device_id/crypto")
         mock_loop_stop.assert_called_once()
         mock_connect.assert_called_once()
 
-    @mock.patch.object(Device, "connect")
+    @mock.patch.object(DeviceMqtt, "connect")
     @mock.patch.object(Client, "loop_stop")
     @mock.patch("astarte.device.device.crypto.certificate_is_valid", return_value=True)
     def test__on_disconnect_other_reason(
@@ -1327,7 +1319,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         device.on_disconnected = mock.MagicMock()
-        device._Device__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
+        device._DeviceSDK__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
 
         device.on_disconnected.assert_called_once_with(device, paho.mqtt.client.MQTT_ERR_NO_CONN)
         mock_cartificate_is_valid.assert_called_once_with("./tests/device_id/crypto")
@@ -1350,7 +1342,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.is_type_properties.return_value = True
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
@@ -1389,7 +1381,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.is_type_properties.return_value = False
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
@@ -1419,14 +1411,14 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "something/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_not_called()
         mock_bson_loads.assert_not_called()
         mock_db_store.assert_not_called()
         device.on_data_received.assert_not_called()
 
-    @mock.patch.object(Device, "_Device__purge_server_properties")
+    @mock.patch.object(DeviceMqtt, "_DeviceSDK__purge_server_properties")
     @mock.patch("astarte.device.device.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_control_message(
@@ -1438,7 +1430,7 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/control/consumer/properties"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_purge_server.assert_called_once_with(payload=mock_message.payload)
         mock_get_interface.assert_not_called()
@@ -1453,7 +1445,7 @@ class UnitTests(unittest.TestCase):
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_not_called()
         mock_bson_loads.assert_not_called()
@@ -1467,7 +1459,7 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_bson_loads.assert_not_called()
@@ -1484,7 +1476,7 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
@@ -1505,7 +1497,7 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
@@ -1529,7 +1521,7 @@ class UnitTests(unittest.TestCase):
         mock_message.payload = None
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
@@ -1551,7 +1543,7 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
@@ -1575,7 +1567,7 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceSDK__on_message(None, None, msg=mock_message)
 
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
@@ -1594,7 +1586,7 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(AstarteDatabaseSQLite, "delete_prop")
     @mock.patch.object(AstarteDatabaseSQLite, "load_all_props")
     @mock.patch.object(Introspection, "get_interface")
-    def test_Device__purge_server_properties_empty_list(
+    def test_DeviceSDK__purge_server_properties_empty_list(
         self, mock_get_interface, mock_load_all_props, mock_delete_prop
     ):
         device = self.helper_initialize_device(loop=None)
@@ -1622,7 +1614,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.side_effect = [interface_1, interface_2, interface_3]
 
         base_payload = b"\x00\x00\x00\x00x\x9c\x03\x00\x00\x00\x00\x01"
-        device._Device__purge_server_properties(base_payload)
+        device._DeviceSDK__purge_server_properties(base_payload)
 
         calls = [
             mock.call(interface_1.name),
@@ -1644,7 +1636,7 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(AstarteDatabaseSQLite, "delete_prop")
     @mock.patch.object(AstarteDatabaseSQLite, "load_all_props")
     @mock.patch.object(Introspection, "get_interface")
-    def test_Device__purge_server_properties_non_empty_list(
+    def test_DeviceSDK__purge_server_properties_non_empty_list(
         self, mock_get_interface, mock_load_all_props, mock_delete_prop
     ):
         device = self.helper_initialize_device(loop=None)
@@ -1672,7 +1664,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.side_effect = [interface_2, None, interface_1, interface_2, interface_3]
 
         base_payload = b"9\x00\x00\x00x\x9c\xb3\xc9\xcc+I-JKLNU0\xb2\xd3O\xcdK)\xc8\x07\x8a\xe8\x17$\x96d\x18Y\xdb $\x8d\xd1$\x8d\x01P\xfd\x14t"
-        device._Device__purge_server_properties(base_payload)
+        device._DeviceSDK__purge_server_properties(base_payload)
 
         calls = [
             mock.call(interface_1.name),
