@@ -126,7 +126,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         PersistencyDirectoryNotFoundError
             If the provided persistency directory does not exists.
         """
-        super().__init__()
+        super().__init__(loop)
 
         if not os.path.isdir(persistency_dir):
             raise PersistencyDirectoryNotFoundError(f"{persistency_dir} is not a directory")
@@ -157,7 +157,6 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         # self.__jwt_token: str | None = None
         self.__is_crypto_setup = False
         self.__is_connected = False
-        self.__loop = loop
         self.__ignore_ssl_errors = ignore_ssl_errors
 
         self.on_connected: Callable[DeviceMqtt, None] | None = None
@@ -402,9 +401,9 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
             self.__send_device_owned_properties()
 
         if self.on_connected:
-            if self.__loop:
+            if self._loop:
                 # Use threadsafe, as we're in a different thread here
-                self.__loop.call_soon_threadsafe(self.on_connected, self)
+                self._loop.call_soon_threadsafe(self.on_connected, self)
             else:
                 self.on_connected(self)
 
@@ -428,9 +427,9 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         self.__is_connected = False
 
         if self.on_disconnected:
-            if self.__loop:
+            if self._loop:
                 # Use threadsafe, as we're in a different thread here
-                self.__loop.call_soon_threadsafe(self.on_disconnected, self, rc)
+                self._loop.call_soon_threadsafe(self.on_disconnected, self, rc)
             else:
                 self.on_disconnected(self, rc)
 
@@ -547,9 +546,9 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
                 interface.name, interface.version_major, interface_path, data_payload
             )
 
-        if self.__loop:
+        if self._loop:
             # Use threadsafe, as we're in a different thread here
-            self.__loop.call_soon_threadsafe(
+            self._loop.call_soon_threadsafe(
                 self.on_data_received,
                 self,
                 interface_name,

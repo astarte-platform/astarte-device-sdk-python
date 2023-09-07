@@ -24,11 +24,23 @@ Example showing how to send/receive individual datastreams.
 from datetime import datetime, timezone
 from pathlib import Path
 import time
+from termcolor import cprint
 
 from astarte.device import DeviceGrpc
 
 _ROOT_DIR = Path(__file__).parent.absolute()
 _INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
+
+def on_data_received_cbk(device: DeviceGrpc, interface_name: str, path: str, payload: dict):
+    """
+    Callback for a data reception event.
+    """
+    cprint(
+        f"Received message for interface: {interface_name} and path: {path}.",
+        color="cyan",
+        flush=True,
+    )
+    cprint(f"    Payload: {payload}", color="cyan", flush=True)
 
 # If called as a script
 if __name__ == "__main__":
@@ -38,6 +50,8 @@ if __name__ == "__main__":
     )
     # Load all the interfaces
     device.add_interfaces_from_dir(_INTERFACES_DIR)
+    # Set all the callback functions
+    device.on_data_received = on_data_received_cbk
     # # Connect the device
     device.connect()
 
@@ -141,6 +155,6 @@ if __name__ == "__main__":
         datetime.now(tz=timezone.utc),
     )
 
-    time.sleep(1)
+    time.sleep(60)
 
     device.disconnect()

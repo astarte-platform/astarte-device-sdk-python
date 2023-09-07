@@ -24,6 +24,8 @@ from datetime import datetime
 from collections.abc import Callable
 import threading
 import grpc
+import logging
+import asyncio
 
 # pylint: disable=no-name-in-module
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -45,6 +47,7 @@ class DeviceGrpc(Device):
         self,
         server_addr: str,
         node_uuid: str,
+        loop: asyncio.AbstractEventLoop | None = None,
     ):
         """
         Parameters
@@ -54,7 +57,7 @@ class DeviceGrpc(Device):
         node_uuid : str
             Unique identifier for this node.
         """
-        super().__init__()
+        super().__init__(loop)
 
         self.server_addr = server_addr
         self.node_uuid = node_uuid
@@ -174,8 +177,112 @@ class DeviceGrpc(Device):
             The GRPC receive stream.
         """
         for event in stream:
-            print(event)
+            interface_name = event.interface_name
+            path = event.path
+            payload = None
+            timestamp = None
+            if event.HasField("astarte_data"):
+                if event.astarte_data.HasField("astarte_individual"):
+                    if event.astarte_data.astarte_individual.HasField('astarte_double'):
+                        payload = event.astarte_data.astarte_individual.astarte_double
+                    elif event.astarte_data.astarte_individual.HasField('astarte_double_array'):
+                        payload = event.astarte_data.astarte_individual.astarte_double_array.values
+                        payload = [e for e in payload]
+                    elif event.astarte_data.astarte_individual.HasField('astarte_integer'):
+                        payload = event.astarte_data.astarte_individual.astarte_integer
+                    elif event.astarte_data.astarte_individual.HasField('astarte_integer_array'):
+                        payload = event.astarte_data.astarte_individual.astarte_integer_array.values
+                        payload = [e for e in payload]
+                    elif event.astarte_data.astarte_individual.HasField('astarte_boolean'):
+                        payload = event.astarte_data.astarte_individual.astarte_boolean
+                    elif event.astarte_data.astarte_individual.HasField('astarte_boolean_array'):
+                        payload = event.astarte_data.astarte_individual.astarte_boolean_array.values
+                        payload = [e for e in payload]
+                    elif event.astarte_data.astarte_individual.HasField('astarte_long_integer'):
+                        payload = event.astarte_data.astarte_individual.astarte_long_integer
+                    elif event.astarte_data.astarte_individual.HasField('astarte_long_integer_array'):
+                        payload = event.astarte_data.astarte_individual.astarte_long_integer_array.values
+                        payload = [e for e in payload]
+                    elif event.astarte_data.astarte_individual.HasField('astarte_string'):
+                        payload = event.astarte_data.astarte_individual.astarte_string
+                    elif event.astarte_data.astarte_individual.HasField('astarte_string_array'):
+                        payload = event.astarte_data.astarte_individual.astarte_string_array.values
+                        payload = [e for e in payload]
+                    elif event.astarte_data.astarte_individual.HasField('astarte_binary_blob'):
+                        payload = event.astarte_data.astarte_individual.astarte_binary_blob
+                    elif event.astarte_data.astarte_individual.HasField('astarte_binary_blob_array'):
+                        payload = event.astarte_data.astarte_individual.astarte_binary_blob_array.values
+                        payload = [e for e in payload]
+                    elif event.astarte_data.astarte_individual.HasField('astarte_date_time'):
+                        payload = event.astarte_data.astarte_individual.astarte_date_time.ToDatetime()
+                    elif event.astarte_data.astarte_individual.HasField('astarte_date_time_array'):
+                        payload = event.astarte_data.astarte_individual.astarte_date_time_array.values
+                        payload = [e for e in payload]
+                else:
+                    # Handle event.astarte_data.astarte_object
+                    pass
+            else:
+                # Handle event.astarte_unset
+                pass
+            if event.HasField("timestamp"):
+                # Handle event.timestamp
+                pass
+            self._on_message_checks(interface_name, path, payload)
 
+    def _on_message_checks(self, interface_name, path, payload):
+        # Check if interface name is correct
+        interface = self._introspection.get_interface(interface_name)
+        if not interface:
+            logging.warning(
+                "Received unexpected message for unregistered interface %s: %s, %s",
+                interface_name,
+                path,
+                payload,
+            )
+            return
+
+        # Check over ownership of the interface
+        if not interface.is_server_owned():
+            logging.warning(
+                "Received unexpected message for device owned interface %s: %s, %s",
+                interface_name,
+                path,
+                payload,
+            )
+            return
+
+        # Check the received path corresponds to the one in the interface
+        if interface.validate_path(path, payload):
+            logging.warning(
+                "Received message on incorrect endpoint for interface %s: %s, %s",
+                interface_name,
+                path,
+                payload,
+            )
+            return
+
+        # Check the payload matches with the interface
+        if payload:
+            if interface.validate_payload(path, payload):
+                logging.warning(
+                    "Received incompatible payload for interface %s: %s, %s",
+                    interface_name,
+                    path,
+                    payload,
+                )
+                return
+
+        if self._loop:
+            # Use threadsafe, as we're in a different thread here
+            self._loop.call_soon_threadsafe(
+                self.on_data_received,
+                self,
+                interface_name,
+                path,
+                payload,
+            )
+        else:
+            self.on_data_received(self, interface_name, path, payload)
 
 def _parse_individual_payload(
     interface: Interface, path: str, payload: object | collections.abc.Mapping | None

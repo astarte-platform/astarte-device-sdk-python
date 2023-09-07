@@ -43,13 +43,18 @@ class Device(ABC):
     """
 
     @abstractmethod
-    def __init__(self, *args):
+    def __init__(self, loop):
         """
         Parameters
         ----------
-        args :
-            TODO.
+        loop : asyncio.loop (optional)
+            An optional loop which will be used for invoking callbacks. When this is not none,
+            device will call any specified callback through loop.call_soon_threadsafe, ensuring
+            that the callbacks will be run in thread the loop belongs to. Usually, you want
+            to set this to get_running_loop(). When not sent, callbacks will be invoked as a
+            standard function - keep in mind this means your callbacks might create deadlocks.
         """
+        self._loop = loop
         self._introspection = Introspection()
 
     @abstractmethod
