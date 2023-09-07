@@ -23,7 +23,6 @@ import json
 from datetime import datetime
 from collections.abc import Callable
 import threading
-import time
 import grpc
 
 # pylint: disable=no-name-in-module
@@ -103,9 +102,6 @@ class DeviceGrpc(Device):
         # pylint: disable=no-member
         self.__grpc_node = node_pb2.Node(uuid=self.node_uuid, interface_jsons=self.__interfaces_bin)
         stream = self.__grpc_stub.Attach(self.__grpc_node)
-
-        # TODO figure out why this sleep is necssary for correct functioning of the routine
-        time.sleep(1)
 
         self.__thread_handle = threading.Thread(target=self._rx_stream_handler, args=(stream,))
         self.__thread_handle.start()
