@@ -28,6 +28,7 @@ DEPENDENCIES = [
     "cryptography",
     "bson",
     "PyJWT>=1.7.0",
+    "grpcio-tools",
 ]
 EXCLUDE_FROM_PACKAGES = ["contrib", "docs", "tests*", "venv"]
 CURDIR = os.path.abspath(os.path.dirname(__file__))
@@ -50,7 +51,7 @@ setup(
     version=get_version(),
     author="Simone Orru",
     author_email="simone.orru@secomind.com",
-    description="Astarte Device SDK for Python",
+    description="Astarte device SDK for Python",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/astarte-platform/astarte-device-sdk-python",
