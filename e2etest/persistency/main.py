@@ -30,7 +30,7 @@ from termcolor import cprint
 import importlib.util
 import sys
 
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 
 config_path = Path.joinpath(Path.cwd(), "e2etest", "common", "config.py")
 spec = importlib.util.spec_from_file_location("config", config_path)
@@ -81,7 +81,7 @@ def on_disconnected_cbk(_, reason: int):
     cprint(f"\nDevice disconnected because: {reason}.", color="red", flush=True)
 
 
-def set_all_properties(device: Device, test_cfg: TestCfg):
+def set_all_properties(device: DeviceMqtt, test_cfg: TestCfg):
     """
     Set all the device and server owned properties.
     """
@@ -97,7 +97,7 @@ def set_all_properties(device: Device, test_cfg: TestCfg):
         time.sleep(0.005)
 
 
-def unset_some_properties(device: Device, test_cfg: TestCfg):
+def unset_some_properties(device: DeviceMqtt, test_cfg: TestCfg):
     """
     Unset some of the device and server owned properties.
     """
@@ -178,7 +178,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     persistency_dir = Path.joinpath(Path.cwd(), "e2etest", "persistency", "build")
     if not Path.is_dir(persistency_dir):
         os.makedirs(persistency_dir)
-    device = Device(
+    device = DeviceMqtt(
         device_id=test_cfg.device_id,
         realm=test_cfg.realm,
         credentials_secret=test_cfg.credentials_secret,
