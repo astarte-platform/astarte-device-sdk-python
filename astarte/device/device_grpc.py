@@ -164,7 +164,7 @@ class DeviceGrpc(Device):
             interface_name=interface.name,
             path=path,
             timestamp=protobuf_timestamp,
-            astarte_data=_encapsulate_payload(interface, path, payload),
+            astarte_data=_parse_individual_payload(interface, path, payload),
         )
         self.__grpc_stub.Send(msg)
 
@@ -181,7 +181,7 @@ class DeviceGrpc(Device):
             print(event)
 
 
-def _encapsulate_payload(
+def _parse_individual_payload(
     interface: Interface, path: str, payload: object | collections.abc.Mapping | None
 ):
     """
@@ -198,7 +198,7 @@ def _encapsulate_payload(
 
     Returns
     -------
-    astarte_type_pb2 | None
+    astarteplatform.msghub.astarte_type_pb2.AstarteDataType | None
         The encapsulated payload
     """
     # pylint: disable=no-member
@@ -207,17 +207,104 @@ def _encapsulate_payload(
 
     mapping = interface.get_mapping(path)
 
+    parsed_payload = None
+
     if mapping.type == "boolean":
-        return astarte_type_pb2.AstarteDataType(
+        parsed_payload = astarte_type_pb2.AstarteDataType(
             astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(astarte_boolean=payload)
         )
+    if mapping.type == "booleanarray":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_boolean_array=astarte_type_pb2.AstarteBooleanArray(values=payload)
+            )
+        )
     if mapping.type == "string":
-        return astarte_type_pb2.AstarteDataType(
+        parsed_payload = astarte_type_pb2.AstarteDataType(
             astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(astarte_string=payload)
         )
+    if mapping.type == "stringarray":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_string_array=astarte_type_pb2.AstarteStringArray(values=payload)
+            )
+        )
     if mapping.type == "double":
-        return astarte_type_pb2.AstarteDataType(
+        parsed_payload = astarte_type_pb2.AstarteDataType(
             astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(astarte_double=payload)
         )
+    if mapping.type == "doublearray":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_double_array=astarte_type_pb2.AstarteDoubleArray(values=payload)
+            )
+        )
+    if mapping.type == "integer":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(astarte_integer=payload)
+        )
+    if mapping.type == "integerarray":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_integer_array=astarte_type_pb2.AstarteIntegerArray(values=payload)
+            )
+        )
+    if mapping.type == "longinteger":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_long_integer=payload
+            )
+        )
+    if mapping.type == "longintegerarray":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_long_integer_array=astarte_type_pb2.AstarteLongIntegerArray(values=payload)
+            )
+        )
+    if mapping.type == "binaryblob":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_binary_blob=payload
+            )
+        )
+    if mapping.type == "binaryblobarray":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_binary_blob_array=astarte_type_pb2.AstarteBinaryBlobArray(values=payload)
+            )
+        )
+    if mapping.type == "datetime":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_date_time=_parse_date_time(payload)
+            )
+        )
+    if mapping.type == "datetimearray":
+        parsed_payload = astarte_type_pb2.AstarteDataType(
+            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+                astarte_date_time_array=astarte_type_pb2.AstarteDateTimeArray(
+                    values=[_parse_date_time(date_time) for date_time in payload]
+                )
+            )
+        )
 
-    return None
+    return parsed_payload
+
+
+def _parse_date_time(date_time: datetime):
+    """
+    Utility function used to convert a datetime to a google protobuf Timestamp structure.
+
+    Parameters
+    ----------
+    date_time : datetime
+        The datetime to convert.
+
+    Returns
+    -------
+    google.protobuf.timestamp_pb2.Timestamp
+        Converted datetime.
+    """
+    parsed_date_time = Timestamp()
+    parsed_date_time.FromDatetime(date_time)
+    return parsed_date_time

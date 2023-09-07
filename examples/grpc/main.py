@@ -64,26 +64,26 @@ if __name__ == "__main__":
         False,
         datetime.now(tz=timezone.utc),
     )
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/booleanarray_endpoint",
-    #     [False, True],
-    #     datetime.now(tz=timezone.utc),
-    # )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/booleanarray_endpoint",
+        [False, True],
+        datetime.now(tz=timezone.utc),
+    )
 
-    # # Send the datetime endpoints
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/datetime_endpoint",
-    #     datetime.now(tz=timezone.utc),
-    #     datetime.now(tz=timezone.utc),
-    # )
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/datetimearray_endpoint",
-    #     [datetime.now(tz=timezone.utc)],
-    #     datetime.now(tz=timezone.utc),
-    # )
+    # Send the datetime endpoints
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/datetime_endpoint",
+        datetime.now(tz=timezone.utc),
+        datetime.now(tz=timezone.utc),
+    )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/datetimearray_endpoint",
+        [datetime.now(tz=timezone.utc), datetime.now(tz=timezone.utc)],
+        datetime.now(tz=timezone.utc),
+    )
 
     # # Send the double endpoints
     device.send(
@@ -92,40 +92,40 @@ if __name__ == "__main__":
         21.3,
         datetime.now(tz=timezone.utc),
     )
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/doublearray_endpoint",
-    #     [1123.0, 12.232],
-    #     datetime.now(tz=timezone.utc),
-    # )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/doublearray_endpoint",
+        [1123.0, 12.232],
+        datetime.now(tz=timezone.utc),
+    )
 
     # # Send the integer endpoints
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/integer_endpoint",
-    #     11,
-    #     datetime.now(tz=timezone.utc),
-    # )
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/integerarray_endpoint",
-    #     [452, 0],
-    #     datetime.now(tz=timezone.utc),
-    # )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/integer_endpoint",
+        11,
+        datetime.now(tz=timezone.utc),
+    )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/integerarray_endpoint",
+        [452, 0],
+        datetime.now(tz=timezone.utc),
+    )
 
     # # Send the long integer endpoints
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/longinteger_endpoint",
-    #     2**34,
-    #     datetime.now(tz=timezone.utc),
-    # )
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/longintegerarray_endpoint",
-    #     [2**34, 2**35 + 11],
-    #     datetime.now(tz=timezone.utc),
-    # )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/longinteger_endpoint",
+        2**34,
+        datetime.now(tz=timezone.utc),
+    )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/longintegerarray_endpoint",
+        [2**34, 2**35 + 11],
+        datetime.now(tz=timezone.utc),
+    )
 
     # # Send the string endpoints
     device.send(
@@ -134,12 +134,12 @@ if __name__ == "__main__":
         "Hello world!",
         datetime.now(tz=timezone.utc),
     )
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/stringarray_endpoint",
-    #     ["Hello,", " world!"],
-    #     datetime.now(tz=timezone.utc),
-    # )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/stringarray_endpoint",
+        ["Hello,", " world!"],
+        datetime.now(tz=timezone.utc),
+    )
 
     time.sleep(1)
 
