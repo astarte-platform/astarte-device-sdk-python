@@ -27,6 +27,9 @@ from termcolor import cprint
 import importlib.util
 import sys
 
+print(Path(os.getcwd()))
+print(sys.path)
+
 from astarte.device import DeviceMqtt
 
 config_path = Path.joinpath(Path.cwd(), "e2etest", "common", "config.py")
