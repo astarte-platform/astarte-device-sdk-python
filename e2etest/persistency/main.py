@@ -327,6 +327,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     dtp = peek_database(persistency_dir, test_cfg.device_id)
 
     print(dtp)
+    print(expect_db)
     assert dtp == expect_db
     expect_astarte = {
         test_cfg.interface_device_prop: {
