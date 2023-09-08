@@ -25,6 +25,7 @@ from collections.abc import Callable
 import threading
 import asyncio
 import grpc
+from collections import namedtuple
 
 # pylint: disable=no-name-in-module
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -47,6 +48,137 @@ from astarteplatform.msghub.astarte_type_pb2 import (
     AstarteBinaryBlobArray,
     AstarteDateTimeArray,
 )
+
+
+def _encode_date_time(date_time: datetime):
+    """
+    Utility function used to convert a datetime to a google protobuf Timestamp structure.
+
+    Parameters
+    ----------
+    date_time : datetime
+        The datetime to convert.
+
+    Returns
+    -------
+    google.protobuf.timestamp_pb2.Timestamp
+        Converted datetime.
+    """
+    parsed_date_time = Timestamp()
+    parsed_date_time.FromDatetime(date_time)
+    return parsed_date_time
+
+
+AstarteTypesLookup = namedtuple("AstarteTypesLookup", "grpc_arg_name grpc_class grpc_data_parser")
+
+astarte_types_lookup = {
+    "boolean": AstarteTypesLookup("astarte_boolean", None, None),
+    "booleanarray": AstarteTypesLookup("astarte_boolean_array", AstarteBooleanArray, None),
+    "string": AstarteTypesLookup("astarte_string", None, None),
+    "stringarray": AstarteTypesLookup("astarte_string_array", AstarteStringArray, None),
+    "double": AstarteTypesLookup("astarte_double", None, None),
+    "doublearray": AstarteTypesLookup("astarte_double_array", AstarteDoubleArray, None),
+    "integer": AstarteTypesLookup("astarte_integer", None, None),
+    "integerarray": AstarteTypesLookup("astarte_integer_array", AstarteIntegerArray, None),
+    "longinteger": AstarteTypesLookup("astarte_long_integer", None, None),
+    "longintegerarray": AstarteTypesLookup(
+        "astarte_long_integer_array", AstarteLongIntegerArray, None
+    ),
+    "binaryblob": AstarteTypesLookup("astarte_binary_blob", None, None),
+    "binaryblobarray": AstarteTypesLookup(
+        "astarte_binary_blob_array", AstarteBinaryBlobArray, None
+    ),
+    "datetime": AstarteTypesLookup("astarte_date_time", None, _encode_date_time),
+    "datetimearray": AstarteTypesLookup(
+        "astarte_date_time_array", AstarteDateTimeArray, lambda l: [_encode_date_time(e) for e in l]
+    ),
+}
+
+
+def _encode_individual_payload(
+    interface: Interface, path: str, payload: object | collections.abc.Mapping | None
+):
+    """
+    Utility function used to encapsulate a payload in a valid protobuf structure.
+
+    Parameters
+    ----------
+    interface : Interface
+        The Interface to send data to.
+    path: str
+        The endpoint to send the data to
+    payload : object, collections.abc.Mapping, optional
+        The payload to send if present.
+
+    Returns
+    -------
+    AstarteDataType | None
+        The encapsulated payload
+    """
+    # pylint: disable=no-member
+    if payload is None:
+        return AstarteUnset()
+
+    mapping = interface.get_mapping(path)
+
+    parsed_payload = None
+
+    if mapping.type in astarte_types_lookup:
+        # Local variables for long lookups
+        grpc_arg_name = astarte_types_lookup[mapping.type].grpc_arg_name
+        grpc_class = astarte_types_lookup[mapping.type].grpc_class
+        grpc_data_parser = astarte_types_lookup[mapping.type].grpc_data_parser
+        # Encapsulate the payload in grpc types
+        if grpc_data_parser:
+            payload = grpc_data_parser(payload)
+        if grpc_class:
+            payload = grpc_class(values=payload)
+        payload = AstarteDataTypeIndividual(**{grpc_arg_name: payload})
+        parsed_payload = AstarteDataType(astarte_individual=payload)
+
+    return parsed_payload
+
+grpc_array_types = [
+    AstarteDataType,
+    AstarteDataTypeIndividual,
+    AstarteBooleanArray,
+    AstarteStringArray,
+    AstarteDoubleArray,
+    AstarteIntegerArray,
+    AstarteLongIntegerArray,
+    AstarteBinaryBlobArray,
+    AstarteDateTimeArray,
+]
+
+def _decode_payload(grpc_message: AstarteMessage):
+    '''
+    Decode GRPC message.
+    '''
+    interface_name = grpc_message.interface_name
+    path = grpc_message.path
+    payload = None
+    if grpc_message.HasField("astarte_data"):
+        grpc_data = grpc_message.astarte_data
+        if grpc_data.HasField("astarte_individual"):
+            grpc_indiv_data_opt = grpc_data.astarte_individual.WhichOneof("individual_data")
+            payload = getattr(grpc_data.astarte_individual, grpc_indiv_data_opt)
+            if grpc_indiv_data_opt == "astarte_date_time":
+                payload = payload.ToDatetime()
+            if type(payload) in grpc_array_types:
+                payload = list(payload.values)
+            if grpc_indiv_data_opt == "astarte_date_time_array":
+                payload = [e.ToDatetime() for e in payload]
+        else:
+            # Handle grpc_data.astarte_object
+            pass
+    else:
+        # Handle grpc_message.astarte_unset
+        pass
+    if grpc_message.HasField("timestamp"):
+        # Handle grpc_message.timestamp
+        pass
+
+    return (interface_name, path, payload)
 
 
 class DeviceGrpc(Device):
@@ -173,7 +305,7 @@ class DeviceGrpc(Device):
             interface_name=interface.name,
             path=path,
             timestamp=protobuf_timestamp,
-            astarte_data=_parse_individual_payload(interface, path, payload),
+            astarte_data=_encode_individual_payload(interface, path, payload),
         )
         self.__grpc_stub.Send(msg)
 
@@ -187,68 +319,7 @@ class DeviceGrpc(Device):
             The GRPC receive stream.
         """
         for event in stream:
-            interface_name = event.interface_name
-            path = event.path
-            payload = None
-            if event.HasField("astarte_data"):
-                if event.astarte_data.HasField("astarte_individual"):
-                    if event.astarte_data.astarte_individual.HasField("astarte_double"):
-                        payload = event.astarte_data.astarte_individual.astarte_double
-                    elif event.astarte_data.astarte_individual.HasField("astarte_double_array"):
-                        payload = list(
-                            event.astarte_data.astarte_individual.astarte_double_array.values
-                        )
-                    elif event.astarte_data.astarte_individual.HasField("astarte_integer"):
-                        payload = event.astarte_data.astarte_individual.astarte_integer
-                    elif event.astarte_data.astarte_individual.HasField("astarte_integer_array"):
-                        payload = list(
-                            event.astarte_data.astarte_individual.astarte_integer_array.values
-                        )
-                    elif event.astarte_data.astarte_individual.HasField("astarte_boolean"):
-                        payload = event.astarte_data.astarte_individual.astarte_boolean
-                    elif event.astarte_data.astarte_individual.HasField("astarte_boolean_array"):
-                        payload = list(
-                            event.astarte_data.astarte_individual.astarte_boolean_array.values
-                        )
-                    elif event.astarte_data.astarte_individual.HasField("astarte_long_integer"):
-                        payload = event.astarte_data.astarte_individual.astarte_long_integer
-                    elif event.astarte_data.astarte_individual.HasField(
-                        "astarte_long_integer_array"
-                    ):
-                        payload = list(
-                            event.astarte_data.astarte_individual.astarte_long_integer_array.values
-                        )
-                    elif event.astarte_data.astarte_individual.HasField("astarte_string"):
-                        payload = event.astarte_data.astarte_individual.astarte_string
-                    elif event.astarte_data.astarte_individual.HasField("astarte_string_array"):
-                        payload = list(
-                            event.astarte_data.astarte_individual.astarte_string_array.values
-                        )
-                    elif event.astarte_data.astarte_individual.HasField("astarte_binary_blob"):
-                        payload = event.astarte_data.astarte_individual.astarte_binary_blob
-                    elif event.astarte_data.astarte_individual.HasField(
-                        "astarte_binary_blob_array"
-                    ):
-                        payload = list(
-                            event.astarte_data.astarte_individual.astarte_binary_blob_array.values
-                        )
-                    elif event.astarte_data.astarte_individual.HasField("astarte_date_time"):
-                        payload = (
-                            event.astarte_data.astarte_individual.astarte_date_time.ToDatetime()
-                        )
-                    elif event.astarte_data.astarte_individual.HasField("astarte_date_time_array"):
-                        payload = list(
-                            event.astarte_data.astarte_individual.astarte_date_time_array.values
-                        )
-                else:
-                    # Handle event.astarte_data.astarte_object
-                    pass
-            else:
-                # Handle event.astarte_unset
-                pass
-            if event.HasField("timestamp"):
-                # Handle event.timestamp
-                pass
+            (interface_name, path, payload) = _decode_payload(event)
 
             # Check if callback is set
             if not self.on_data_received:
@@ -266,128 +337,3 @@ class DeviceGrpc(Device):
             Unused.
 
         """
-
-
-def _parse_individual_payload(
-    interface: Interface, path: str, payload: object | collections.abc.Mapping | None
-):
-    """
-    Utility function used to encapsulate a payload in a valid protobuf structure.
-
-    Parameters
-    ----------
-    interface : Interface
-        The Interface to send data to.
-    path: str
-        The endpoint to send the data to
-    payload : object, collections.abc.Mapping, optional
-        The payload to send if present.
-
-    Returns
-    -------
-    AstarteDataType | None
-        The encapsulated payload
-    """
-    # pylint: disable=no-member
-    if payload is None:
-        return AstarteUnset()
-
-    mapping = interface.get_mapping(path)
-
-    parsed_payload = None
-
-    if mapping.type == "boolean":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(astarte_boolean=payload)
-        )
-    if mapping.type == "booleanarray":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_boolean_array=AstarteBooleanArray(values=payload)
-            )
-        )
-    if mapping.type == "string":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(astarte_string=payload)
-        )
-    if mapping.type == "stringarray":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_string_array=AstarteStringArray(values=payload)
-            )
-        )
-    if mapping.type == "double":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(astarte_double=payload)
-        )
-    if mapping.type == "doublearray":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_double_array=AstarteDoubleArray(values=payload)
-            )
-        )
-    if mapping.type == "integer":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(astarte_integer=payload)
-        )
-    if mapping.type == "integerarray":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_integer_array=AstarteIntegerArray(values=payload)
-            )
-        )
-    if mapping.type == "longinteger":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(astarte_long_integer=payload)
-        )
-    if mapping.type == "longintegerarray":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_long_integer_array=AstarteLongIntegerArray(values=payload)
-            )
-        )
-    if mapping.type == "binaryblob":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(astarte_binary_blob=payload)
-        )
-    if mapping.type == "binaryblobarray":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_binary_blob_array=AstarteBinaryBlobArray(values=payload)
-            )
-        )
-    if mapping.type == "datetime":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_date_time=_parse_date_time(payload)
-            )
-        )
-    if mapping.type == "datetimearray":
-        parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_date_time_array=AstarteDateTimeArray(
-                    values=[_parse_date_time(date_time) for date_time in payload]
-                )
-            )
-        )
-
-    return parsed_payload
-
-
-def _parse_date_time(date_time: datetime):
-    """
-    Utility function used to convert a datetime to a google protobuf Timestamp structure.
-
-    Parameters
-    ----------
-    date_time : datetime
-        The datetime to convert.
-
-    Returns
-    -------
-    google.protobuf.timestamp_pb2.Timestamp
-        Converted datetime.
-    """
-    parsed_date_time = Timestamp()
-    parsed_date_time.FromDatetime(date_time)
-    return parsed_date_time
