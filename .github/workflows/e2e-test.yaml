@@ -37,7 +37,7 @@ jobs:
         id: astarte
         uses: astarte-platform/astarte-cluster-action@v1
         with:
-          astarte_version: "1.0.4"
+          astarte_version: "1.1"
       - name: Install interface
         run: |
           astartectl realm-management interfaces sync $GITHUB_WORKSPACE/e2etest/interfaces/*.json --non-interactive
