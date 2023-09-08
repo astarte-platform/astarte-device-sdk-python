@@ -21,7 +21,7 @@ __version__ = "0.12.0"
 
 # Export what we care about
 from .device_mqtt import DeviceMqtt
-from .device_grpc import DeviceGrpc
+# from .device_grpc import DeviceGrpc
 from .introspection import Introspection
 from .interface import Interface
 from .mapping import Mapping
