@@ -33,8 +33,20 @@ from astarte.device.device import Device
 from astarte.device.interface import Interface
 from astarte.device.exceptions import ValidationError
 
-from astarteplatform.msghub.message_hub_service_pb2_grpc import MessageHubStub
-from astarteplatform.msghub import astarte_message_pb2, astarte_type_pb2, node_pb2
+from astarteplatform.msghub import MessageHubStub
+from astarteplatform.msghub import Node
+from astarteplatform.msghub import AstarteMessage, AstarteUnset
+from astarteplatform.msghub import (
+    AstarteDataType,
+    AstarteDataTypeIndividual,
+    AstarteBooleanArray,
+    AstarteStringArray,
+    AstarteDoubleArray,
+    AstarteIntegerArray,
+    AstarteLongIntegerArray,
+    AstarteBinaryBlobArray,
+    AstarteDateTimeArray,
+)
 
 
 class DeviceGrpc(Device):
@@ -101,7 +113,7 @@ class DeviceGrpc(Device):
         self.__grpc_stub = MessageHubStub(self.__grpc_channel)
 
         # pylint: disable=no-member
-        self.__grpc_node = node_pb2.Node(uuid=self.node_uuid, interface_jsons=self.__interfaces_bin)
+        self.__grpc_node = Node(uuid=self.node_uuid, interface_jsons=self.__interfaces_bin)
         stream = self.__grpc_stub.Attach(self.__grpc_node)
 
         self.__thread_handle = threading.Thread(target=self._rx_stream_handler, args=(stream,))
@@ -157,7 +169,7 @@ class DeviceGrpc(Device):
             raise ValidationError(f"Path {path} not in the {interface.name} interface.")
 
         # pylint: disable=no-member
-        msg = astarte_message_pb2.AstarteMessage(
+        msg = AstarteMessage(
             interface_name=interface.name,
             path=path,
             timestamp=protobuf_timestamp,
@@ -273,91 +285,91 @@ def _parse_individual_payload(
 
     Returns
     -------
-    astarteplatform.msghub.astarte_type_pb2.AstarteDataType | None
+    AstarteDataType | None
         The encapsulated payload
     """
     # pylint: disable=no-member
     if payload is None:
-        return astarte_type_pb2.AstarteUnset()
+        return AstarteUnset()
 
     mapping = interface.get_mapping(path)
 
     parsed_payload = None
 
     if mapping.type == "boolean":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(astarte_boolean=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(astarte_boolean=payload)
         )
     if mapping.type == "booleanarray":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
-                astarte_boolean_array=astarte_type_pb2.AstarteBooleanArray(values=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
+                astarte_boolean_array=AstarteBooleanArray(values=payload)
             )
         )
     if mapping.type == "string":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(astarte_string=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(astarte_string=payload)
         )
     if mapping.type == "stringarray":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
-                astarte_string_array=astarte_type_pb2.AstarteStringArray(values=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
+                astarte_string_array=AstarteStringArray(values=payload)
             )
         )
     if mapping.type == "double":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(astarte_double=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(astarte_double=payload)
         )
     if mapping.type == "doublearray":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
-                astarte_double_array=astarte_type_pb2.AstarteDoubleArray(values=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
+                astarte_double_array=AstarteDoubleArray(values=payload)
             )
         )
     if mapping.type == "integer":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(astarte_integer=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(astarte_integer=payload)
         )
     if mapping.type == "integerarray":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
-                astarte_integer_array=astarte_type_pb2.AstarteIntegerArray(values=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
+                astarte_integer_array=AstarteIntegerArray(values=payload)
             )
         )
     if mapping.type == "longinteger":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
                 astarte_long_integer=payload
             )
         )
     if mapping.type == "longintegerarray":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
-                astarte_long_integer_array=astarte_type_pb2.AstarteLongIntegerArray(values=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
+                astarte_long_integer_array=AstarteLongIntegerArray(values=payload)
             )
         )
     if mapping.type == "binaryblob":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
                 astarte_binary_blob=payload
             )
         )
     if mapping.type == "binaryblobarray":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
-                astarte_binary_blob_array=astarte_type_pb2.AstarteBinaryBlobArray(values=payload)
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
+                astarte_binary_blob_array=AstarteBinaryBlobArray(values=payload)
             )
         )
     if mapping.type == "datetime":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
                 astarte_date_time=_parse_date_time(payload)
             )
         )
     if mapping.type == "datetimearray":
-        parsed_payload = astarte_type_pb2.AstarteDataType(
-            astarte_individual=astarte_type_pb2.AstarteDataTypeIndividual(
-                astarte_date_time_array=astarte_type_pb2.AstarteDateTimeArray(
+        parsed_payload = AstarteDataType(
+            astarte_individual=AstarteDataTypeIndividual(
+                astarte_date_time_array=AstarteDateTimeArray(
                     values=[_parse_date_time(date_time) for date_time in payload]
                 )
             )
