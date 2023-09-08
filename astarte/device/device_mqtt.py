@@ -161,7 +161,6 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
 
         self.on_connected: Callable[DeviceMqtt, None] | None = None
         self.on_disconnected: Callable[[DeviceMqtt, int], None] | None = None
-        self.on_data_received: Callable[[DeviceMqtt, str, str, object], None] | None = None
 
         self.__setup_mqtt_client()
 
@@ -490,7 +489,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         interface_name = topic_tokens[0]
         interface_path = "/" + "/".join(topic_tokens[1:])
 
-        self._on_message_checks(interface_name, interface_path, data_payload)
+        self._on_message_generic(interface_name, interface_path, data_payload)
 
     def _store_property(
         self,
@@ -498,13 +497,20 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         path: str,
         payload: object | collections.abc.Mapping | None,
     ) -> None:
-        '''
+        """
         Store the property in the properties database.
-        '''
+
+        Parameters
+        ----------
+        interface: Interface
+            Interface to use for property store.
+        path: str
+            Path to use for property store.
+        payload: object | collections.abc.Mapping | None
+            Payload to store.
+        """
         if interface.is_type_properties():
-            self.__prop_database.store_prop(
-                interface.name, interface.version_major, path, payload
-            )
+            self.__prop_database.store_prop(interface.name, interface.version_major, path, payload)
 
     def __setup_subscriptions(self) -> None:
         """

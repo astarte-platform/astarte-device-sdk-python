@@ -89,7 +89,9 @@ def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, 
         flush=True,
     )
 
-    post_server_interface(test_cfg, test_cfg.interface_server_aggr, "/sensor-id", test_cfg.mock_data)
+    post_server_interface(
+        test_cfg, test_cfg.interface_server_aggr, "/sensor-id", test_cfg.mock_data
+    )
 
     time.sleep(1)
 

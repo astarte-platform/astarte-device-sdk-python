@@ -23,9 +23,8 @@ import json
 from datetime import datetime
 from collections.abc import Callable
 import threading
-import grpc
-import logging
 import asyncio
+import grpc
 
 # pylint: disable=no-name-in-module
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -64,7 +63,6 @@ class DeviceGrpc(Device):
 
         self.on_connected: Callable[DeviceGrpc, None] | None = None
         self.on_disconnected: Callable[[DeviceGrpc, int], None] | None = None
-        self.on_data_received: Callable[[DeviceGrpc, str, str, object], None] | None = None
 
         self.__grpc_channel = None
         self.__grpc_stub = None
@@ -167,7 +165,7 @@ class DeviceGrpc(Device):
         )
         self.__grpc_stub.Send(msg)
 
-    def _rx_stream_handler(self, stream):  # pylint: disable=no-self-use
+    def _rx_stream_handler(self, stream):  # pylint: disable=too-many-branches # TODO remove this
         """
         Handles the reception stream.
 
@@ -180,44 +178,56 @@ class DeviceGrpc(Device):
             interface_name = event.interface_name
             path = event.path
             payload = None
-            timestamp = None
             if event.HasField("astarte_data"):
                 if event.astarte_data.HasField("astarte_individual"):
-                    if event.astarte_data.astarte_individual.HasField('astarte_double'):
+                    if event.astarte_data.astarte_individual.HasField("astarte_double"):
                         payload = event.astarte_data.astarte_individual.astarte_double
-                    elif event.astarte_data.astarte_individual.HasField('astarte_double_array'):
-                        payload = event.astarte_data.astarte_individual.astarte_double_array.values
-                        payload = [e for e in payload]
-                    elif event.astarte_data.astarte_individual.HasField('astarte_integer'):
+                    elif event.astarte_data.astarte_individual.HasField("astarte_double_array"):
+                        payload = list(
+                            event.astarte_data.astarte_individual.astarte_double_array.values
+                        )
+                    elif event.astarte_data.astarte_individual.HasField("astarte_integer"):
                         payload = event.astarte_data.astarte_individual.astarte_integer
-                    elif event.astarte_data.astarte_individual.HasField('astarte_integer_array'):
-                        payload = event.astarte_data.astarte_individual.astarte_integer_array.values
-                        payload = [e for e in payload]
-                    elif event.astarte_data.astarte_individual.HasField('astarte_boolean'):
+                    elif event.astarte_data.astarte_individual.HasField("astarte_integer_array"):
+                        payload = list(
+                            event.astarte_data.astarte_individual.astarte_integer_array.values
+                        )
+                    elif event.astarte_data.astarte_individual.HasField("astarte_boolean"):
                         payload = event.astarte_data.astarte_individual.astarte_boolean
-                    elif event.astarte_data.astarte_individual.HasField('astarte_boolean_array'):
-                        payload = event.astarte_data.astarte_individual.astarte_boolean_array.values
-                        payload = [e for e in payload]
-                    elif event.astarte_data.astarte_individual.HasField('astarte_long_integer'):
+                    elif event.astarte_data.astarte_individual.HasField("astarte_boolean_array"):
+                        payload = list(
+                            event.astarte_data.astarte_individual.astarte_boolean_array.values
+                        )
+                    elif event.astarte_data.astarte_individual.HasField("astarte_long_integer"):
                         payload = event.astarte_data.astarte_individual.astarte_long_integer
-                    elif event.astarte_data.astarte_individual.HasField('astarte_long_integer_array'):
-                        payload = event.astarte_data.astarte_individual.astarte_long_integer_array.values
-                        payload = [e for e in payload]
-                    elif event.astarte_data.astarte_individual.HasField('astarte_string'):
+                    elif event.astarte_data.astarte_individual.HasField(
+                        "astarte_long_integer_array"
+                    ):
+                        payload = list(
+                            event.astarte_data.astarte_individual.astarte_long_integer_array.values
+                        )
+                    elif event.astarte_data.astarte_individual.HasField("astarte_string"):
                         payload = event.astarte_data.astarte_individual.astarte_string
-                    elif event.astarte_data.astarte_individual.HasField('astarte_string_array'):
-                        payload = event.astarte_data.astarte_individual.astarte_string_array.values
-                        payload = [e for e in payload]
-                    elif event.astarte_data.astarte_individual.HasField('astarte_binary_blob'):
+                    elif event.astarte_data.astarte_individual.HasField("astarte_string_array"):
+                        payload = list(
+                            event.astarte_data.astarte_individual.astarte_string_array.values
+                        )
+                    elif event.astarte_data.astarte_individual.HasField("astarte_binary_blob"):
                         payload = event.astarte_data.astarte_individual.astarte_binary_blob
-                    elif event.astarte_data.astarte_individual.HasField('astarte_binary_blob_array'):
-                        payload = event.astarte_data.astarte_individual.astarte_binary_blob_array.values
-                        payload = [e for e in payload]
-                    elif event.astarte_data.astarte_individual.HasField('astarte_date_time'):
-                        payload = event.astarte_data.astarte_individual.astarte_date_time.ToDatetime()
-                    elif event.astarte_data.astarte_individual.HasField('astarte_date_time_array'):
-                        payload = event.astarte_data.astarte_individual.astarte_date_time_array.values
-                        payload = [e for e in payload]
+                    elif event.astarte_data.astarte_individual.HasField(
+                        "astarte_binary_blob_array"
+                    ):
+                        payload = list(
+                            event.astarte_data.astarte_individual.astarte_binary_blob_array.values
+                        )
+                    elif event.astarte_data.astarte_individual.HasField("astarte_date_time"):
+                        payload = (
+                            event.astarte_data.astarte_individual.astarte_date_time.ToDatetime()
+                        )
+                    elif event.astarte_data.astarte_individual.HasField("astarte_date_time_array"):
+                        payload = list(
+                            event.astarte_data.astarte_individual.astarte_date_time_array.values
+                        )
                 else:
                     # Handle event.astarte_data.astarte_object
                     pass
@@ -227,17 +237,24 @@ class DeviceGrpc(Device):
             if event.HasField("timestamp"):
                 # Handle event.timestamp
                 pass
-            self._on_message_checks(interface_name, path, payload)
 
-    def _store_property(
-        self,
-        interface: Interface,
-        path: str,
-        payload: object | collections.abc.Mapping | None,
-    ) -> None:
-        '''
+            # Check if callback is set
+            if not self.on_data_received:
+                continue
+
+            self._on_message_generic(interface_name, path, payload)
+
+    def _store_property(self, *args) -> None:
+        """
         Empty implementation for a store property.
-        '''
+
+        Parameters
+        ----------
+        args
+            Unused.
+
+        """
+
 
 def _parse_individual_payload(
     interface: Interface, path: str, payload: object | collections.abc.Mapping | None

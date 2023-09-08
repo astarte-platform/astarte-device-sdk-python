@@ -31,6 +31,7 @@ from astarte.device import DeviceGrpc
 _ROOT_DIR = Path(__file__).parent.absolute()
 _INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
 
+
 def on_data_received_cbk(device: DeviceGrpc, interface_name: str, path: str, payload: dict):
     """
     Callback for a data reception event.
@@ -41,6 +42,7 @@ def on_data_received_cbk(device: DeviceGrpc, interface_name: str, path: str, pay
         flush=True,
     )
     cprint(f"    Payload: {payload}", color="cyan", flush=True)
+
 
 # If called as a script
 if __name__ == "__main__":

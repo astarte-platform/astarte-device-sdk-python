@@ -23,6 +23,7 @@ import collections.abc
 import json
 from pathlib import Path
 from datetime import datetime
+from collections.abc import Callable
 import logging
 
 from astarte.device.interface import Interface
@@ -57,6 +58,7 @@ class Device(ABC):
         """
         self._loop = loop
         self._introspection = Introspection()
+        self.on_data_received: Callable[[Device, str, str, object], None] | None = None
 
     @abstractmethod
     def _add_interface_from_json(self, interface_json: json):
@@ -322,7 +324,19 @@ class Device(ABC):
             will be registered as the timestamp for the value.
         """
 
-    def _on_message_checks(self, interface_name, path, payload):
+    def _on_message_generic(self, interface_name, path, payload):
+        """
+        Called each time a message has been received by the transport layer.
+
+        Parameters
+        ----------
+        interface_name: str
+            Interface name for the payload.
+        path: str
+            Path on which the payload has been received.
+        payload: object | collections.abc.Mapping | None
+            Payload to process.
+        """
 
         # Check if interface name is correct
         interface = self._introspection.get_interface(interface_name)
@@ -396,6 +410,15 @@ class Device(ABC):
         path: str,
         payload: object | collections.abc.Mapping | None,
     ) -> None:
-        '''
-        Potential implementation of a store functionality for a property.
-        '''
+        """
+        Store the property in the properties database.
+
+        Parameters
+        ----------
+        interface: Interface
+            Interface to use for property store.
+        path: str
+            Path to use for property store.
+        payload: object | collections.abc.Mapping | None
+            Payload to store.
+        """
