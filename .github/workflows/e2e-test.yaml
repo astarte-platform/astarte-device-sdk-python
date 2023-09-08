@@ -33,34 +33,34 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      # - name: Create Astarte Cluster
-      #   id: astarte
-      #   uses: astarte-platform/astarte-cluster-action@v1
-      #   with:
-      #     astarte_version: "1.1"
-      # - name: Install interface
-      #   run: |
-      #     astartectl realm-management interfaces sync $GITHUB_WORKSPACE/e2etest/interfaces/*.json --non-interactive
-      #     astartectl realm-management interfaces ls
-      # - name: Setup env variables common for both devices
-      #   run: |
-      #     echo "E2E_REALM=test" >> $GITHUB_ENV
-      #     APPENGINE_TOKEN=$(astartectl utils gen-jwt appengine)
-      #     echo "E2E_APPENGINE_TOKEN=$APPENGINE_TOKEN" >> $GITHUB_ENV
-      #     echo "E2E_APPENGINE_URL=https://api.autotest.astarte-platform.org/appengine" >> $GITHUB_ENV
-      #     echo "E2E_PAIRING_URL=https://api.autotest.astarte-platform.org/pairing" >> $GITHUB_ENV
-      # - name: Setup env variables for device 1
-      #   run: |
-      #     DEVICE_1_ID=$(astartectl utils device-id generate-random)
-      #     echo "E2E_DEVICE_1_ID=$DEVICE_1_ID" >> $GITHUB_ENV
-      #     CREDENTIALS_SECRET_1=$(astartectl pairing agent register --compact-output -- "$DEVICE_1_ID")
-      #     echo "E2E_CREDENTIALS_SECRET_1=$CREDENTIALS_SECRET_1" >> $GITHUB_ENV
-      # - name: Setup env variables for device 2
-      #   run: |
-      #     DEVICE_2_ID=$(astartectl utils device-id generate-random)
-      #     echo "E2E_DEVICE_2_ID=$DEVICE_2_ID" >> $GITHUB_ENV
-      #     CREDENTIALS_SECRET_2=$(astartectl pairing agent register --compact-output -- "$DEVICE_2_ID")
-      #     echo "E2E_CREDENTIALS_SECRET_2=$CREDENTIALS_SECRET_2" >> $GITHUB_ENV
+      - name: Create Astarte Cluster
+        id: astarte
+        uses: astarte-platform/astarte-cluster-action@v1
+        with:
+          astarte_version: "1.1"
+      - name: Install interface
+        run: |
+          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/e2etest/interfaces/*.json --non-interactive
+          astartectl realm-management interfaces ls
+      - name: Setup env variables common for both devices
+        run: |
+          echo "E2E_REALM=test" >> $GITHUB_ENV
+          APPENGINE_TOKEN=$(astartectl utils gen-jwt appengine)
+          echo "E2E_APPENGINE_TOKEN=$APPENGINE_TOKEN" >> $GITHUB_ENV
+          echo "E2E_APPENGINE_URL=https://api.autotest.astarte-platform.org/appengine" >> $GITHUB_ENV
+          echo "E2E_PAIRING_URL=https://api.autotest.astarte-platform.org/pairing" >> $GITHUB_ENV
+      - name: Setup env variables for device 1
+        run: |
+          DEVICE_1_ID=$(astartectl utils device-id generate-random)
+          echo "E2E_DEVICE_1_ID=$DEVICE_1_ID" >> $GITHUB_ENV
+          CREDENTIALS_SECRET_1=$(astartectl pairing agent register --compact-output -- "$DEVICE_1_ID")
+          echo "E2E_CREDENTIALS_SECRET_1=$CREDENTIALS_SECRET_1" >> $GITHUB_ENV
+      - name: Setup env variables for device 2
+        run: |
+          DEVICE_2_ID=$(astartectl utils device-id generate-random)
+          echo "E2E_DEVICE_2_ID=$DEVICE_2_ID" >> $GITHUB_ENV
+          CREDENTIALS_SECRET_2=$(astartectl pairing agent register --compact-output -- "$DEVICE_2_ID")
+          echo "E2E_CREDENTIALS_SECRET_2=$CREDENTIALS_SECRET_2" >> $GITHUB_ENV
       - name: Install the astarte device python module
         run: |
           python3 -m pip install -e .[e2e]
