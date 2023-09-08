@@ -338,9 +338,7 @@ def _parse_individual_payload(
         )
     if mapping.type == "longinteger":
         parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_long_integer=payload
-            )
+            astarte_individual=AstarteDataTypeIndividual(astarte_long_integer=payload)
         )
     if mapping.type == "longintegerarray":
         parsed_payload = AstarteDataType(
@@ -350,9 +348,7 @@ def _parse_individual_payload(
         )
     if mapping.type == "binaryblob":
         parsed_payload = AstarteDataType(
-            astarte_individual=AstarteDataTypeIndividual(
-                astarte_binary_blob=payload
-            )
+            astarte_individual=AstarteDataTypeIndividual(astarte_binary_blob=payload)
         )
     if mapping.type == "binaryblobarray":
         parsed_payload = AstarteDataType(
