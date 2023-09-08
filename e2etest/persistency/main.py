@@ -315,7 +315,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
             "/sensor-id/longinteger_endpoint",
-            "hello",
+            "45543543534",
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
