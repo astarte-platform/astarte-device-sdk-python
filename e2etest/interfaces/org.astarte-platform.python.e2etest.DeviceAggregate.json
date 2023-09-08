@@ -34,11 +34,6 @@
             "explicit_timestamp": false
         },
         {
-            "endpoint": "/%{sensor_id}/binaryblob_endpoint",
-            "type": "binaryblob",
-            "explicit_timestamp": false
-        },
-        {
             "endpoint": "/%{sensor_id}/datetime_endpoint",
             "type": "datetime",
             "explicit_timestamp": false
@@ -66,11 +61,6 @@
         {
             "endpoint": "/%{sensor_id}/stringarray_endpoint",
             "type": "stringarray",
-            "explicit_timestamp": false
-        },
-        {
-            "endpoint": "/%{sensor_id}/binaryblobarray_endpoint",
-            "type": "binaryblobarray",
             "explicit_timestamp": false
         },
         {
