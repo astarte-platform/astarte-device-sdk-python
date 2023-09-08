@@ -474,6 +474,17 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         if not self.on_data_received:
             return
 
+        # Extract payload from BSON
+        data_payload = None
+        if msg.payload:
+            payload_object = bson.loads(msg.payload)
+            if "v" not in payload_object:
+                logging.warning(
+                    "Received unexpected BSON Object on topic %s, %s", msg.topic, payload_object
+                )
+                return
+            data_payload = payload_object["v"]
+
         # Get interface name and path
         topic_tokens = msg.topic.replace(f"{self.__get_base_topic()}/", "").split("/")
         interface_name = topic_tokens[0]
@@ -500,18 +511,9 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
             )
             return
 
-        # Extract payload from BSON
-        data_payload = None
-        if msg.payload:
-            payload_object = bson.loads(msg.payload)
-            if "v" not in payload_object:
-                logging.warning(
-                    "Received unexpected BSON Object on topic %s, %s", msg.topic, payload_object
-                )
-                return
-            data_payload = payload_object["v"]
+
         # Ensure that an empty payload is only for resettable properties
-        elif not interface.is_property_endpoint_resettable(interface_path):
+        if (data_payload is None) and (not interface.is_property_endpoint_resettable(interface_path)):
             logging.warning(
                 "Received empty payload for non property interface %s or non resettable %s endpoint",
                 interface_name,

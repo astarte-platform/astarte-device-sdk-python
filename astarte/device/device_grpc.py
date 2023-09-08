@@ -230,6 +230,7 @@ class DeviceGrpc(Device):
             self._on_message_checks(interface_name, path, payload)
 
     def _on_message_checks(self, interface_name, path, payload):
+
         # Check if interface name is correct
         interface = self._introspection.get_interface(interface_name)
         if not interface:
@@ -248,6 +249,15 @@ class DeviceGrpc(Device):
                 interface_name,
                 path,
                 payload,
+            )
+            return
+
+        # Ensure that an empty payload is only for resettable properties
+        if (payload is None) and (not interface.is_property_endpoint_resettable(path)):
+            logging.warning(
+                "Received empty payload for non property interface %s or non resettable %s endpoint",
+                interface_name,
+                path,
             )
             return
 
