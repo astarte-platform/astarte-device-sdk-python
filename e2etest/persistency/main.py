@@ -315,7 +315,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
             "/sensor-id/longinteger_endpoint",
-            "45543543534",
+            45543543534,
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
@@ -324,11 +324,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             ["hello", " world"],
         ),
     ]
-    dtp = peek_database(persistency_dir, test_cfg.device_id)
-
-    print(dtp)
-    print(expect_db)
-    assert dtp == expect_db
+    assert peek_database(persistency_dir, test_cfg.device_id) == expect_db
     expect_astarte = {
         test_cfg.interface_device_prop: {
             "integer_endpoint": 66,
