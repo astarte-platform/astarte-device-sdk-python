@@ -30,6 +30,11 @@ from termcolor import cprint
 import importlib.util
 import sys
 
+# Assuming this script is called from the root folder of this project.
+prj_path = Path(os.getcwd())
+if str(prj_path) not in sys.path:
+    sys.path.insert(0, str(prj_path))
+
 from astarte.device import DeviceMqtt
 
 config_path = Path.joinpath(Path.cwd(), "e2etest", "common", "config.py")
