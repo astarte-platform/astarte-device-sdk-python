@@ -27,6 +27,9 @@ from termcolor import cprint
 import importlib.util
 import sys
 
+if Path(os.getcwd()) not in sys.path:
+    sys.path.insert(0, Path(os.getcwd()))
+
 print(Path(os.getcwd()))
 print(sys.path)
 
