@@ -109,7 +109,7 @@ def unset_some_properties(device: DeviceMqtt, test_cfg: TestCfg):
 
     cprint("\nUnset some server owned properties.", color="cyan", flush=True)
     for key, _ in test_cfg.mock_data.items():
-        if key not in ["binaryblob_endpoint", "stringarray_endpoint"]:
+        if key not in ["longinteger_endpoint", "stringarray_endpoint"]:
             delete_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor-id/" + key)
         time.sleep(0.005)
 
@@ -142,7 +142,7 @@ def shuffle_database(persistency_dir: Path, test_cfg: TestCfg):
     )
     cursor.execute(
         "DELETE FROM properties WHERE interface=? AND path=?",
-        (test_cfg.interface_server_prop, "/sensor-id/binaryblob_endpoint"),
+        (test_cfg.interface_server_prop, "/sensor-id/longinteger_endpoint"),
     )
     cursor.execute(
         "INSERT OR REPLACE INTO properties (interface, major, path, value) VALUES " "(?, ?, ?, ?)",
@@ -230,7 +230,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     ] + [
         (test_cfg.interface_server_prop, 0, f"/sensor-id/{k}", v)
         for k, v in test_cfg.mock_data.items()
-        if k in ["binaryblob_endpoint", "stringarray_endpoint"]
+        if k in ["longinteger_endpoint", "stringarray_endpoint"]
     ]
     if actual_db != expect_db:
         print(f"Expectec database: {expect_db}", flush=True)
@@ -242,7 +242,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             "booleanarray_endpoint": test_cfg.mock_data["booleanarray_endpoint"],
         },
         test_cfg.interface_server_prop: {
-            "binaryblob_endpoint": test_cfg.mock_data["binaryblob_endpoint"],
+            "longinteger_endpoint": test_cfg.mock_data["longinteger_endpoint"],
             "stringarray_endpoint": test_cfg.mock_data["stringarray_endpoint"],
         },
     }
@@ -288,7 +288,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             "booleanarray_endpoint": test_cfg.mock_data["booleanarray_endpoint"],
         },
         test_cfg.interface_server_prop: {
-            "binaryblob_endpoint": test_cfg.mock_data["binaryblob_endpoint"],
+            "longinteger_endpoint": test_cfg.mock_data["longinteger_endpoint"],
             "stringarray_endpoint": test_cfg.mock_data["stringarray_endpoint"],
         },
     }
@@ -311,12 +311,12 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             "/sensor-id/integer_endpoint",
             66,
         ),
-        # (
-        #     "org.astarte-platform.python.e2etest.ServerProperty",
-        #     0,
-        #     "/sensor-id/binaryblob_endpoint",
-        #     "hello",
-        # ),
+        (
+            "org.astarte-platform.python.e2etest.ServerProperty",
+            0,
+            "/sensor-id/longinteger_endpoint",
+            "hello",
+        ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
@@ -331,7 +331,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             "booleanarray_endpoint": test_cfg.mock_data["booleanarray_endpoint"],
         },
         test_cfg.interface_server_prop: {
-            "binaryblob_endpoint": test_cfg.mock_data["binaryblob_endpoint"],
+            "longinteger_endpoint": test_cfg.mock_data["longinteger_endpoint"],
             "stringarray_endpoint": test_cfg.mock_data["stringarray_endpoint"],
         },
     }
