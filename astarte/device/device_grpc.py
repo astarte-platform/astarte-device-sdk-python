@@ -33,10 +33,10 @@ from astarte.device.device import Device
 from astarte.device.interface import Interface
 from astarte.device.exceptions import ValidationError
 
-from astarteplatform.msghub import MessageHubStub
-from astarteplatform.msghub import Node
-from astarteplatform.msghub import AstarteMessage, AstarteUnset
-from astarteplatform.msghub import (
+from astarteplatform.msghub.message_hub_service_pb2_grpc import MessageHubStub
+from astarteplatform.msghub.node_pb2 import Node
+from astarteplatform.msghub.astarte_message_pb2 import AstarteMessage, AstarteUnset
+from astarteplatform.msghub.astarte_type_pb2 import (
     AstarteDataType,
     AstarteDataTypeIndividual,
     AstarteBooleanArray,
