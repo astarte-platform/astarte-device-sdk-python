@@ -490,75 +490,21 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         interface_name = topic_tokens[0]
         interface_path = "/" + "/".join(topic_tokens[1:])
 
-        # Check if interface name is correct
-        interface = self._introspection.get_interface(interface_name)
-        if not interface:
-            logging.warning(
-                "Received unexpected message for unregistered interface %s: %s, %s",
-                interface_name,
-                msg.topic,
-                msg.payload,
-            )
-            return
+        self._on_message_checks(interface_name, interface_path, data_payload)
 
-        # Check over ownership of the interface
-        if not interface.is_server_owned():
-            logging.warning(
-                "Received unexpected message for device owned interface %s: %s, %s",
-                interface_name,
-                msg.topic,
-                msg.payload,
-            )
-            return
-
-
-        # Ensure that an empty payload is only for resettable properties
-        if (data_payload is None) and (not interface.is_property_endpoint_resettable(interface_path)):
-            logging.warning(
-                "Received empty payload for non property interface %s or non resettable %s endpoint",
-                interface_name,
-                interface_path,
-            )
-            return
-
-        # Check the received path corresponds to the one in the interface
-        if interface.validate_path(interface_path, data_payload):
-            logging.warning(
-                "Received message on incorrect endpoint for interface %s: %s, %s",
-                interface_name,
-                msg.topic,
-                msg.payload,
-            )
-            return
-
-        # Check the payload matches with the interface
-        if data_payload:
-            if interface.validate_payload(interface_path, data_payload):
-                logging.warning(
-                    "Received incompatible payload for interface %s: %s, %s",
-                    interface_name,
-                    msg.topic,
-                    payload_object,
-                )
-                return
-
-        # For properties, store them in the properties database
+    def _store_property(
+        self,
+        interface: Interface,
+        path: str,
+        payload: object | collections.abc.Mapping | None,
+    ) -> None:
+        '''
+        Store the property in the properties database.
+        '''
         if interface.is_type_properties():
             self.__prop_database.store_prop(
-                interface.name, interface.version_major, interface_path, data_payload
+                interface.name, interface.version_major, path, payload
             )
-
-        if self._loop:
-            # Use threadsafe, as we're in a different thread here
-            self._loop.call_soon_threadsafe(
-                self.on_data_received,
-                self,
-                interface_name,
-                interface_path,
-                data_payload,
-            )
-        else:
-            self.on_data_received(self, interface_name, interface_path, data_payload)
 
     def __setup_subscriptions(self) -> None:
         """

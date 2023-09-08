@@ -229,70 +229,15 @@ class DeviceGrpc(Device):
                 pass
             self._on_message_checks(interface_name, path, payload)
 
-    def _on_message_checks(self, interface_name, path, payload):
-
-        # Check if interface name is correct
-        interface = self._introspection.get_interface(interface_name)
-        if not interface:
-            logging.warning(
-                "Received unexpected message for unregistered interface %s: %s, %s",
-                interface_name,
-                path,
-                payload,
-            )
-            return
-
-        # Check over ownership of the interface
-        if not interface.is_server_owned():
-            logging.warning(
-                "Received unexpected message for device owned interface %s: %s, %s",
-                interface_name,
-                path,
-                payload,
-            )
-            return
-
-        # Ensure that an empty payload is only for resettable properties
-        if (payload is None) and (not interface.is_property_endpoint_resettable(path)):
-            logging.warning(
-                "Received empty payload for non property interface %s or non resettable %s endpoint",
-                interface_name,
-                path,
-            )
-            return
-
-        # Check the received path corresponds to the one in the interface
-        if interface.validate_path(path, payload):
-            logging.warning(
-                "Received message on incorrect endpoint for interface %s: %s, %s",
-                interface_name,
-                path,
-                payload,
-            )
-            return
-
-        # Check the payload matches with the interface
-        if payload:
-            if interface.validate_payload(path, payload):
-                logging.warning(
-                    "Received incompatible payload for interface %s: %s, %s",
-                    interface_name,
-                    path,
-                    payload,
-                )
-                return
-
-        if self._loop:
-            # Use threadsafe, as we're in a different thread here
-            self._loop.call_soon_threadsafe(
-                self.on_data_received,
-                self,
-                interface_name,
-                path,
-                payload,
-            )
-        else:
-            self.on_data_received(self, interface_name, path, payload)
+    def _store_property(
+        self,
+        interface: Interface,
+        path: str,
+        payload: object | collections.abc.Mapping | None,
+    ) -> None:
+        '''
+        Empty implementation for a store property.
+        '''
 
 def _parse_individual_payload(
     interface: Interface, path: str, payload: object | collections.abc.Mapping | None
