@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import collections.abc
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from collections.abc import Callable
 import threading
 import asyncio
@@ -40,6 +40,7 @@ from astarteplatform.msghub.astarte_message_pb2 import AstarteMessage, AstarteUn
 from astarteplatform.msghub.astarte_type_pb2 import (
     AstarteDataType,
     AstarteDataTypeIndividual,
+    AstarteDataTypeObject,
     AstarteBooleanArray,
     AstarteStringArray,
     AstarteDoubleArray,
@@ -95,9 +96,9 @@ astarte_types_lookup = {
 }
 
 
-def _encode_individual_payload(
+def _encode_payload(
     interface: Interface, path: str, payload: object | collections.abc.Mapping | None
-):
+) -> (str, AstarteDataType | AstarteUnset):
     """
     Utility function used to encapsulate a payload in a valid protobuf structure.
 
@@ -117,26 +118,50 @@ def _encode_individual_payload(
     """
     # pylint: disable=no-member
     if payload is None:
-        return AstarteUnset()
-
-    mapping = interface.get_mapping(path)
+        return ("astarte_unset", AstarteUnset())
 
     parsed_payload = None
 
-    if mapping.type in astarte_types_lookup:
-        # Local variables for long lookups
-        grpc_arg_name = astarte_types_lookup[mapping.type].grpc_arg_name
-        grpc_class = astarte_types_lookup[mapping.type].grpc_class
-        grpc_data_parser = astarte_types_lookup[mapping.type].grpc_data_parser
-        # Encapsulate the payload in grpc types
-        if grpc_data_parser:
-            payload = grpc_data_parser(payload)
-        if grpc_class:
-            payload = grpc_class(values=payload)
-        payload = AstarteDataTypeIndividual(**{grpc_arg_name: payload})
-        parsed_payload = AstarteDataType(astarte_individual=payload)
+    if not interface.is_aggregation_object():
 
-    return parsed_payload
+        mapping = interface.get_mapping(path)
+
+        if mapping.type in astarte_types_lookup:
+            # Local variables for long names
+            grpc_arg_name = astarte_types_lookup[mapping.type].grpc_arg_name
+            grpc_class = astarte_types_lookup[mapping.type].grpc_class
+            grpc_data_parser = astarte_types_lookup[mapping.type].grpc_data_parser
+            # Encapsulate the payload in grpc types
+            if grpc_data_parser:
+                payload = grpc_data_parser(payload)
+            if grpc_class:
+                payload = grpc_class(values=payload)
+            payload = AstarteDataTypeIndividual(**{grpc_arg_name: payload})
+            parsed_payload = AstarteDataType(astarte_individual=payload)
+    else:
+        parsed_payload = {}
+        for (key, value) in payload.items():
+
+            mapping = interface.get_mapping("/".join([path, key]))
+
+            if mapping.type in astarte_types_lookup:
+                # Local variables for long names
+                grpc_arg_name = astarte_types_lookup[mapping.type].grpc_arg_name
+                grpc_class = astarte_types_lookup[mapping.type].grpc_class
+                grpc_data_parser = astarte_types_lookup[mapping.type].grpc_data_parser
+                # Encapsulate the value in grpc types
+                if grpc_data_parser:
+                    value = grpc_data_parser(value)
+                if grpc_class:
+                    value = grpc_class(values=value)
+                value = AstarteDataTypeIndividual(**{grpc_arg_name: value})
+                parsed_payload[key] = value
+
+
+        parsed_payload = AstarteDataTypeObject(object_data=parsed_payload)
+        parsed_payload = AstarteDataType(astarte_object=parsed_payload)
+
+    return ("astarte_data", parsed_payload)
 
 grpc_array_types = [
     AstarteDataType,
@@ -157,27 +182,32 @@ def _decode_payload(grpc_message: AstarteMessage):
     interface_name = grpc_message.interface_name
     path = grpc_message.path
     payload = None
+    # No need to handle directly grpc_message.astarte_unset as payload is already None
     if grpc_message.HasField("astarte_data"):
         grpc_data = grpc_message.astarte_data
         if grpc_data.HasField("astarte_individual"):
             grpc_indiv_data_opt = grpc_data.astarte_individual.WhichOneof("individual_data")
             payload = getattr(grpc_data.astarte_individual, grpc_indiv_data_opt)
             if grpc_indiv_data_opt == "astarte_date_time":
-                payload = payload.ToDatetime()
+                payload = payload.ToDatetime(timezone.utc)
             if type(payload) in grpc_array_types:
                 payload = list(payload.values)
             if grpc_indiv_data_opt == "astarte_date_time_array":
-                payload = [e.ToDatetime() for e in payload]
+                payload = [e.ToDatetime(timezone.utc) for e in payload]
         else:
-            # Handle grpc_data.astarte_object
-            pass
-    else:
-        # Handle grpc_message.astarte_unset
-        pass
-    if grpc_message.HasField("timestamp"):
-        # Handle grpc_message.timestamp
-        pass
+            payload = {}
+            for key, value in grpc_data.astarte_object.object_data.items():
+                grpc_indiv_data_opt = value.WhichOneof("individual_data")
+                endp_payload = getattr(value, grpc_indiv_data_opt)
+                if grpc_indiv_data_opt == "astarte_date_time":
+                    endp_payload = endp_payload.ToDatetime(timezone.utc)
+                if type(endp_payload) in grpc_array_types:
+                    endp_payload = list(endp_payload.values)
+                if grpc_indiv_data_opt == "astarte_date_time_array":
+                    endp_payload = [e.ToDatetime(timezone.utc) for e in endp_payload]
 
+                payload[key] = endp_payload
+    # For now ignore the received 'grpc_message.timestamp'
     return (interface_name, path, payload)
 
 
@@ -294,19 +324,23 @@ class DeviceGrpc(Device):
             raise ValidationError(f"The interface {interface.name} is not owned by the device.")
 
         protobuf_timestamp = None
-        if (payload is not None) and (timestamp is not None):
-            protobuf_timestamp = Timestamp()
-            protobuf_timestamp.FromDatetime(timestamp)
+        if payload is not None:
+            if timestamp is not None:
+                protobuf_timestamp = Timestamp()
+                protobuf_timestamp.FromDatetime(timestamp)
         elif not interface.get_mapping(path):
             raise ValidationError(f"Path {path} not in the {interface.name} interface.")
 
+        # A call with unpacking of dictionary
+        (pkey, pvalue) = _encode_payload(interface, path, payload)
+        args = {
+            'interface_name':interface.name,
+            'path':path,
+            'timestamp':protobuf_timestamp,
+            pkey:pvalue
+        }
         # pylint: disable=no-member
-        msg = AstarteMessage(
-            interface_name=interface.name,
-            path=path,
-            timestamp=protobuf_timestamp,
-            astarte_data=_encode_individual_payload(interface, path, payload),
-        )
+        msg = AstarteMessage(**args)
         self.__grpc_stub.Send(msg)
 
     def _rx_stream_handler(self, stream):  # pylint: disable=too-many-branches # TODO remove this
