@@ -35,7 +35,7 @@ from pathlib import Path
 from random import random
 from time import sleep
 
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 
 _ROOT_DIR = Path(__file__).parent.absolute()
 _INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
@@ -61,7 +61,7 @@ def main():
     """
 
     # Instance the device
-    device = Device(
+    device = DeviceMqtt(
         device_id=_DEVICE_ID,
         realm=_REALM,
         credentials_secret=_CREDENTIAL_SECRET,

@@ -31,7 +31,7 @@ from threading import Thread
 from time import sleep
 from typing import Optional, Tuple
 
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 
 _ROOT_DIR = Path(__file__).parent.absolute()
 _INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
@@ -64,7 +64,7 @@ def _generate_async_loop() -> Tuple[asyncio.AbstractEventLoop, Thread]:
     return _loop, other_thread
 
 
-def callback(device: Device, interface_name: str, path: str, payload: object) -> None:
+def callback(device: DeviceMqtt, interface_name: str, path: str, payload: object) -> None:
     """
     A function where we are going to handle the Astarte events triggered by server-owned interface
     updates.
@@ -95,7 +95,7 @@ def main(cb_loop: Optional[asyncio.AbstractEventLoop] = None):
     """
 
     # Instance the device
-    device = Device(
+    device = DeviceMqtt(
         device_id=_DEVICE_ID,
         realm=_REALM,
         credentials_secret=_CREDENTIAL_SECRET,
