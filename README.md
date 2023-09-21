@@ -24,10 +24,10 @@ pip install astarte-device-sdk
 
 Initializing an instance of a device can be performed in three steps, as seen below.
 ```python
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 
 # Create the device instance
-device = Device(
+device = DeviceMqtt(
     device_id="device id",
     realm="realm",
     credentials_secret="credentials secret",
@@ -47,7 +47,7 @@ device.connect()
 
 Publishing new values can be performed using the `send` and `send_aggregate` functions.
 ```python
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 from datetime import datetime, timezone
 
 # ... Create a device and connect it to Astarte ...
@@ -75,9 +75,9 @@ device.send_aggregate(
 The device automatically polls for new messages. The user can use a call back function to process
 received data. Callback functions are also available for connect/disconnect events.
 ```python
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 
-def my_callback(device: Device, name: str, path: str, payload: dict):
+def my_callback(device: DeviceMqtt, name: str, path: str, payload: dict):
     print(f"Received message for {name}{path}: {payload}")
 
 # ... Create a device and connect it to Astarte ...
