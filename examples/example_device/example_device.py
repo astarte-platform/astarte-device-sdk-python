@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-""" Device Publication Example
+""" Device publication example
 
 This module shows an example usage of the Astarte device SDK.
 Here we show how to simply connect your device to Astarte to start publishing on various

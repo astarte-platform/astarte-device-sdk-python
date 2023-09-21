@@ -4,8 +4,8 @@ Copyright 2023 SECO Mind Srl
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Astarte Device SDK Python Example device
-This is an example of how to use the Device SDK to connect a device to Astarte and send
+# Astarte device SDK Python example device
+This is an example of how to use the device SDK to connect a device to Astarte and send
 data on `datastream` or`properties` interfaces.
 
 ## Usage

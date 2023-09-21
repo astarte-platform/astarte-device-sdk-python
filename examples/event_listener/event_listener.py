@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-""" Device Event listener Example
+""" Device event listener example
 
 This module shows an example usage of the Astarte device SDK.
 Here we show how to simply connect your device to Astarte and start listening on events on a
@@ -74,7 +74,7 @@ def callback(device: Device, interface_name: str, path: str, payload: object) ->
     Parameters
     ----------
     device: Device
-        The Astarte Device whose event is registered to
+        The Astarte device whose event is registered to
     interface_name: str
         The name of the server-owned interface where the event was triggered
     path: Str

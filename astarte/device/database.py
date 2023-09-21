@@ -108,7 +108,7 @@ class AstarteDatabase(ABC):
 class AstarteDatabaseSQLite(AstarteDatabase):
     """
     An implementation for the abstract AstarteDatabase class. This implementation uses the standard
-    SQLite library of python to implement property persistency.
+    SQLite library of Python to implement property persistency.
     """
 
     def __init__(self, database_path: Path) -> None:

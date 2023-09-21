@@ -47,7 +47,7 @@ MapType = Union[
     DatetimeList,
 ]
 
-""" Mapping type to python type mapping"""
+""" Mapping type to Python type mapping"""
 type_strings = {
     "integer": int,
     "longinteger": int,

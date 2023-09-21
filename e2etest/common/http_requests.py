@@ -114,7 +114,7 @@ def prepare_transmit_data(key, value):
 
 def parse_received_data(data):
     """
-    Some of the received data is not automatically parsed as python types.
+    Some of the received data is not automatically parsed as Python types.
     Specifically, datetime and binaryblob should be converted manually from strings.
     """
     # Parse datetime from string to datetime
