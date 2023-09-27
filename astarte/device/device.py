@@ -713,12 +713,12 @@ class Device:  # pylint: disable=too-many-instance-attributes
         data_payload = None
         if msg.payload:
             payload_object = bson.loads(msg.payload)
-            data_payload = payload_object.get("v")
-            if not data_payload:
+            if "v" not in payload_object:
                 logging.warning(
                     "Received unexpected BSON Object on topic %s, %s", msg.topic, payload_object
                 )
                 return
+            data_payload = payload_object["v"]
         # Ensure that an empty payload is only for resettable properties
         elif not interface.is_property_endpoint_resettable(interface_path):
             logging.warning(
