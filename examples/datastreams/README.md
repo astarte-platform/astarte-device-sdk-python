@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 # Astarte device SDK Python datastreams example
-This is an example of how to use the Device SDK to connect a device to Astarte
+This is an example of how to use the device SDK to connect a device to Astarte
 and handle datastream messages from/to the device.
 
 ## Usage

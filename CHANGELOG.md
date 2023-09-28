@@ -27,8 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sending zero payloads for endpoints in property interfaces was unsetting the property.
 
 ### Removed
-- Drop support for python 3.7.
+- Drop support for Python 3.7.
 
 ## [0.11.0] - 2023-03-16
 ### Added
-- Initial Astarte Device SDK release
+- Initial Astarte device SDK release

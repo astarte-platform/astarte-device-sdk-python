@@ -39,21 +39,21 @@ def register_device_with_private_key(
     ignore_ssl_errors: bool,
 ) -> str:
     """
-    Registers a Device against an Astarte instance/realm with a Private Key
+    Registers a device against an Astarte instance/realm with a Private Key
 
-    Returns the Credentials secret for the Device
+    Returns the Credentials secret for the device
 
     Parameters
     ----------
     device_id : str
-        The Device ID to register.
+        The device ID to register.
     realm : str
-        The Realm in which to register the Device.
+        The Realm in which to register the device.
     private_key_file : str
         Path to the Private Key file for the Realm. It will be used to Authenticate against
         Pairing API.
     pairing_base_url : str
-        The Base URL of Pairing API of the Astarte Instance the Device will be registered in.
+        The Base URL of Pairing API of the Astarte Instance the device will be registered in.
     ignore_ssl_errors: str
         Set to True to ignore SSL errors
 
@@ -79,21 +79,21 @@ def register_device_with_jwt_token(
     ignore_ssl_errors: bool = False,
 ) -> str:
     """
-    Registers a Device against an Astarte instance/realm with a JWT Token
+    Registers a device against an Astarte instance/realm with a JWT Token
 
-    Returns the Credentials secret for the Device
+    Returns the Credentials secret for the device
 
     Parameters
     ----------
     device_id : str
-        The Device ID to register.
+        The device ID to register.
     realm : str
-        The Realm in which to register the Device.
+        The Realm in which to register the device.
     jwt_token : str
         A JWT Token to Authenticate against Pairing API. The token must have access to Pairing
         API and to the agent API paths.
     pairing_base_url : str
-        The Base URL of Pairing API of the Astarte Instance the Device will be registered in.
+        The Base URL of Pairing API of the Astarte Instance the device will be registered in.
     ignore_ssl_errors: bool
         Useful if you're registering a device into a test instance of Astarte with self-signed
         certificates. It is not recommended to leave this `true` in production.
@@ -127,7 +127,7 @@ def generate_device_id(namespace: UUID, unique_data: str) -> str:
     Returns
     -------
     str
-        the generated device Id, using the standard Astarte Device ID encoding (base64
+        the generated device Id, using the standard Astarte device ID encoding (base64
         urlencoding without padding).
 
     """
@@ -146,7 +146,7 @@ def generate_random_device_id() -> str:
     Returns
     -------
     str
-        the generated device Id, using the standard Astarte Device ID encoding (base64
+        the generated device Id, using the standard Astarte device ID encoding (base64
         urlencoding without padding).
 
     """
@@ -297,7 +297,7 @@ def __register_device(
     AuthorizationError
         If the authentication provided was not correct
     DeviceAlreadyRegisteredError
-        If the Device was already registered
+        If the device was already registered
     APIError
         If a generic Error was returned by the APIs
     """

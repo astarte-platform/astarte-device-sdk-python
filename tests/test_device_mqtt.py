@@ -32,7 +32,7 @@ import paho
 from paho.mqtt.client import Client
 
 from astarte.device.database import AstarteDatabaseSQLite
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 from astarte.device.introspection import Introspection
 from astarte.device.exceptions import (
     PersistencyDirectoryNotFoundError,
@@ -40,6 +40,7 @@ from astarte.device.exceptions import (
     InterfaceFileDecodeError,
     ValidationError,
     InterfaceNotFoundError,
+    APIError,
 )
 
 
@@ -48,10 +49,10 @@ class UnitTests(unittest.TestCase):
         pass
 
     @mock.patch.object(AstarteDatabaseSQLite, "__init__", return_value=None)
-    @mock.patch("astarte.device.device.os.mkdir")
-    @mock.patch("astarte.device.device.os.path.isdir", side_effect=[True, False, False, False])
+    @mock.patch("astarte.device.device_mqtt.os.mkdir")
+    @mock.patch("astarte.device.device_mqtt.os.path.isdir", side_effect=[True, False, False, False])
     def test_initialization_ok(self, isdir_mock, mkdir_mock, mock_db):
-        device = Device(
+        device = DeviceMqtt(
             "device_id",
             "realm_name",
             "credential_secret",
@@ -83,7 +84,7 @@ class UnitTests(unittest.TestCase):
     def test_initialization_raises(self):
         self.assertRaises(
             PersistencyDirectoryNotFoundError,
-            lambda: Device(
+            lambda: DeviceMqtt(
                 "device_id",
                 "realm_name",
                 "credential_secret",
@@ -95,9 +96,9 @@ class UnitTests(unittest.TestCase):
         )
 
     @mock.patch.object(AstarteDatabaseSQLite, "__init__", return_value=None)
-    @mock.patch("astarte.device.device.os.path.isdir", return_value=True)
+    @mock.patch("astarte.device.device_mqtt.os.path.isdir", return_value=True)
     def helper_initialize_device(self, mock_isdir, mock_db, loop):
-        device = Device(
+        device = DeviceMqtt(
             "device_id",
             "realm_name",
             "credential_secret",
@@ -109,14 +110,6 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(mock_isdir.call_count, 4)
         mock_db.assert_called_once_with(Path("./tests/device_id/caching/astarte.db"))
         return device
-
-    @mock.patch.object(Introspection, "add_interface")
-    def test_add_interface(self, mock_add_interface):
-        device = self.helper_initialize_device(loop=None)
-
-        test_interface = {"field1": "field2"}
-        device.add_interface(test_interface)
-        mock_add_interface.assert_called_once_with(test_interface)
 
     @mock.patch("astarte.device.device.open", new_callable=mock.mock_open)
     @mock.patch("astarte.device.device.json.load", return_value="Fake json content")
@@ -165,7 +158,7 @@ class UnitTests(unittest.TestCase):
     )
     @mock.patch.object(Path, "is_dir", return_value=True)
     @mock.patch.object(Path, "exists", return_value=True)
-    @mock.patch.object(Device, "add_interface_from_file")
+    @mock.patch.object(DeviceMqtt, "add_interface_from_file")
     def test_add_interface_from_dir(
         self, mock_add_interface, mock_exists, mock_is_dir, mock_iterdir
     ):
@@ -213,9 +206,9 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "loop_start")
     @mock.patch.object(Client, "connect_async")
-    @mock.patch("astarte.device.device.urlparse")
+    @mock.patch("astarte.device.device_mqtt.urlparse")
     @mock.patch(
-        "astarte.device.device.pairing_handler.obtain_device_transport_information",
+        "astarte.device.device_mqtt.pairing_handler.obtain_device_transport_information",
         return_value={
             "protocols": {
                 "astarte_mqtt_v1": {"broker_url": "some_url"},
@@ -225,8 +218,8 @@ class UnitTests(unittest.TestCase):
     )
     @mock.patch.object(Client, "tls_insecure_set")
     @mock.patch.object(Client, "tls_set")
-    @mock.patch("astarte.device.device.pairing_handler.obtain_device_certificate")
-    @mock.patch("astarte.device.device.crypto.device_has_certificate", return_value=False)
+    @mock.patch("astarte.device.device_mqtt.pairing_handler.obtain_device_certificate")
+    @mock.patch("astarte.device.device_mqtt.crypto.device_has_certificate", return_value=False)
     def test_connect(
         self,
         mock_has_certificate,
@@ -271,15 +264,15 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "loop_start")
     @mock.patch.object(Client, "connect_async")
-    @mock.patch("astarte.device.device.urlparse")
+    @mock.patch("astarte.device.device_mqtt.urlparse")
     @mock.patch(
-        "astarte.device.device.pairing_handler.obtain_device_transport_information",
+        "astarte.device.device_mqtt.pairing_handler.obtain_device_transport_information",
         return_value={"protocols": {"astarte_mqtt_v1": {"broker_url": "some_url"}}},
     )
     @mock.patch.object(Client, "tls_insecure_set")
     @mock.patch.object(Client, "tls_set")
-    @mock.patch("astarte.device.device.pairing_handler.obtain_device_certificate")
-    @mock.patch("astarte.device.device.crypto.device_has_certificate", return_value=False)
+    @mock.patch("astarte.device.device_mqtt.pairing_handler.obtain_device_certificate")
+    @mock.patch("astarte.device.device_mqtt.crypto.device_has_certificate", return_value=False)
     def test_connect_already_connected(
         self,
         mock_has_certificate,
@@ -293,7 +286,7 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        device._Device__is_connected = True
+        device._DeviceMqtt__is_connected = True
 
         mock_urlparse.return_value.hostname = "mocked hostname"
         mock_urlparse.return_value.port = "mocked port"
@@ -311,15 +304,15 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "loop_start")
     @mock.patch.object(Client, "connect_async")
-    @mock.patch("astarte.device.device.urlparse")
+    @mock.patch("astarte.device.device_mqtt.urlparse")
     @mock.patch(
-        "astarte.device.device.pairing_handler.obtain_device_transport_information",
+        "astarte.device.device_mqtt.pairing_handler.obtain_device_transport_information",
         return_value={"protocols": {"astarte_mqtt_v1": {"broker_url": "some_url"}}},
     )
     @mock.patch.object(Client, "tls_insecure_set")
     @mock.patch.object(Client, "tls_set")
-    @mock.patch("astarte.device.device.pairing_handler.obtain_device_certificate")
-    @mock.patch("astarte.device.device.crypto.device_has_certificate", return_value=False)
+    @mock.patch("astarte.device.device_mqtt.pairing_handler.obtain_device_certificate")
+    @mock.patch("astarte.device.device_mqtt.crypto.device_has_certificate", return_value=False)
     def test_connect_crypto_already_configured(
         self,
         mock_has_certificate,
@@ -333,7 +326,7 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        device._Device__is_crypto_setup = True
+        device._DeviceMqtt__is_crypto_setup = True
 
         mock_urlparse.return_value.hostname = "mocked hostname"
         mock_urlparse.return_value.port = "mocked port"
@@ -353,15 +346,15 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "loop_start")
     @mock.patch.object(Client, "connect_async")
-    @mock.patch("astarte.device.device.urlparse")
+    @mock.patch("astarte.device.device_mqtt.urlparse")
     @mock.patch(
-        "astarte.device.device.pairing_handler.obtain_device_transport_information",
+        "astarte.device.device_mqtt.pairing_handler.obtain_device_transport_information",
         return_value={"protocols": {"astarte_mqtt_v1": {"broker_url": "some_url"}}},
     )
     @mock.patch.object(Client, "tls_insecure_set")
     @mock.patch.object(Client, "tls_set")
-    @mock.patch("astarte.device.device.pairing_handler.obtain_device_certificate")
-    @mock.patch("astarte.device.device.crypto.device_has_certificate", return_value=True)
+    @mock.patch("astarte.device.device_mqtt.pairing_handler.obtain_device_certificate")
+    @mock.patch("astarte.device.device_mqtt.crypto.device_has_certificate", return_value=True)
     def test_connect_crypto_already_has_certificate(
         self,
         mock_has_certificate,
@@ -400,15 +393,15 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "loop_start")
     @mock.patch.object(Client, "connect_async")
-    @mock.patch("astarte.device.device.urlparse")
+    @mock.patch("astarte.device.device_mqtt.urlparse")
     @mock.patch(
-        "astarte.device.device.pairing_handler.obtain_device_transport_information",
+        "astarte.device.device_mqtt.pairing_handler.obtain_device_transport_information",
         return_value={"protocols": {"astarte_mqtt_v1": {"broker_url": "some_url"}}},
     )
     @mock.patch.object(Client, "tls_insecure_set")
     @mock.patch.object(Client, "tls_set")
-    @mock.patch("astarte.device.device.pairing_handler.obtain_device_certificate")
-    @mock.patch("astarte.device.device.crypto.device_has_certificate", return_value=False)
+    @mock.patch("astarte.device.device_mqtt.pairing_handler.obtain_device_certificate")
+    @mock.patch("astarte.device.device_mqtt.crypto.device_has_certificate", return_value=False)
     def test_connect_crypto_ignore_ssl_errors(
         self,
         mock_has_certificate,
@@ -424,7 +417,7 @@ class UnitTests(unittest.TestCase):
 
         device = self.helper_initialize_device(loop=None)
 
-        device._Device__ignore_ssl_errors = ignore_ssl_errors
+        device._DeviceMqtt__ignore_ssl_errors = ignore_ssl_errors
 
         mock_urlparse.return_value.hostname = "mocked hostname"
         mock_urlparse.return_value.port = "mocked port"
@@ -456,6 +449,65 @@ class UnitTests(unittest.TestCase):
         mock_connect_async.assert_called_once_with("mocked hostname", "mocked port")
         mock_loop_start.assert_called_once()
 
+    @mock.patch.object(Client, "loop_start")
+    @mock.patch.object(Client, "connect_async")
+    @mock.patch("astarte.device.device_mqtt.urlparse")
+    @mock.patch(
+        "astarte.device.device_mqtt.pairing_handler.obtain_device_transport_information",
+        return_value={
+            "protocols": {
+                "astarte_mqtt_v1": {"broker_url": "some_url"},
+                "protocol2": {"broker_url": "some_url"},
+            }
+        },
+    )
+    @mock.patch.object(Client, "tls_insecure_set")
+    @mock.patch.object(Client, "tls_set")
+    @mock.patch("astarte.device.device_mqtt.pairing_handler.obtain_device_certificate")
+    @mock.patch("astarte.device.device_mqtt.crypto.device_has_certificate", return_value=False)
+    def test_connect_invalid_broker_url(
+        self,
+        mock_has_certificate,
+        mock_obtain_certificate,
+        mock_tls_set,
+        mock_tls_insecure_set,
+        mock_obtain_transport_information,
+        mock_urlparse,
+        mock_connect_async,
+        mock_loop_start,
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_urlparse.return_value.hostname = None
+        mock_urlparse.return_value.port = None
+
+        self.assertRaises(APIError, lambda: device.connect())
+
+        mock_has_certificate.assert_called_once_with("./tests/device_id/crypto")
+        mock_obtain_certificate.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            "./tests/device_id/crypto",
+            False,
+        )
+        mock_tls_set.assert_called_once_with(
+            ca_certs=None,
+            certfile="./tests/device_id/crypto/device.crt",
+            keyfile="./tests/device_id/crypto/device.key",
+            cert_reqs=ssl.CERT_REQUIRED,
+            tls_version=ssl.PROTOCOL_TLS,
+            ciphers=None,
+        )
+        mock_tls_insecure_set.assert_called_once_with(False)
+        mock_obtain_transport_information.assert_called_once_with(
+            "device_id", "realm_name", "credential_secret", "pairing_base_url", False
+        )
+        mock_urlparse.assert_called_once_with("some_url")
+        mock_connect_async.assert_not_called()
+        mock_loop_start.assert_not_called()
+
     @mock.patch.object(Client, "disconnect")
     def test_disconnect(self, mock_disconnect):
         device = self.helper_initialize_device(loop=None)
@@ -463,7 +515,7 @@ class UnitTests(unittest.TestCase):
         device.disconnect()
         mock_disconnect.assert_not_called()
 
-        device._Device__is_connected = True
+        device._DeviceMqtt__is_connected = True
 
         device.disconnect()
         mock_disconnect.assert_called_once()
@@ -473,13 +525,13 @@ class UnitTests(unittest.TestCase):
 
         self.assertFalse(device.is_connected())
 
-        device._Device__is_connected = True
+        device._DeviceMqtt__is_connected = True
 
         self.assertTrue(device.is_connected())
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_send(self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish):
         device = self.helper_initialize_device(loop=None)
@@ -515,15 +567,17 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
-    def test_send_zero(self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish):
+    def test_send_zero_is_ok(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
         device = self.helper_initialize_device(loop=None)
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = False
         mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = False
         mock_interface.validate.return_value = None
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
@@ -537,6 +591,7 @@ class UnitTests(unittest.TestCase):
         device.send(interface_name, interface_path, payload, timestamp)
 
         mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
@@ -551,7 +606,48 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_send_a_property_is_ok(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = False
+        mock_interface.validate.return_value = None
+        mock_interface.is_type_properties.return_value = True
+        mock_get_interface.return_value = mock_interface
+
+        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = 12
+        timestamp = datetime.now()
+        device.send(interface_name, interface_path, payload, timestamp)
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
+        mock_interface.is_type_properties.assert_called_once_with()
+        mock_db_store.assert_called_once_with(
+            interface_name, mock_get_interface.return_value.version_major, interface_path, payload
+        )
+        mock_interface.get_reliability.assert_called_once_with(interface_path)
+        mock_mqtt_publish.assert_called_once_with(
+            "realm_name/device_id/" + interface_name + interface_path,
+            bytes("bson content", "utf-8"),
+            qos=mock_interface.get_reliability.return_value,
+        )
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_send_non_existing_interface_raises_interface_not_found(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -576,54 +672,16 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
-    def test_send_on_a_property(
+    def test_send_to_a_server_owned_interface_raises(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
     ):
         device = self.helper_initialize_device(loop=None)
 
         mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = False
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.validate.return_value = None
-        mock_interface.is_type_properties.return_value = True
+        mock_interface.is_server_owned.return_value = True
         mock_get_interface.return_value = mock_interface
-
-        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        device.send(interface_name, interface_path, payload, timestamp)
-
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
-        mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
-        mock_interface.is_type_properties.assert_called_once_with()
-        mock_db_store.assert_called_once_with(
-            interface_name, mock_get_interface.return_value.version_major, interface_path, payload
-        )
-        mock_interface.get_reliability.assert_called_once_with(interface_path)
-        mock_mqtt_publish.assert_called_once_with(
-            "realm_name/device_id/" + interface_name + interface_path,
-            bytes("bson content", "utf-8"),
-            qos=mock_interface.get_reliability.return_value,
-        )
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_is_an_aggregate_raises_validation_err(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device(loop=None)
-
-        mock_get_interface.return_value.is_aggregation_object.return_value = True
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -634,6 +692,36 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with("interface name")
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
+        mock_get_interface.return_value.is_aggregation_object.assert_not_called()
+        mock_bson_dumps.assert_not_called()
+        mock_db_store.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_send_an_aggregate_raises_validation_err(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = True
+        mock_get_interface.return_value = mock_interface
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = 12
+        timestamp = datetime.now()
+        self.assertRaises(
+            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
+        )
+
+        mock_get_interface.assert_called_once_with("interface name")
+        mock_interface.is_server_owned.assert_called_once()
         mock_get_interface.return_value.is_aggregation_object.assert_called_once_with()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
@@ -641,14 +729,46 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
-    def test_send_wrong_payload_type_raises(
+    def test_send_none_payload_type_raises_validation_err(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
     ):
         device = self.helper_initialize_device(loop=None)
 
-        mock_get_interface.return_value.is_aggregation_object.return_value = False
+        mock_interface = mock.MagicMock()
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = False
+        mock_get_interface.return_value = mock_interface
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = None
+        timestamp = datetime.now()
+        self.assertRaises(
+            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
+        )
+
+        mock_get_interface.assert_called_once_with("interface name")
+        mock_interface.is_server_owned.assert_called_once()
+        mock_get_interface.return_value.is_aggregation_object.assert_called_once()
+        mock_bson_dumps.assert_not_called()
+        mock_db_store.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_send_wrong_payload_type_raises_validation_err(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = False
+        mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -659,6 +779,7 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with("interface name")
+        mock_interface.is_server_owned.assert_called_once()
         mock_get_interface.return_value.is_aggregation_object.assert_called_once()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
@@ -666,34 +787,7 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_to_a_server_owned_interface_raises(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device(loop=None)
-
-        mock_get_interface.return_value.is_aggregation_object.return_value = False
-        mock_get_interface.return_value.is_server_owned.return_value = True
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_get_interface.return_value.is_aggregation_object.assert_called_once()
-        mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_send_interface_validate_raises_validation_err(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -702,8 +796,8 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = False
         mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = False
         mock_interface.validate.return_value = ValidationError("Error msg")
         mock_get_interface.return_value = mock_interface
 
@@ -716,8 +810,8 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
@@ -726,7 +820,7 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_send_aggregate(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -735,8 +829,8 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = True
         mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = True
         mock_interface.validate.return_value = None
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
@@ -750,8 +844,8 @@ class UnitTests(unittest.TestCase):
         device.send_aggregate(interface_name, interface_path, payload, timestamp)
 
         mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
         mock_db_store.assert_not_called()
@@ -764,7 +858,7 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_send_aggregate_non_existing_interface_raises_interface_not_found(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -789,14 +883,44 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
-    def test_send_aggregate_is_an_aggregate_raises_validation_err(
+    def test_send_aggregate_server_owned_interface_raises_validation_err(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
     ):
         device = self.helper_initialize_device(loop=None)
 
         mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_server_owned.return_value = True
+        mock_get_interface.return_value = mock_interface
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = {"something": 12}
+        timestamp = datetime.now()
+        self.assertRaises(
+            ValidationError,
+            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+        )
+
+        mock_get_interface.assert_called_once_with("interface name")
+        mock_interface.is_server_owned.assert_called_once()
+        mock_bson_dumps.assert_not_called()
+        mock_db_store.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_send_aggregate_is_not_an_aggregate_raises_validation_err(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.is_server_owned.return_value = False
         mock_interface.is_aggregation_object.return_value = False
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
@@ -811,6 +935,7 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_not_called()
         mock_bson_dumps.assert_not_called()
@@ -820,7 +945,40 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_send_aggregate_none_payload_type_raises(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = True
+        mock_interface.is_type_properties.return_value = False
+        mock_get_interface.return_value = mock_interface
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = None
+        timestamp = datetime.now()
+        self.assertRaises(
+            ValidationError,
+            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+        )
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.validate.assert_not_called()
+        mock_bson_dumps.assert_not_called()
+        mock_db_store.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_send_aggregate_wrong_payload_type_raises(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -828,6 +986,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         mock_interface = mock.MagicMock()
+        mock_interface.is_server_owned.return_value = False
         mock_interface.is_aggregation_object.return_value = True
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
@@ -842,6 +1001,7 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate.assert_not_called()
         mock_bson_dumps.assert_not_called()
@@ -851,7 +1011,42 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_send_aggregate_interface_validate_raises_validation_err(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_aggregation_object.return_value = True
+        mock_interface.is_type_properties.return_value = False
+        mock_interface.validate.return_value = ValidationError("Error msg")
+        mock_get_interface.return_value = mock_interface
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = {"something": 12}
+        timestamp = datetime.now()
+        self.assertRaises(
+            ValidationError,
+            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+        )
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_bson_dumps.assert_not_called()
+        mock_db_store.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_unset_property(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -860,8 +1055,8 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
-        mock_interface.is_type_properties.return_value = True
         mock_interface.is_server_owned.return_value = False
+        mock_interface.is_type_properties.return_value = True
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -886,7 +1081,7 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_unset_property_non_existing_interface_raises_interface_not_found(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -909,7 +1104,36 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_unset_property_server_owned_interface_raises(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_server_owned.return_value = True
+        mock_get_interface.return_value = mock_interface
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        self.assertRaises(
+            ValidationError, lambda: device.unset_property(interface_name, interface_path)
+        )
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_type_properties.assert_not_called()
+        mock_interface.validate.assert_not_called()
+        mock_bson_dumps.assert_not_called()
+        mock_db_store.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_unset_property_interface_not_a_property_raises(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -918,6 +1142,7 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
+        mock_interface.is_server_owned.return_value = False
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
 
@@ -928,6 +1153,7 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_type_properties.assert_called_once()
         mock_interface.validate.assert_not_called()
         mock_bson_dumps.assert_not_called()
@@ -937,7 +1163,7 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.dumps")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
     def test_unset_property_non_existing_mapping_raises(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
@@ -946,8 +1172,8 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
-        mock_interface.is_type_properties.return_value = True
         mock_interface.is_server_owned.return_value = False
+        mock_interface.is_type_properties.return_value = True
         mock_interface.get_mapping.return_value = None
         mock_get_interface.return_value = mock_interface
 
@@ -958,8 +1184,8 @@ class UnitTests(unittest.TestCase):
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_type_properties.assert_called_once()
         mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_type_properties.assert_called_once()
         mock_interface.validate.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
@@ -1008,7 +1234,7 @@ class UnitTests(unittest.TestCase):
         mock_load_all_props.return_value = []
 
         device.on_connected = mock.MagicMock()
-        device._Device__on_connect(
+        device._DeviceMqtt__on_connect(
             None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
         )
 
@@ -1049,7 +1275,7 @@ class UnitTests(unittest.TestCase):
         device.on_connected.assert_called_once_with(device)
 
     @mock.patch.object(Client, "publish")
-    @mock.patch.object(Device, "_Device__send_generic")
+    @mock.patch.object(DeviceMqtt, "_send_generic")
     @mock.patch.object(AstarteDatabaseSQLite, "delete_prop")
     @mock.patch.object(Introspection, "get_interface")
     @mock.patch.object(AstarteDatabaseSQLite, "load_all_props")
@@ -1111,7 +1337,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.side_effect = [interface_5, interface_6, None]
 
         device.on_connected = mock.MagicMock()
-        device._Device__on_connect(
+        device._DeviceMqtt__on_connect(
             None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
         )
 
@@ -1180,7 +1406,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         device.on_connected = mock.MagicMock()
-        device._Device__on_connect(
+        device._DeviceMqtt__on_connect(
             None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_NO_CONN
         )
 
@@ -1237,7 +1463,7 @@ class UnitTests(unittest.TestCase):
         mock_load_all_props.return_value = []
 
         device.on_connected = mock.MagicMock()
-        device._Device__on_connect(
+        device._DeviceMqtt__on_connect(
             None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
         )
 
@@ -1283,7 +1509,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         device.on_disconnected = mock.MagicMock()
-        device._Device__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_SUCCESS)
+        device._DeviceMqtt__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_SUCCESS)
 
         device.on_disconnected.assert_called_once_with(device, paho.mqtt.client.MQTT_ERR_SUCCESS)
         mock_loop_stop.assert_called_once()
@@ -1294,7 +1520,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=mock_loop)
 
         device.on_disconnected = mock.MagicMock()
-        device._Device__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_SUCCESS)
+        device._DeviceMqtt__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_SUCCESS)
 
         device.on_disconnected.assert_not_called()
         mock_loop.call_soon_threadsafe.assert_called_once_with(
@@ -1302,32 +1528,32 @@ class UnitTests(unittest.TestCase):
         )
         mock_loop_stop.assert_called_once()
 
-    @mock.patch.object(Device, "connect")
+    @mock.patch.object(DeviceMqtt, "connect")
     @mock.patch.object(Client, "loop_stop")
-    @mock.patch("astarte.device.device.crypto.certificate_is_valid", return_value=False)
+    @mock.patch("astarte.device.device_mqtt.crypto.certificate_is_valid", return_value=False)
     def test__on_disconnect_invalid_certificate(
         self, mock_cartificate_is_valid, mock_loop_stop, mock_connect
     ):
         device = self.helper_initialize_device(loop=None)
 
         device.on_disconnected = mock.MagicMock()
-        device._Device__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
+        device._DeviceMqtt__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
 
         device.on_disconnected.assert_called_once_with(device, paho.mqtt.client.MQTT_ERR_NO_CONN)
         mock_cartificate_is_valid.assert_called_once_with("./tests/device_id/crypto")
         mock_loop_stop.assert_called_once()
         mock_connect.assert_called_once()
 
-    @mock.patch.object(Device, "connect")
+    @mock.patch.object(DeviceMqtt, "connect")
     @mock.patch.object(Client, "loop_stop")
-    @mock.patch("astarte.device.device.crypto.certificate_is_valid", return_value=True)
+    @mock.patch("astarte.device.device_mqtt.crypto.certificate_is_valid", return_value=True)
     def test__on_disconnect_other_reason(
         self, mock_cartificate_is_valid, mock_loop_stop, mock_connect
     ):
         device = self.helper_initialize_device(loop=None)
 
         device.on_disconnected = mock.MagicMock()
-        device._Device__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
+        device._DeviceMqtt__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
 
         device.on_disconnected.assert_called_once_with(device, paho.mqtt.client.MQTT_ERR_NO_CONN)
         mock_cartificate_is_valid.assert_called_once_with("./tests/device_id/crypto")
@@ -1335,7 +1561,7 @@ class UnitTests(unittest.TestCase):
         mock_connect.assert_not_called()
 
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message(self, mock_get_interface, mock_bson_loads, mock_db_store):
         device = self.helper_initialize_device(loop=None)
@@ -1350,17 +1576,11 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.is_type_properties.return_value = True
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
+        mock_bson_loads.assert_called_once_with(mock_message.payload)
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_bson_loads.assert_called_once_with(mock_message.payload)
-        mock_db_store.assert_called_once_with(
-            mock_get_interface.return_value.name,
-            mock_get_interface.return_value.version_major,
-            "/endpoint/path",
-            "payload_value",
-        )
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
         mock_get_interface.return_value.validate_path.assert_called_once_with(
             "/endpoint/path", "payload_value"
@@ -1368,12 +1588,19 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.validate_payload.assert_called_once_with(
             "/endpoint/path", "payload_value"
         )
+        mock_get_interface.return_value.is_type_properties.assert_called_once()
+        mock_db_store.assert_called_once_with(
+            mock_get_interface.return_value.name,
+            mock_get_interface.return_value.version_major,
+            "/endpoint/path",
+            "payload_value",
+        )
         device.on_data_received.assert_called_once_with(
             device, "interface_name", "/endpoint/path", "payload_value"
         )
 
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_with_threading(self, mock_get_interface, mock_bson_loads, mock_db_store):
         mock_loop = mock.MagicMock()
@@ -1389,12 +1616,11 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.is_type_properties.return_value = False
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
+        mock_bson_loads.assert_called_once_with(mock_message.payload)
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_bson_loads.assert_called_once_with(mock_message.payload)
-        mock_db_store.assert_not_called()
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
         mock_get_interface.return_value.validate_path.assert_called_once_with(
             "/endpoint/path", "payload_value"
@@ -1402,13 +1628,15 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.validate_payload.assert_called_once_with(
             "/endpoint/path", "payload_value"
         )
+        mock_get_interface.return_value.is_type_properties.assert_called_once()
+        mock_db_store.assert_not_called()
         mock_loop.call_soon_threadsafe.assert_called_once_with(
             device.on_data_received, device, "interface_name", "/endpoint/path", "payload_value"
         )
         device.on_data_received.assert_not_called()
 
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_incorrect_base_topic(
         self, mock_get_interface, mock_bson_loads, mock_db_store
@@ -1419,15 +1647,15 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "something/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
-        mock_get_interface.assert_not_called()
         mock_bson_loads.assert_not_called()
+        mock_get_interface.assert_not_called()
         mock_db_store.assert_not_called()
         device.on_data_received.assert_not_called()
 
-    @mock.patch.object(Device, "_Device__purge_server_properties")
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch.object(DeviceMqtt, "_DeviceMqtt__purge_server_properties")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_control_message(
         self, mock_get_interface, mock_bson_loads, mock_purge_server
@@ -1438,14 +1666,14 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/control/consumer/properties"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
         mock_purge_server.assert_called_once_with(payload=mock_message.payload)
-        mock_get_interface.assert_not_called()
         mock_bson_loads.assert_not_called()
+        mock_get_interface.assert_not_called()
         device.on_data_received.assert_not_called()
 
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_no_callback(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
@@ -1453,30 +1681,34 @@ class UnitTests(unittest.TestCase):
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
-        mock_get_interface.assert_not_called()
         mock_bson_loads.assert_not_called()
+        mock_get_interface.assert_not_called()
 
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface", return_value=None)
     def test__on_message_unregistered_interface_name(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
+
+        mock_bson_loads.return_value = {"v": "payload_value"}
 
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
+        mock_bson_loads.assert_called_once_with(mock_message.payload)
         mock_get_interface.assert_called_once_with("interface_name")
-        mock_bson_loads.assert_not_called()
         device.on_data_received.assert_not_called()
 
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_device_owned_interface(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
+
+        mock_bson_loads.return_value = {"v": "payload_value"}
 
         mock_get_interface.return_value.is_server_owned.return_value = False
 
@@ -1484,17 +1716,18 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
+        mock_bson_loads.assert_called_once_with(mock_message.payload)
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_bson_loads.assert_not_called()
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
         mock_get_interface.return_value.validate_path.assert_not_called()
         mock_get_interface.return_value.validate_payload.assert_not_called()
+        mock_get_interface.return_value.is_type_properties.assert_not_called()
         device.on_data_received.assert_not_called()
 
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_payload_missing_value_field(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
@@ -1505,17 +1738,18 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
-        mock_get_interface.assert_called_once_with("interface_name")
-        mock_get_interface.return_value.is_server_owned.assert_called_once()
         mock_bson_loads.assert_called_once_with(mock_message.payload)
+        mock_get_interface.assert_not_called()
+        mock_get_interface.return_value.is_server_owned.assert_not_called()
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
         mock_get_interface.return_value.validate_path.assert_not_called()
         mock_get_interface.return_value.validate_payload.assert_not_called()
+        mock_get_interface.return_value.is_type_properties.assert_not_called()
         device.on_data_received.assert_not_called()
 
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_empty_payload_but_not_a_property(
         self, mock_get_interface, mock_bson_loads
@@ -1529,17 +1763,18 @@ class UnitTests(unittest.TestCase):
         mock_message.payload = None
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
+        mock_bson_loads.assert_not_called()
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_bson_loads.assert_not_called()
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_called_once()
         mock_get_interface.return_value.validate_path.assert_not_called()
         mock_get_interface.return_value.validate_payload.assert_not_called()
+        mock_get_interface.return_value.is_type_properties.assert_not_called()
         device.on_data_received.assert_not_called()
 
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_incorrect_path(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
@@ -1551,21 +1786,22 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
+        mock_bson_loads.assert_called_once_with(mock_message.payload)
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_bson_loads.assert_called_once_with(mock_message.payload)
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
         mock_get_interface.return_value.validate_path.assert_called_once_with(
             "/endpoint/path", "payload_value"
         )
         mock_get_interface.return_value.validate_payload.assert_not_called()
+        mock_get_interface.return_value.is_type_properties.assert_not_called()
         device.on_data_received.assert_not_called()
 
-    @mock.patch("astarte.device.device.bson.loads")
+    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
-    def test__on_message_payload(self, mock_get_interface, mock_bson_loads):
+    def test__on_message_payload_validation_failure(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device(loop=None)
 
         mock_bson_loads.return_value = {"v": "payload_value"}
@@ -1575,11 +1811,11 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         device.on_data_received = mock.MagicMock()
-        device._Device__on_message(None, None, msg=mock_message)
+        device._DeviceMqtt__on_message(None, None, msg=mock_message)
 
+        mock_bson_loads.assert_called_once_with(mock_message.payload)
         mock_get_interface.assert_called_once_with("interface_name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_bson_loads.assert_called_once_with(mock_message.payload)
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
         mock_get_interface.return_value.validate_path.assert_called_once_with(
             "/endpoint/path", "payload_value"
@@ -1587,6 +1823,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.validate_payload.assert_called_once_with(
             "/endpoint/path", "payload_value"
         )
+        mock_get_interface.return_value.is_type_properties.assert_not_called()
         device.on_data_received.assert_not_called()
 
     # The function __purge_server_properties is complex and gets called following a specific event
@@ -1594,7 +1831,7 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(AstarteDatabaseSQLite, "delete_prop")
     @mock.patch.object(AstarteDatabaseSQLite, "load_all_props")
     @mock.patch.object(Introspection, "get_interface")
-    def test_Device__purge_server_properties_empty_list(
+    def test_DeviceMqtt__purge_server_properties_empty_list(
         self, mock_get_interface, mock_load_all_props, mock_delete_prop
     ):
         device = self.helper_initialize_device(loop=None)
@@ -1622,7 +1859,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.side_effect = [interface_1, interface_2, interface_3]
 
         base_payload = b"\x00\x00\x00\x00x\x9c\x03\x00\x00\x00\x00\x01"
-        device._Device__purge_server_properties(base_payload)
+        device._DeviceMqtt__purge_server_properties(base_payload)
 
         calls = [
             mock.call(interface_1.name),
@@ -1644,7 +1881,7 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(AstarteDatabaseSQLite, "delete_prop")
     @mock.patch.object(AstarteDatabaseSQLite, "load_all_props")
     @mock.patch.object(Introspection, "get_interface")
-    def test_Device__purge_server_properties_non_empty_list(
+    def test_DeviceMqtt__purge_server_properties_non_empty_list(
         self, mock_get_interface, mock_load_all_props, mock_delete_prop
     ):
         device = self.helper_initialize_device(loop=None)
@@ -1672,7 +1909,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.side_effect = [interface_2, None, interface_1, interface_2, interface_3]
 
         base_payload = b"9\x00\x00\x00x\x9c\xb3\xc9\xcc+I-JKLNU0\xb2\xd3O\xcdK)\xc8\x07\x8a\xe8\x17$\x96d\x18Y\xdb $\x8d\xd1$\x8d\x01P\xfd\x14t"
-        device._Device__purge_server_properties(base_payload)
+        device._DeviceMqtt__purge_server_properties(base_payload)
 
         calls = [
             mock.call(interface_1.name),
@@ -1687,3 +1924,53 @@ class UnitTests(unittest.TestCase):
         ]
         mock_delete_prop.assert_has_calls(calls)
         self.assertEqual(mock_delete_prop.call_count, 1)
+
+    # The function __purge_server_properties is complex and gets called following a specific event
+    # for this reason it will be tested in isolation
+    @mock.patch.object(AstarteDatabaseSQLite, "delete_prop")
+    @mock.patch.object(AstarteDatabaseSQLite, "load_all_props")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_DeviceMqtt__purge_server_properties_interface_not_in_introspection(
+        self, mock_get_interface, mock_load_all_props, mock_delete_prop
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        # Mocks for __send_set_device_properties
+        interface_1 = mock.MagicMock()
+        interface_1.name = "<interface 1 name>"
+        interface_1.is_server_owned.return_value = False
+        interface_2 = mock.MagicMock()
+        interface_2.name = "<interface 2 name>"
+        interface_2.is_server_owned.return_value = True
+        interface_3 = mock.MagicMock()
+        interface_3.name = "<interface 3 name>"
+        interface_3.is_server_owned.return_value = True
+        load_all_props_ret = [
+            (interface_1.name, "", "<endpoint 1>", mock.MagicMock()),
+            (interface_2.name, "", "<endpoint 2>", mock.MagicMock()),
+            (interface_3.name, "", "<endpoint 3>", mock.MagicMock()),
+        ]
+        mock_load_all_props.side_effect = lambda: (
+            (yield load_all_props_ret[0]),
+            (yield load_all_props_ret[1]),
+            (yield load_all_props_ret[2]),
+        )
+        mock_get_interface.side_effect = [interface_1, None, interface_3]
+
+        base_payload = b"\x00\x00\x00\x00x\x9c\x03\x00\x00\x00\x00\x01"
+        device._DeviceMqtt__purge_server_properties(base_payload)
+
+        calls = [
+            mock.call(interface_1.name),
+            mock.call(interface_2.name),
+            mock.call(interface_3.name),
+        ]
+        mock_get_interface.assert_has_calls(calls)
+        self.assertEqual(mock_get_interface.call_count, 3)
+
+        calls = [
+            mock.call(interface_2.name, "<endpoint 2>"),
+            mock.call(interface_3.name, "<endpoint 3>"),
+        ]
+        mock_delete_prop.assert_has_calls(calls)
+        self.assertEqual(mock_delete_prop.call_count, 2)

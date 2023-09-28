@@ -39,8 +39,8 @@ class Introspection:
         """
         Adds an Interface to the Introspection
 
-        This will add an Interface definition to the Device. It has to be called before
-        :py:func:`connect`, as it will be used for building the Device Introspection.
+        This will add an Interface definition to the device. It has to be called before
+        :py:func:`connect`, as it will be used for building the device Introspection.
 
         Parameters
         ----------
@@ -55,8 +55,8 @@ class Introspection:
         """
         Removes an Interface from the Introspection
 
-        Removes an Interface definition from the Device. It has to be called before
-        :py:func:`connect`, as it will be used for building the Device Introspection.
+        Removes an Interface definition from the device. It has to be called before
+        :py:func:`connect`, as it will be used for building the device Introspection.
 
         Parameters
         ----------
@@ -87,7 +87,7 @@ class Introspection:
 
     def get_all_interfaces(self) -> list[Interface]:
         """
-        Retrieve all the list of all Interfaces in Device's Introspection
+        Retrieve all the list of all Interfaces in device's Introspection
 
         Returns
         -------
@@ -98,7 +98,7 @@ class Introspection:
 
     def get_all_server_owned_interfaces(self) -> list[Interface]:
         """
-        Retrieve all the list of all Interfaces in Device's Introspection with server ownership
+        Retrieve all the list of all Interfaces in device's Introspection with server ownership
 
         Returns
         -------

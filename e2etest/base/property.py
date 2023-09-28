@@ -32,10 +32,10 @@ from http_requests import (
     prepare_transmit_data,
 )
 
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 
 
-def test_properties_from_device_to_server(device: Device, test_cfg: TestCfg):
+def test_properties_from_device_to_server(device: DeviceMqtt, test_cfg: TestCfg):
     """
     Test for individual properties in the direction from device to server
     """

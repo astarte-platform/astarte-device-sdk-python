@@ -37,7 +37,7 @@ sys.path.insert(0, os.path.abspath('../astarte'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'Astarte Device SDK Python'
+project = 'Astarte device SDK Python'
 copyright = '2021-2022, SECOMind'
 author = 'SECOMind'
 

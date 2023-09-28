@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-""" Device Event listener Example
+""" Device event listener example
 
 This module shows an example usage of the Astarte device SDK.
 Here we show how to simply connect your device to Astarte and start listening on events on a
@@ -31,7 +31,7 @@ from threading import Thread
 from time import sleep
 from typing import Optional, Tuple
 
-from astarte.device import Device
+from astarte.device import DeviceMqtt
 
 _ROOT_DIR = Path(__file__).parent.absolute()
 _INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
@@ -64,7 +64,7 @@ def _generate_async_loop() -> Tuple[asyncio.AbstractEventLoop, Thread]:
     return _loop, other_thread
 
 
-def callback(device: Device, interface_name: str, path: str, payload: object) -> None:
+def callback(device: DeviceMqtt, interface_name: str, path: str, payload: object) -> None:
     """
     A function where we are going to handle the Astarte events triggered by server-owned interface
     updates.
@@ -74,7 +74,7 @@ def callback(device: Device, interface_name: str, path: str, payload: object) ->
     Parameters
     ----------
     device: Device
-        The Astarte Device whose event is registered to
+        The Astarte device whose event is registered to
     interface_name: str
         The name of the server-owned interface where the event was triggered
     path: Str
@@ -95,7 +95,7 @@ def main(cb_loop: Optional[asyncio.AbstractEventLoop] = None):
     """
 
     # Instance the device
-    device = Device(
+    device = DeviceMqtt(
         device_id=_DEVICE_ID,
         realm=_REALM,
         credentials_secret=_CREDENTIAL_SECRET,

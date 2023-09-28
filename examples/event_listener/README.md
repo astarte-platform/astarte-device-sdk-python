@@ -4,8 +4,8 @@ Copyright 2023 SECO Mind Srl
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Astarte Device SDK Python Event listener example
-This is an example of how to use the Device SDK to connect a device to Astarte
+# Astarte device SDK Python event listener example
+This is an example of how to use the device SDK to connect a device to Astarte
 and handle incoming messages sent to the device by third parties.
 
 ## Usage
