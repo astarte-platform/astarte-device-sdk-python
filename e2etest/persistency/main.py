@@ -197,7 +197,12 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     device.on_data_received = on_data_received_cbk
     device.on_disconnected = on_disconnected_cbk
     device.connect()
+
     time.sleep(1)
+
+    if not device.is_connected():
+        print("Connection failed.", flush=True)
+        sys.exit(1)
 
     assert peek_database(persistency_dir, test_cfg.device_id) == list()
     assert peek_astarte(test_cfg) == {
