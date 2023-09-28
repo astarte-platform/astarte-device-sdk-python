@@ -92,13 +92,13 @@ def set_all_properties(device: DeviceMqtt, test_cfg: TestCfg):
     """
     cprint("\nSet device owned properties.", color="cyan", flush=True)
     for key, value in test_cfg.mock_data.items():
-        device.send(test_cfg.interface_device_prop, "/sensor-id/" + key, value)
+        device.send(test_cfg.interface_device_prop, "/sensor_id/" + key, value)
         time.sleep(0.005)
 
     cprint("\nSet server owned properties.", color="cyan", flush=True)
     for key, value in test_cfg.mock_data.items():
         value = prepare_transmit_data(key, value)
-        post_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor-id/" + key, value)
+        post_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor_id/" + key, value)
         time.sleep(0.005)
 
 
@@ -109,13 +109,13 @@ def unset_some_properties(device: DeviceMqtt, test_cfg: TestCfg):
     cprint("\nUnset some device owned properties.", color="cyan", flush=True)
     for key, _ in test_cfg.mock_data.items():
         if key not in ["datetime_endpoint", "booleanarray_endpoint"]:
-            device.unset_property(test_cfg.interface_device_prop, "/sensor-id/" + key)
+            device.unset_property(test_cfg.interface_device_prop, "/sensor_id/" + key)
             time.sleep(0.005)
 
     cprint("\nUnset some server owned properties.", color="cyan", flush=True)
     for key, _ in test_cfg.mock_data.items():
         if key not in ["longinteger_endpoint", "stringarray_endpoint"]:
-            delete_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor-id/" + key)
+            delete_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor_id/" + key)
         time.sleep(0.005)
 
 
@@ -143,19 +143,19 @@ def shuffle_database(persistency_dir: Path, test_cfg: TestCfg):
     cursor = connection.cursor()
     cursor.execute(
         "DELETE FROM properties WHERE interface=? AND path=?",
-        (test_cfg.interface_device_prop, "/sensor-id/datetime_endpoint"),
+        (test_cfg.interface_device_prop, "/sensor_id/datetime_endpoint"),
     )
     cursor.execute(
         "DELETE FROM properties WHERE interface=? AND path=?",
-        (test_cfg.interface_server_prop, "/sensor-id/longinteger_endpoint"),
+        (test_cfg.interface_server_prop, "/sensor_id/longinteger_endpoint"),
     )
     cursor.execute(
         "INSERT OR REPLACE INTO properties (interface, major, path, value) VALUES " "(?, ?, ?, ?)",
-        (test_cfg.interface_device_prop, 0, "/sensor-id/integer_endpoint", pickle.dumps(66)),
+        (test_cfg.interface_device_prop, 0, "/sensor_id/integer_endpoint", pickle.dumps(66)),
     )
     cursor.execute(
         "INSERT OR REPLACE INTO properties (interface, major, path, value) VALUES " "(?, ?, ?, ?)",
-        (test_cfg.interface_server_prop, 0, "/sensor-id/boolean_endpoint", pickle.dumps(True)),
+        (test_cfg.interface_server_prop, 0, "/sensor_id/boolean_endpoint", pickle.dumps(True)),
     )
     connection.commit()
 
@@ -167,11 +167,11 @@ def peek_astarte(test_cfg: TestCfg):
     server_data = {}
     cprint("\nReading data stored on the server.", color="cyan", flush=True)
     json_res = get_server_interface(test_cfg, test_cfg.interface_device_prop)
-    server_data[test_cfg.interface_device_prop] = json_res.get("data", {}).get("sensor-id", {})
+    server_data[test_cfg.interface_device_prop] = json_res.get("data", {}).get("sensor_id", {})
     parse_received_data(server_data[test_cfg.interface_device_prop])
 
     json_res = get_server_interface(test_cfg, test_cfg.interface_server_prop)
-    server_data[test_cfg.interface_server_prop] = json_res.get("data", {}).get("sensor-id", {})
+    server_data[test_cfg.interface_server_prop] = json_res.get("data", {}).get("sensor_id", {})
     parse_received_data(server_data[test_cfg.interface_server_prop])
     return server_data
 
@@ -211,10 +211,10 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
 
     actual_db = peek_database(persistency_dir, test_cfg.device_id)
     expect_db = [
-        (test_cfg.interface_device_prop, 0, f"/sensor-id/{k}", v)
+        (test_cfg.interface_device_prop, 0, f"/sensor_id/{k}", v)
         for k, v in test_cfg.mock_data.items()
     ] + [
-        (test_cfg.interface_server_prop, 0, f"/sensor-id/{k}", v)
+        (test_cfg.interface_server_prop, 0, f"/sensor_id/{k}", v)
         for k, v in test_cfg.mock_data.items()
     ]
     if actual_db != expect_db:
@@ -229,11 +229,11 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
 
     actual_db = peek_database(persistency_dir, test_cfg.device_id)
     expect_db = [
-        (test_cfg.interface_device_prop, 0, f"/sensor-id/{k}", v)
+        (test_cfg.interface_device_prop, 0, f"/sensor_id/{k}", v)
         for k, v in test_cfg.mock_data.items()
         if k in ["datetime_endpoint", "booleanarray_endpoint"]
     ] + [
-        (test_cfg.interface_server_prop, 0, f"/sensor-id/{k}", v)
+        (test_cfg.interface_server_prop, 0, f"/sensor_id/{k}", v)
         for k, v in test_cfg.mock_data.items()
         if k in ["longinteger_endpoint", "stringarray_endpoint"]
     ]
@@ -264,25 +264,25 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         (
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
-            "/sensor-id/booleanarray_endpoint",
+            "/sensor_id/booleanarray_endpoint",
             [True, False, True, False],
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
-            "/sensor-id/stringarray_endpoint",
+            "/sensor_id/stringarray_endpoint",
             ["hello", " world"],
         ),
         (
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
-            "/sensor-id/integer_endpoint",
+            "/sensor_id/integer_endpoint",
             66,
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
-            "/sensor-id/boolean_endpoint",
+            "/sensor_id/boolean_endpoint",
             True,
         ),
     ]
@@ -307,25 +307,25 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         (
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
-            "/sensor-id/booleanarray_endpoint",
+            "/sensor_id/booleanarray_endpoint",
             [True, False, True, False],
         ),
         (
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
-            "/sensor-id/integer_endpoint",
+            "/sensor_id/integer_endpoint",
             66,
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
-            "/sensor-id/longinteger_endpoint",
+            "/sensor_id/longinteger_endpoint",
             45543543534,
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
-            "/sensor-id/stringarray_endpoint",
+            "/sensor_id/stringarray_endpoint",
             ["hello", " world"],
         ),
     ]

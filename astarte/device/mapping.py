@@ -20,8 +20,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from math import isfinite
-from re import sub, match
+import re
 from typing import Union, List
+from collections import namedtuple
 
 from astarte.device.exceptions import ValidationError, InterfaceFileDecodeError
 
@@ -47,26 +48,29 @@ MapType = Union[
     DatetimeList,
 ]
 
-""" Mapping type to Python type mapping"""
-type_strings = {
-    "integer": int,
-    "longinteger": int,
-    "double": float,
-    "string": str,
-    "binaryblob": bytes,
-    "boolean": bool,
-    "datetime": datetime,
-    "integerarray": list,
-    "longintegerarray": list,
-    "doublearray": list,
-    "stringarray": list,
-    "binaryblobarray": list,
-    "booleanarray": list,
-    "datetimearray": list,
+""" Lookup table for mapping Astarte type to Python type"""
+AstarteTypesLookupElement = namedtuple("AstarteTypesLookupElement", ["type", "subtype"])
+astarte_types_lookup = {
+    "integer": AstarteTypesLookupElement(int, None),
+    "longinteger": AstarteTypesLookupElement(int, None),
+    "double": AstarteTypesLookupElement(float, None),
+    "string": AstarteTypesLookupElement(str, None),
+    "binaryblob": AstarteTypesLookupElement(bytes, None),
+    "boolean": AstarteTypesLookupElement(bool, None),
+    "datetime": AstarteTypesLookupElement(datetime, None),
+    "integerarray": AstarteTypesLookupElement(list, int),
+    "longintegerarray": AstarteTypesLookupElement(list, int),
+    "doublearray": AstarteTypesLookupElement(list, float),
+    "stringarray": AstarteTypesLookupElement(list, str),
+    "binaryblobarray": AstarteTypesLookupElement(list, bytes),
+    "booleanarray": AstarteTypesLookupElement(list, bool),
+    "datetimearray": AstarteTypesLookupElement(list, datetime),
 }
 
 # Mapping quality of service
-QOS_MAP = {"unreliable": 0, "guaranteed": 1, "unique": 2}
+QOS_MAP: dict[str, int] = {"unreliable": 0, "guaranteed": 1, "unique": 2}
+
+endpoint_regex = re.compile(r"^(\/(%{([a-zA-Z_]+[a-zA-Z0-9_]*)}|[a-zA-Z_]+[a-zA-Z0-9_]*)){1,64}$")
 
 
 class Mapping:
@@ -89,6 +93,8 @@ class Mapping:
         Flag that defines if the Mapping requires a timestamp associated to the Payload before send.
     reliability:
         Reliability level of the Mapping (see notes)
+    allow_unset:
+        Allow unsetting for properties
 
     Notes
     -----
@@ -129,55 +135,78 @@ class Mapping:
         ============== ============== ===
     """
 
-    def __init__(self, mapping_definition: dict, interface_type: str):
+    def __init__(self, mapping_definition: dict, is_datastream: bool):
         """
         Parameters
         ----------
         mapping_definition: dict
             Mapping from the mappings array of an Astarte Interface definition in the form of a
             Python dictionary. Usually obtained by using json.loads() on an Interface file.
-        interface_type: str
-            Type of the parent Interface, used to determine the default reliability
+        is_datastream: bool
+            True when the mapping belongs to a datastream interface, false otherwise.
         """
         self.endpoint: str = mapping_definition.get("endpoint")
-        self.type: str = mapping_definition.get("type")
-        self.__actual_type = type_strings.get(mapping_definition.get("type"))
-        self.explicit_timestamp = mapping_definition.get("explicit_timestamp", False)
-        default_reliability = "unreliable" if interface_type == "datastream" else "unique"
-        self.reliability = QOS_MAP.get(mapping_definition.get("reliability", default_reliability))
-        self.allow_unset = mapping_definition.get("allow_unset", False)
+        if not isinstance(self.endpoint, str):
+            raise InterfaceFileDecodeError(
+                "Endpoint is a required mapping field and should be a string."
+            )
+        if endpoint_regex.match(self.endpoint) is None:
+            raise InterfaceFileDecodeError(
+                f"The following endpoint is not correctly formatted {self.endpoint}."
+            )
 
-        if not (isinstance(self.endpoint, str) and self.__actual_type):
-            raise InterfaceFileDecodeError("Error parsing the mapping.")
-        if (interface_type != "datastream") and any(
-            k in mapping_definition for k in ("explicit_timestamp", "reliability")
+        self.type: str = mapping_definition.get("type")
+        if self.type not in astarte_types_lookup:
+            raise InterfaceFileDecodeError(
+                "type is a required mapping field and should match one of the allowed types."
+            )
+        self.__actual_type = astarte_types_lookup.get(self.type)
+
+        self.explicit_timestamp = mapping_definition.get("explicit_timestamp", False)
+        if not isinstance(self.explicit_timestamp, bool):
+            raise InterfaceFileDecodeError("Explicit timestamp should have a boolean value.")
+
+        default_reliability = "unreliable" if is_datastream else "unique"
+        reliability_str = mapping_definition.get("reliability", default_reliability)
+        self.reliability: int = QOS_MAP.get(reliability_str)
+        if not isinstance(self.reliability, int):
+            raise InterfaceFileDecodeError(
+                "reliability is a required mapping field and should be one of: 'unreliable', "
+                "'guaranteed' or 'unique'."
+            )
+
+        self.allow_unset = mapping_definition.get("allow_unset", False)
+        if not isinstance(self.allow_unset, bool):
+            raise InterfaceFileDecodeError("Allow unset should have a boolean value.")
+
+        if any(k in mapping_definition for k in ("explicit_timestamp", "reliability")) and (
+            not is_datastream
         ):
             raise InterfaceFileDecodeError(
                 "Fields 'reliability' and 'explicit_timestamp' have no meaning for properties."
             )
-        if ("allow_unset" in mapping_definition) and (interface_type != "properties"):
-            raise InterfaceFileDecodeError("Field 'allow_unset' have no meaning for datastreams.")
+        if ("allow_unset" in mapping_definition) and is_datastream:
+            raise InterfaceFileDecodeError("Field 'allow_unset' has no meaning for datastreams.")
 
-    def validate_path(self, path: str) -> ValidationError | None:
+    def validate_path(self, path: str):
         """
-        Mapping data validation
+        Validate an endpoint against the endpoints declared in the mapping.
 
         Parameters
         ----------
         path: Str
             Path to validate.
 
-        Returns
-        -------
-        ValidationError or None
-            None in case of successful validation, ValidationError otherwise
+        Raises
+        ------
+        ValidationError
+            When validation has failed.
         """
-        regex = sub(r"%{\w+}", r"[^/+#]+", self.endpoint)
-        if not match(regex + "$", path):
-            return ValidationError(f"Path {path} does not match the endpoint {self.endpoint}")
-        return None
+        regex = re.sub(r"%{([a-zA-Z_]+[a-zA-Z0-9_]*)}", r"[a-zA-Z_]+[a-zA-Z0-9_]*", self.endpoint)
+        if not re.match(regex + "$", path):
+            raise ValidationError(f"Path {path} does not match the endpoint {self.endpoint}")
 
-    def validate_timestamp(self, timestamp: datetime | None) -> ValidationError | None:
+    def validate_timestamp(self, timestamp: datetime | None):
         """
         Mapping timestamp validation
 
@@ -186,18 +215,17 @@ class Mapping:
         timestamp: datetime or None
             Timestamp associated to the payload
 
-        Returns
-        -------
-        ValidationError or None
-            None in case of successful validation, ValidationError otherwise
+        Raises
+        ------
+        ValidationError
+            When validation has failed.
         """
         if self.explicit_timestamp and not timestamp:
-            return ValidationError(f"Timestamp required for {self.endpoint}")
+            raise ValidationError(f"Timestamp required for {self.endpoint}")
         if not self.explicit_timestamp and timestamp:
-            return ValidationError(f"It's not possible to set the timestamp for {self.endpoint}")
-        return None
+            raise ValidationError(f"It's not possible to set the timestamp for {self.endpoint}")
 
-    def validate_payload(self, payload: MapType) -> ValidationError | None:
+    def validate_payload(self, payload: MapType):
         """
         Mapping data validation
 
@@ -206,45 +234,54 @@ class Mapping:
         payload: MapType
             Data to validate
 
-        Returns
-        -------
-        ValidationError or None
-            None in case of successful validation, ValidationError otherwise
+        Raises
+        ------
+        ValidationError
+            When validation has failed.
         """
-        min_supported_int = -2147483648
-        max_supported_int = 2147483647
-        if payload in [None, []]:
-            return ValidationError(f"Attempting to validate an empty payload for {self.endpoint}")
-        # Check if the interface has explicit_timestamp when a timestamp is given (and viceversa)
-        # Check the type of data is valid for that endpoint
-        # pylint: disable-next=unidiomatic-typecheck
-        if not type(payload) is self.__actual_type:
-            return ValidationError(
-                f"{self.endpoint} is {self.type} but {type(payload)} was provided"
-            )
-        # Must return False when trying to send an integer outside allowed interval.
-        if self.type == "integer" and not min_supported_int <= payload <= max_supported_int:
-            return ValidationError(f"Value out of int32 range for {self.endpoint}")
-        # Must return False when trying to send a double value which is not a number
-        if self.type == "double" and not isfinite(payload):
-            return ValidationError(f"Invalid float value for {self.endpoint}")
-        # Check types of all element in a list
-        if self.__actual_type == list:
-            # Check coherence
-            if any(not type(elem) is type(payload[0]) for elem in payload):
-                return ValidationError("Type incoherence in payload elements")
-            subtype: type = type_strings.get(self.type.replace("array", ""))
+        if self.__actual_type.type != list:
+            self._validate_element(payload, self.__actual_type.type)
+        else:
+            # Using `is` instead of `isinstance` to avoid false negatives for inheritance of the
+            # list elements.
             # pylint: disable-next=unidiomatic-typecheck
-            if not type(payload[0]) is subtype:
-                return ValidationError(
-                    f"{self.endpoint} is {self.type} but a list of {type(payload[0])} was provided"
+            if type(payload) is not list:
+                raise ValidationError(f"Expecting list payload for {self.endpoint}")
+            if payload == []:
+                raise ValidationError(
+                    f"Attempting to validate an empty payload for {self.endpoint}"
                 )
-            # Must return False when trying to send an integer outside allowed interval.
-            if self.type == "integerarray" and any(
-                elem < min_supported_int or elem > max_supported_int for elem in payload
-            ):
-                return ValidationError(f"Value out of int32 range for {self.endpoint}")
-            # Must return False when trying to send a double value which is not a number
-            if self.type == "doublearray" and any(not isfinite(elem) for elem in payload):
-                return ValidationError(f"Invalid float value for {self.endpoint}")
-        return None
+            for element in payload:
+                self._validate_element(element, self.__actual_type.subtype)
+
+    def _validate_element(self, element: object, element_type: type):
+        """
+        Validate a single element.
+
+        Parameters
+        ----------
+        element: object
+            Element to validate.
+        element_type: type
+            Expected type of the element.
+
+        Raises
+        ------
+        ValidationError
+            When validation has failed.
+        """
+        MIN_INT32 = -2147483648
+        MAX_INT32 = 2147483647
+
+        # Using `is` instead of `isinstance` to avoid false positives for inheritance.
+        # pylint: disable-next=unidiomatic-typecheck
+        if type(element) is not element_type:
+            raise ValidationError(
+                f"{self.endpoint} is {self.type} but found {type(element)} in payload."
+            )
+        # Raise error for an integer outside allowed interval.
+        if (self.type in {"integer", "integerarray"}) and not (MIN_INT32 <= element <= MAX_INT32):
+            raise ValidationError(f"Value out of int32 range for {self.endpoint}")
+        # Raise error for a double value which is not a number
+        if (self.type in {"double", "doublearray"}) and not isfinite(element):
+            raise ValidationError(f"Invalid float value for {self.endpoint}")

@@ -540,7 +540,6 @@ class UnitTests(unittest.TestCase):
         mock_interface.name = "interface name"
         mock_interface.is_aggregation_object.return_value = False
         mock_interface.is_server_owned.return_value = False
-        mock_interface.validate.return_value = None
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
 
@@ -554,7 +553,9 @@ class UnitTests(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
+            interface_path, payload, timestamp
+        )
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
         mock_interface.is_type_properties.assert_called_once_with()
         mock_db_store.assert_not_called()
@@ -578,7 +579,6 @@ class UnitTests(unittest.TestCase):
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
         mock_interface.is_aggregation_object.return_value = False
-        mock_interface.validate.return_value = None
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
 
@@ -593,7 +593,9 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
+            interface_path, payload, timestamp
+        )
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
         mock_interface.is_type_properties.assert_called_once_with()
         mock_db_store.assert_not_called()
@@ -617,7 +619,6 @@ class UnitTests(unittest.TestCase):
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
         mock_interface.is_aggregation_object.return_value = False
-        mock_interface.validate.return_value = None
         mock_interface.is_type_properties.return_value = True
         mock_get_interface.return_value = mock_interface
 
@@ -632,7 +633,9 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
+            interface_path, payload, timestamp
+        )
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
         mock_interface.is_type_properties.assert_called_once_with()
         mock_db_store.assert_called_once_with(
@@ -798,7 +801,7 @@ class UnitTests(unittest.TestCase):
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
         mock_interface.is_aggregation_object.return_value = False
-        mock_interface.validate.return_value = ValidationError("Error msg")
+        mock_interface.validate_payload_and_timestamp.side_effect = ValidationError("Error msg")
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -812,7 +815,9 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
+            interface_path, payload, timestamp
+        )
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
@@ -831,7 +836,6 @@ class UnitTests(unittest.TestCase):
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
         mock_interface.is_aggregation_object.return_value = True
-        mock_interface.validate.return_value = None
         mock_interface.is_type_properties.return_value = False
         mock_get_interface.return_value = mock_interface
 
@@ -846,7 +850,9 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
+            interface_path, payload, timestamp
+        )
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_called_once_with(interface_path)
@@ -937,7 +943,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_not_called()
+        mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
@@ -970,7 +976,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_not_called()
+        mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
@@ -1003,7 +1009,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_not_called()
+        mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
@@ -1023,7 +1029,7 @@ class UnitTests(unittest.TestCase):
         mock_interface.is_server_owned.return_value = False
         mock_interface.is_aggregation_object.return_value = True
         mock_interface.is_type_properties.return_value = False
-        mock_interface.validate.return_value = ValidationError("Error msg")
+        mock_interface.validate_payload_and_timestamp.side_effect = ValidationError("Error msg")
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -1038,7 +1044,9 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate.assert_called_once_with(interface_path, payload, timestamp)
+        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
+            interface_path, payload, timestamp
+        )
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
@@ -1066,7 +1074,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         self.assertEqual(mock_interface.is_type_properties.call_count, 2)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.validate.assert_not_called()
+        mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_called_once_with(
             interface_name, mock_get_interface.return_value.version_major, interface_path, None
@@ -1125,7 +1133,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_type_properties.assert_not_called()
-        mock_interface.validate.assert_not_called()
+        mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
@@ -1155,7 +1163,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_type_properties.assert_called_once()
-        mock_interface.validate.assert_not_called()
+        mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
@@ -1186,7 +1194,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.is_type_properties.assert_called_once()
-        mock_interface.validate.assert_not_called()
+        mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_mapping.assert_called_once_with(interface_path)
@@ -1567,8 +1575,6 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         mock_bson_loads.return_value = {"v": "payload_value"}
-        mock_get_interface.return_value.validate_path.return_value = None
-        mock_get_interface.return_value.validate_payload.return_value = None
 
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
@@ -1607,8 +1613,6 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=mock_loop)
 
         mock_bson_loads.return_value = {"v": "payload_value"}
-        mock_get_interface.return_value.validate_path.return_value = None
-        mock_get_interface.return_value.validate_payload.return_value = None
 
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
@@ -1780,7 +1784,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         mock_bson_loads.return_value = {"v": "payload_value"}
-        mock_get_interface.return_value.validate_payload.return_value = None
+        mock_get_interface.return_value.validate_path.side_effect = ValidationError("")
 
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
@@ -1805,7 +1809,7 @@ class UnitTests(unittest.TestCase):
         device = self.helper_initialize_device(loop=None)
 
         mock_bson_loads.return_value = {"v": "payload_value"}
-        mock_get_interface.return_value.validate_path.return_value = None
+        mock_get_interface.return_value.validate_payload.side_effect = ValidationError("")
 
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"

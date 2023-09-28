@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
 from astarte.device.mapping import Mapping
@@ -29,6 +30,10 @@ from astarte.device.exceptions import (
 
 DEVICE = "device"
 SERVER = "server"
+
+name_regex = re.compile(
+    r"^([a-zA-Z][a-zA-Z0-9]*\.([a-zA-Z0-9][a-zA-Z0-9-]*\.)*)?[a-zA-Z][a-zA-Z0-9]*$"
+)
 
 
 class Interface:
@@ -74,36 +79,59 @@ class Interface:
         ValueError
             if both version_major and version_minor numbers are set to 0
         """
-        self.name: str = interface_definition.get("interface_name")
-        self.version_major: int = interface_definition.get("version_major")
-        self.version_minor: int = interface_definition.get("version_minor")
-        self.type: str = interface_definition.get("type")
-        self.ownership = interface_definition.get("ownership")
 
-        if not (
-            isinstance(self.name, str)
-            and isinstance(self.version_major, int)
-            and isinstance(self.version_minor, int)
-            and self.type in {"datastream", "properties"}
-            and self.ownership in (DEVICE, SERVER)
-        ):
+        self.name: str = interface_definition.get("interface_name")
+        if not isinstance(self.name, str):
             raise InterfaceFileDecodeError(
-                f"Error parsing the following interface definition: {interface_definition}"
+                "Interface name is a required interface field and should be a string."
+            )
+        if name_regex.match(self.name) is None:
+            raise InterfaceFileDecodeError(
+                f"Interface name is not correctly formatted: {self.name}"
             )
 
-        if not self.version_major and not self.version_minor:
+        self.version_major: int = interface_definition.get("version_major")
+        if not isinstance(self.version_major, int):
+            raise InterfaceFileDecodeError(
+                "Major version is a required interface field and should be an integer."
+            )
+
+        self.version_minor: int = interface_definition.get("version_minor")
+        if not isinstance(self.version_minor, int):
+            raise InterfaceFileDecodeError(
+                "Minor version is a required interface field and should be an integer."
+            )
+
+        if (not self.version_major) and (not self.version_minor):
             raise InterfaceFileDecodeError(
                 f"Both Major and Minor versions set to 0 for interface {self.name}"
             )
 
-        self.aggregation = interface_definition.get("aggregation", "individual")
+        self.type: str = interface_definition.get("type")
+        if self.type not in {"datastream", "properties"}:
+            raise InterfaceFileDecodeError(
+                "Interface type can be one of 'datastream' and 'properties."
+            )
+
+        self.ownership: str = interface_definition.get("ownership")
+        if self.ownership not in (DEVICE, SERVER):
+            raise InterfaceFileDecodeError(
+                f"Interface ownership can be one of '{DEVICE}' and '{SERVER}'."
+            )
+
+        self.aggregation: str = interface_definition.get("aggregation", "individual")
         if self.aggregation not in {"individual", "object"}:
             raise InterfaceFileDecodeError(f"Invalid aggregation type for interface {self.name}.")
 
-        self.mappings = []
+        if (self.type == "properties") and (self.aggregation == "object"):
+            raise InterfaceFileDecodeError(
+                "Invalid aggregation type 'object', properties can only be 'individual'."
+            )
+
+        self.mappings: list[Mapping] = []
         endpoints = []
         for mapping_definition in interface_definition.get("mappings", []):
-            mapping = Mapping(mapping_definition, self.type)
+            mapping = Mapping(mapping_definition, self.type == "datastream")
             if mapping.endpoint in endpoints:
                 raise InterfaceFileDecodeError(
                     f"Duplicated mapping {mapping.endpoint} for interface {self.name}."
@@ -113,6 +141,14 @@ class Interface:
 
         if not self.mappings:
             raise InterfaceFileDecodeError(f"No mappings in interface {self.name}.")
+
+        if self.aggregation == "object":
+            expl_ts_and_qos = [(m.explicit_timestamp, m.reliability) for m in self.mappings]
+            if len(set(expl_ts_and_qos)) != 1:
+                raise InterfaceFileDecodeError(
+                    "All the mappings for objects should have the same explicit_timestamp and "
+                    "reliability fields."
+                )
 
     def is_aggregation_object(self) -> bool:
         """
@@ -177,8 +213,11 @@ class Interface:
             The Mapping if found, None otherwise
         """
         for mapping in self.mappings:
-            if not mapping.validate_path(endpoint):
+            try:
+                mapping.validate_path(endpoint)
                 return mapping
+            except ValidationError:
+                pass
         return None
 
     def get_reliability(self, endpoint: str) -> int:
@@ -207,7 +246,7 @@ class Interface:
             return mapping.reliability
         return 2
 
-    def validate_path(self, path: str, payload) -> ValidationError | None:
+    def validate_path(self, path: str, payload):
         """
         Validate that the provided path conforms to the interface.
 
@@ -220,23 +259,22 @@ class Interface:
         payload: object
             Payload used to extrapolate the remaining endpoints for aggregated interfaces.
 
-        Returns
-        -------
-        ValidationError or None
-            None in case of successful validation, ValidationError otherwise
+        Raises
+        ------
+        ValidationError
+            When validation has failed.
         """
         if not self.is_aggregation_object():
             if not self.get_mapping(path):
-                return ValidationError(f"Path {path} not in the {self.name} interface.")
+                raise ValidationError(f"Path {path} not in the {self.name} interface.")
         else:
             for k in payload:
                 if not self.get_mapping(f"{path}/{k}"):
-                    return ValidationError(f"Path {path}/{k} not in the {self.name} interface.")
-        return None
+                    raise ValidationError(f"Path {path}/{k} not in the {self.name} interface.")
 
-    def validate_payload(self, path: str, payload) -> ValidationError | None:
+    def validate_payload(self, path: str, payload):
         """
-        Validate that the payload conforms to the interface.
+        Validate that the payload conforms to the interface definition.
 
         Parameters
         ----------
@@ -247,23 +285,76 @@ class Interface:
         payload: object
             Data to validate
 
-        Returns
-        -------
-        ValidationError or None
-            None in case of successful validation, ValidationError otherwise
+        Raises
+        ------
+        ValidationError
+            When validation has failed.
         """
-        if not self.is_aggregation_object():
-            return self.get_mapping(path).validate_payload(payload)
-        if not isinstance(payload, dict):
-            return ValidationError(f"Payload not a dict for aggregated interface {self.name}.")
-        for k, v in payload.items():
-            payload_invalid = self.get_mapping(f"{path}/{k}").validate_payload(v)
-            if payload_invalid:
-                return payload_invalid
-        # Check all the interface endpoints are present in the payload
-        return self.validate_object_complete(path, payload)
 
-    def validate_object_complete(self, path: str, payload):
+        # Validate the payload for the individual mapping
+        if not self.is_aggregation_object():
+            mapping: Mapping = self.get_mapping(path)
+            if mapping is None:
+                raise ValidationError(f"Mapping not found for path {path}.")
+            mapping.validate_payload(payload)
+            return
+
+        # Validate the payload for the aggregate mapping
+        if not isinstance(payload, dict):
+            raise ValidationError(f"Payload not a dict for aggregated interface {self.name}.")
+        for k, v in payload.items():
+            mapping: Mapping = self.get_mapping(f"{path}/{k}")
+            if mapping is None:
+                raise ValidationError(f"Mapping not found for path {path}/{k}.")
+            mapping.validate_payload(v)
+
+        # Check all the interface endpoints are present in the payload
+        if not self.is_server_owned():
+            self._validate_object_completeness(path, payload)
+
+    def validate_payload_and_timestamp(self, path: str, payload, timestamp: datetime | None):
+        """
+        Validate that path, payload and timestamp conform to the interface definition.
+
+        Parameters
+        ----------
+        path: str
+            Data endpoint in interface
+        payload: object
+            Data to validate
+        timestamp: datetime or None
+            Timestamp associated to the payload
+
+        Raises
+        ------
+        ValidationError
+            When validation has failed.
+        """
+
+        # Validate the payload for the individual mapping
+        if not self.is_aggregation_object():
+            mapping = self.get_mapping(path)
+            if mapping is None:
+                raise ValidationError(f"Path {path} not in the {self.name} interface.")
+            mapping.validate_payload(payload)
+            mapping.validate_timestamp(timestamp)
+            return
+
+        # Validate the payload for the aggregate mapping
+        if not isinstance(payload, dict):
+            raise ValidationError(f"Interface {self.name} is aggregate, payload not a dictionary.")
+        for k, v in payload.items():
+            mapping = self.get_mapping(f"{path}/{k}")
+            if mapping is None:
+                raise ValidationError(f"Path {path}/{k} not in the {self.name} interface.")
+            mapping.validate_payload(v)
+            mapping.validate_timestamp(timestamp)
+
+        # Check all the mappings are present in the payload
+        if not self.is_server_owned():
+            self._validate_object_completeness(path, payload)
+
+    def _validate_object_completeness(self, path: str, payload):
         """
         Validate that the payload contains all the endpoints for an aggregated interface.
         Shall only be used on device owned interfaces, as server interfaces could be sent
@@ -277,63 +368,13 @@ class Interface:
         payload: object
             Data to validate
 
-        Returns
-        -------
-        ValidationError or None
-            None in case of successful validation, ValidationError otherwise
+        Raises
+        ------
+        ValidationError
+            When validation has failed.
         """
-        if not self.is_server_owned():
-            path_segments = path.count("/") + 1
-            for endpoint in [m.endpoint for m in self.mappings]:
-                non_common_endpoint = "/".join(endpoint.split("/")[path_segments:])
-                if non_common_endpoint not in payload:
-                    return ValidationError(
-                        f"Path {endpoint} of {self.name} interface not in payload."
-                    )
-        return None
-
-    def validate(self, path: str, payload, timestamp: datetime | None) -> ValidationError | None:
-        """
-        Interface Data validation.
-
-        Parameters
-        ----------
-        path: str
-            Data endpoint in interface
-        payload: object
-            Data to validate
-        timestamp: datetime or None
-            Timestamp associated to the payload
-
-        Returns
-        -------
-        ValidationError or None
-            None in case of successful validation, ValidationError otherwise
-        """
-
-        # Validate the payload for the individual mapping
-        if not self.is_aggregation_object():
-            mapping = self.get_mapping(path)
-            if mapping:
-                p_err = mapping.validate_payload(payload)
-                t_err = mapping.validate_timestamp(timestamp)
-                return p_err if p_err else t_err
-            return ValidationError(f"Path {path} not in the {self.name} interface.")
-
-        # Validate the payload for the aggregate mapping
-        if not isinstance(payload, dict):
-            return ValidationError(
-                f"The interface {self.name} is aggregate, but the payload is not a dictionary."
-            )
-        for k, v in payload.items():
-            mapping = self.get_mapping(f"{path}/{k}")
-            if mapping:
-                p_err = mapping.validate_payload(v)
-                t_err = mapping.validate_timestamp(timestamp)
-                if p_err or t_err:
-                    return p_err if p_err else t_err
-            else:
-                return ValidationError(f"Path {path}/{k} not in the {self.name} interface.")
-
-        # Check all the mappings are present in the payload
-        return self.validate_object_complete(path, payload)
+        path_segments = path.count("/") + 1
+        for endpoint in [m.endpoint for m in self.mappings]:
+            non_common_endpoint = "/".join(endpoint.split("/")[path_segments:])
+            if non_common_endpoint not in payload:
+                raise ValidationError(f"Path {endpoint} of {self.name} interface not in payload.")

@@ -41,13 +41,13 @@ def test_aggregate_from_device_to_server(device: DeviceMqtt, test_cfg: TestCfg):
         color="cyan",
         flush=True,
     )
-    device.send_aggregate(test_cfg.interface_device_aggr, "/sensor-id", test_cfg.mock_data)
+    device.send_aggregate(test_cfg.interface_device_aggr, "/sensor_id", test_cfg.mock_data)
 
     time.sleep(1)
 
     cprint("\nChecking data stored on the server.", color="cyan", flush=True)
     json_res = get_server_interface(test_cfg, test_cfg.interface_device_aggr)
-    parsed_res = json_res.get("data", {}).get("sensor-id")
+    parsed_res = json_res.get("data", {}).get("sensor_id")
     if not parsed_res:
         raise ValueError("Incorrectly formatted response from server")
     if isinstance(parsed_res, list):
@@ -90,7 +90,7 @@ def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, 
     )
 
     post_server_interface(
-        test_cfg, test_cfg.interface_server_aggr, "/sensor-id", test_cfg.mock_data
+        test_cfg, test_cfg.interface_server_aggr, "/sensor_id", test_cfg.mock_data
     )
 
     time.sleep(1)
@@ -101,7 +101,7 @@ def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, 
             raise ValueError(
                 f"No data from this interface has been received {test_cfg.interface_server_aggr}"
             )
-        parsed_rx_data = rx_data.get(test_cfg.interface_server_aggr).get("/sensor-id")
+        parsed_rx_data = rx_data.get(test_cfg.interface_server_aggr).get("/sensor_id")
 
     # Make sure all the data has been correctly received
     if parsed_rx_data != test_cfg.mock_data:

@@ -226,9 +226,7 @@ class Device(ABC):
             raise ValidationError("Payload should be different from None")
         if isinstance(payload, collections.abc.Mapping):
             raise ValidationError("Payload for individual interfaces should not be a dictionary")
-        validation_result = interface.validate(interface_path, payload, timestamp)
-        if validation_result:
-            raise validation_result
+        interface.validate_payload_and_timestamp(interface_path, payload, timestamp)
 
         self._send_generic(
             interface,
@@ -282,9 +280,7 @@ class Device(ABC):
             raise ValidationError("Payload should be different from None")
         if not isinstance(payload, collections.abc.Mapping):
             raise ValidationError("Payload for aggregate interfaces should be a dictionary")
-        validation_result = interface.validate(interface_path, payload, timestamp)
-        if validation_result:
-            raise validation_result
+        interface.validate_payload_and_timestamp(interface_path, payload, timestamp)
 
         self._send_generic(
             interface,
@@ -401,7 +397,9 @@ class Device(ABC):
             return
 
         # Check the received path corresponds to the one in the interface
-        if interface.validate_path(path, payload):
+        try:
+            interface.validate_path(path, payload)
+        except ValidationError:
             logging.warning(
                 "Received message on incorrect endpoint for interface %s: %s, %s",
                 interface_name,
@@ -412,7 +410,9 @@ class Device(ABC):
 
         # Check the payload matches with the interface
         if payload:
-            if interface.validate_payload(path, payload):
+            try:
+                interface.validate_payload(path, payload)
+            except ValidationError:
                 logging.warning(
                     "Received incompatible payload for interface %s: %s, %s",
                     interface_name,
