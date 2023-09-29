@@ -41,14 +41,14 @@ def test_properties_from_device_to_server(device: DeviceMqtt, test_cfg: TestCfg)
     """
     cprint("\nSet device owned properties.", color="cyan", flush=True)
     for key, value in test_cfg.mock_data.items():
-        device.send(test_cfg.interface_device_prop, "/sensor-id/" + key, value)
+        device.send(test_cfg.interface_device_prop, "/sensor_id/" + key, value)
         time.sleep(0.005)
 
     time.sleep(1)
 
     cprint("\nChecking data stored on the server.", color="cyan", flush=True)
     json_res = get_server_interface(test_cfg, test_cfg.interface_device_prop)
-    parsed_res = json_res.get("data", {}).get("sensor-id")
+    parsed_res = json_res.get("data", {}).get("sensor_id")
     if not parsed_res:
         cprint(json_res, "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
@@ -63,7 +63,7 @@ def test_properties_from_device_to_server(device: DeviceMqtt, test_cfg: TestCfg)
     # Unset all the properties
     cprint("\nUnset all the device owned properties.", color="cyan", flush=True)
     for key, _ in test_cfg.mock_data.items():
-        device.unset_property(test_cfg.interface_device_prop, "/sensor-id/" + key)
+        device.unset_property(test_cfg.interface_device_prop, "/sensor_id/" + key)
         time.sleep(0.005)
 
     time.sleep(1)
@@ -93,7 +93,7 @@ def test_properties_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock,
 
     for key, value in test_cfg.mock_data.items():
         value = prepare_transmit_data(key, value)
-        post_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor-id/" + key, value)
+        post_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor_id/" + key, value)
         time.sleep(0.005)
 
     time.sleep(1)
@@ -107,14 +107,14 @@ def test_properties_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock,
             )
         parsed_rx_data = rx_data.get(test_cfg.interface_server_prop)
 
-    if parsed_rx_data != {("/sensor-id/" + k): v for (k, v) in test_cfg.mock_data.items()}:
+    if parsed_rx_data != {("/sensor_id/" + k): v for (k, v) in test_cfg.mock_data.items()}:
         cprint(parsed_rx_data, "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
 
     # Unset all the properties
     cprint("\nUnset all the server owned properties.", color="cyan", flush=True)
     for key, _ in test_cfg.mock_data.items():
-        delete_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor-id/" + key)
+        delete_server_interface(test_cfg, test_cfg.interface_server_prop, "/sensor_id/" + key)
         time.sleep(0.005)
 
     time.sleep(1)
@@ -128,6 +128,6 @@ def test_properties_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock,
             )
         parsed_rx_data = rx_data.get(test_cfg.interface_server_prop)
 
-    if parsed_rx_data != {"/sensor-id/" + k: None for k in test_cfg.mock_data}:
+    if parsed_rx_data != {"/sensor_id/" + k: None for k in test_cfg.mock_data}:
         cprint(parsed_rx_data, "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
