@@ -201,6 +201,26 @@ class UnitTests(unittest.TestCase):
         mock_connection.commit.assert_called_once_with()
 
     @mock.patch("astarte.device.database.sqlite3.connect")
+    def test_delete_props_from_interface(self, mock_sqlite3_connect):
+        mock_database_name = mock.MagicMock()
+
+        mock_connection = mock_sqlite3_connect.return_value
+        mock_cursor = mock_sqlite3_connect.return_value.cursor.return_value
+
+        db = database.AstarteDatabaseSQLite(mock_database_name)
+        mock_sqlite3_connect.reset_mock()
+
+        mock_interface = mock.MagicMock()
+        mock_path = mock.MagicMock()
+        db.delete_props_from_interface(mock_interface)
+
+        mock_sqlite3_connect.assert_called_once_with(mock_database_name)
+        mock_sqlite3_connect.return_value.cursor.assert_called_once_with()
+        execute_expected_arg = "DELETE FROM properties WHERE interface=?"
+        mock_cursor.execute.assert_called_once_with(execute_expected_arg, (mock_interface,))
+        mock_connection.commit.assert_called_once_with()
+
+    @mock.patch("astarte.device.database.sqlite3.connect")
     def test_clear(self, mock_sqlite3_connect):
         mock_database_name = mock.MagicMock()
 

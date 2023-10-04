@@ -111,3 +111,26 @@ class JWTGenerationError(AstarteError):
 
     def __init__(self, msg):
         self.msg = msg
+
+
+class DeviceConnectingError(AstarteError):
+    """Exception raised when an operation is attempted while the device MQTT client has been
+    started but is not yet connected.
+
+    Attributes:
+        msg -- A message error carrying further details
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
+
+
+class DeviceDisconnectedError(AstarteError):
+    """Exception raised if attempting a send while the device is disconnected from Astarte.
+
+    Attributes:
+        msg -- A message error carrying further details
+    """
+
+    def __init__(self, msg):
+        self.msg = msg
