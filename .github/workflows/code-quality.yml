@@ -42,3 +42,5 @@ jobs:
         python3 -m black -l 100 --diff --check examples/
         python3 -m black -l 100 --diff --check e2etest/
         python3 -m black -l 100 --diff --check tests/
+    - name: Check imports order (all sources)
+      uses: isort/isort-action@v1
