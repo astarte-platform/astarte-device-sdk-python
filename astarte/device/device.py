@@ -90,9 +90,6 @@ class Device(ABC):
         """
         Adds an interface to the device.
 
-        It has to be called before :py:func:`connect`, as it will be used for building the device
-        introspection.
-
         Parameters
         ----------
         interface_json : dict
@@ -156,9 +153,6 @@ class Device(ABC):
     def remove_interface(self, interface_name: str) -> None:
         """
         Removes an Interface from the device.
-
-        Removes an Interface definition from the device. It has to be called before
-        :py:func:`connect`, as it will be used for building the device introspection.
 
         Parameters
         ----------

@@ -109,6 +109,10 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
 
     time.sleep(1)
 
+    if not device.is_connected():
+        print("Connection failed.", flush=True)
+        sys.exit(1)
+
     test_datastream_from_device_to_server(device, test_cfg)
 
     time.sleep(1)

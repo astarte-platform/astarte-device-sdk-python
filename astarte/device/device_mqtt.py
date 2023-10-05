@@ -28,15 +28,33 @@ from pathlib import Path
 from collections.abc import Callable
 from datetime import datetime
 from urllib.parse import urlparse
+from enum import Enum
 
 import bson
 import paho.mqtt.client as mqtt
 from astarte.device import crypto, pairing_handler
 from astarte.device.interface import Interface
 from astarte.device.database import AstarteDatabaseSQLite, AstarteDatabase
-from astarte.device.exceptions import ValidationError, PersistencyDirectoryNotFoundError, APIError
+from astarte.device.exceptions import (
+    ValidationError,
+    PersistencyDirectoryNotFoundError,
+    APIError,
+    InterfaceNotFoundError,
+    DeviceConnectingError,
+    DeviceDisconnectedError,
+)
 
 from astarte.device.device import Device
+
+
+class ConnectionState(Enum):
+    """
+    Possible connection states for a device.
+    """
+
+    CONNECTING = 1
+    CONNECTED = 2
+    DISCONNECTED = 3
 
 
 class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
@@ -147,7 +165,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         # TODO: Implement device registration using token on connect
         # self.__jwt_token: str | None = None
         self.__is_crypto_setup = False
-        self.__is_connected = False
+        self.__connection_state = ConnectionState.DISCONNECTED
         self.__ignore_ssl_errors = ignore_ssl_errors
 
         self.on_connected: Callable[[DeviceMqtt], None] | None = None
@@ -172,8 +190,20 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         ----------
         interface_json : dict
             See parent class.
+
+        Raises
+        ------
+        DeviceConnectingError
+            When attempting to add an interface while the device if performing a connection.
         """
+        if self.__connection_state is ConnectionState.CONNECTING:
+            raise DeviceConnectingError("Interfaces cannot be added while device is connecting.")
         self._introspection.add_interface(interface_json)
+        if self.__connection_state is ConnectionState.CONNECTED:
+            interface = Interface(interface_json)
+            if interface.is_server_owned():
+                self.__mqtt_client.subscribe(f"{self.__get_base_topic()}/{interface.name}/#", qos=2)
+            self.__send_introspection()
 
     def remove_interface(self, interface_name: str) -> None:
         """
@@ -183,8 +213,26 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         ----------
         interface_name : str
             See parent class.
+
+        Raises
+        ------
+        DeviceConnectingError
+            When attempting to add an interface while the device if performing a connection.
+        InterfaceNotFoundError
+            When the provided interface can't be found in the device introspection.
         """
+        if self.__connection_state is ConnectionState.CONNECTING:
+            raise DeviceConnectingError("Interfaces cannot be removed while device is connecting.")
+        interface = self._introspection.get_interface(interface_name)
+        if interface is None:
+            raise InterfaceNotFoundError(f"Interface {interface_name} not found in introspection.")
         self._introspection.remove_interface(interface_name)
+        if self.__connection_state is ConnectionState.CONNECTED:
+            if interface.is_type_properties():
+                self.__prop_database.delete_props_from_interface(interface_name)
+            self.__send_introspection()
+            if interface.is_server_owned():
+                self.__mqtt_client.unsubscribe(f"{self.__get_base_topic()}/{interface.name}/#")
 
     def get_device_id(self) -> str:
         """
@@ -247,7 +295,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         APIError
             When the obtained broker URL is invalid.
         """
-        if self.__is_connected:
+        if self.__connection_state is ConnectionState.CONNECTED:
             return
 
         self.__setup_crypto()
@@ -272,6 +320,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         if (parsed_url.hostname is None) or (parsed_url.port is None):
             raise APIError("Received invalid broker URL.")
 
+        self.__connection_state = ConnectionState.CONNECTING
         self.__mqtt_client.connect_async(parsed_url.hostname, parsed_url.port)
         self.__mqtt_client.loop_start()
 
@@ -285,7 +334,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         should result in the callback on_disconnected being called with return code parameter 0,
         meaning the disconnection happened following an explicit disconnection request.
         """
-        if not self.__is_connected:
+        if self.__connection_state is not ConnectionState.CONNECTED:
             return
 
         self.__mqtt_client.disconnect()
@@ -300,7 +349,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         bool
             The device connection status.
         """
-        return self.__is_connected
+        return self.__connection_state is ConnectionState.CONNECTED
 
     def _send_generic(
         self,
@@ -326,12 +375,17 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
+        DeviceDisconnectedError
+            When this function is called while the device is not connected to Astarte.
         ValidationError
             When:
             - Attempting to send to a server owned interface.
             - Sending to an endpoint that is not present in the interface.
             - The payload validation fails.
         """
+        if self.__connection_state is not ConnectionState.CONNECTED:
+            raise DeviceDisconnectedError("Send operation failed due to missing connection.")
+
         bson_payload = b""
         if payload is not None:
             object_payload = {"v": payload}
@@ -387,7 +441,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
             logging.error("Connection failed! %s", rc)
             return
 
-        self.__is_connected = True
+        self.__connection_state = ConnectionState.CONNECTED
 
         if not flags["session present"]:
             logging.debug("Session flag is not present, performing a clean session procedure")
@@ -420,7 +474,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         -------
 
         """
-        self.__is_connected = False
+        self.__connection_state = ConnectionState.DISCONNECTED
 
         if self.on_disconnected:
             if self._loop:

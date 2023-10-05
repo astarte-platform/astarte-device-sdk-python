@@ -41,4 +41,6 @@ from .exceptions import (
     InterfaceFileDecodeError,
     InterfaceNotFoundError,
     JWTGenerationError,
+    DeviceConnectingError,
+    DeviceDisconnectedError,
 )

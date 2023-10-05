@@ -31,8 +31,10 @@ from datetime import datetime
 import paho
 from paho.mqtt.client import Client
 
+from astarte.device.interface import Interface
 from astarte.device.database import AstarteDatabaseSQLite
 from astarte.device import DeviceMqtt
+from astarte.device.device_mqtt import ConnectionState
 from astarte.device.introspection import Introspection
 from astarte.device.exceptions import (
     PersistencyDirectoryNotFoundError,
@@ -41,6 +43,8 @@ from astarte.device.exceptions import (
     ValidationError,
     InterfaceNotFoundError,
     APIError,
+    DeviceConnectingError,
+    DeviceDisconnectedError,
 )
 
 
@@ -111,20 +115,232 @@ class UnitTests(unittest.TestCase):
         mock_db.assert_called_once_with(Path("./tests/device_id/caching/astarte.db"))
         return device
 
+    @mock.patch.object(Introspection, "add_interface")
+    def test_add_interface_from_json_while_not_connected(self, mock_add_interface):
+        device = self.helper_initialize_device(loop=None)
+
+        interface_json = {"json content": 42}
+        device.add_interface_from_json(interface_json)
+
+        mock_add_interface.assert_called_once_with(interface_json)
+
+    # __send_introspection is tested together with the connect method
+    @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
+    @mock.patch.object(Client, "subscribe")
+    @mock.patch("astarte.device.device_mqtt.Interface")
+    @mock.patch.object(Introspection, "add_interface")
+    def test_add_interface_from_json_while_connected(
+        self, mock_add_interface, mock_interface, mock_subscribe, mock__send_introspection
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface.return_value.name = "<interface-name>"
+        mock_interface.return_value.is_server_owned.return_value = True
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
+
+        interface_json = {"json content": 42}
+        device.add_interface_from_json(interface_json)
+
+        mock_add_interface.assert_called_once_with(interface_json)
+        mock_interface.assert_called_once_with(interface_json)
+        mock_subscribe.assert_called_once_with("realm_name/device_id/<interface-name>/#", qos=2)
+        mock__send_introspection.assert_called_once()
+
+    # __send_introspection is tested together with the connect method
+    @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
+    @mock.patch.object(Client, "subscribe")
+    @mock.patch("astarte.device.device_mqtt.Interface")
+    @mock.patch.object(Introspection, "add_interface")
+    def test_add_interface_from_json_while_connected_client_owned_interface(
+        self, mock_add_interface, mock_interface, mock_subscribe, mock__send_introspection
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface.return_value.is_server_owned.return_value = False
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
+
+        interface_json = {"json content": 42}
+        device.add_interface_from_json(interface_json)
+
+        mock_add_interface.assert_called_once_with(interface_json)
+        mock_interface.assert_called_once_with(interface_json)
+        mock_subscribe.assert_not_called()
+        mock__send_introspection.assert_called_once()
+
+    # __send_introspection is tested together with the connect method
+    @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
+    @mock.patch.object(Client, "subscribe")
+    @mock.patch("astarte.device.device_mqtt.Interface")
+    @mock.patch.object(Introspection, "add_interface")
+    def test_add_interface_from_json_while_connecting_raises(
+        self, mock_add_interface, mock_interface, mock_subscribe, mock__send_introspection
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTING
+
+        interface_json = {"json content": 42}
+        self.assertRaises(
+            DeviceConnectingError, lambda: device.add_interface_from_json(interface_json)
+        )
+
+        mock_add_interface.assert_not_called()
+        mock_interface.assert_not_called()
+        mock_subscribe.assert_not_called()
+        mock__send_introspection.assert_not_called()
+
+    @mock.patch.object(Introspection, "remove_interface")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_remove_interface_while_not_connected(self, mock_get_interface, mock_remove_interface):
+        device = self.helper_initialize_device(loop=None)
+
+        interface_name = "interface name"
+        device.remove_interface(interface_name)
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_remove_interface.assert_called_once_with(interface_name)
+
+    # __send_introspection is tested together with the connect method
+    @mock.patch.object(AstarteDatabaseSQLite, "delete_props_from_interface")
+    @mock.patch.object(Client, "unsubscribe")
+    @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
+    @mock.patch.object(Introspection, "remove_interface")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_remove_interface_while_connected(
+        self,
+        mock_get_interface,
+        mock_remove_interface,
+        mock__send_introspection,
+        mock_unsubscribe,
+        mock_delete_props_from_interface,
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_server_owned.return_value = True
+        mock_interface.is_type_properties.return_value = True
+        mock_get_interface.return_value = mock_interface
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
+
+        interface_name = "interface name"
+        device.remove_interface(interface_name)
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_remove_interface.assert_called_once_with(interface_name)
+        mock_delete_props_from_interface.assert_called_once_with(interface_name)
+        mock__send_introspection.assert_called_once()
+        mock_interface.is_server_owned.assert_called_once()
+        mock_unsubscribe.assert_called_once_with(f"realm_name/device_id/{interface_name}/#")
+
+    # __send_introspection is tested together with the connect method
+    @mock.patch.object(AstarteDatabaseSQLite, "delete_props_from_interface")
+    @mock.patch.object(Client, "unsubscribe")
+    @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
+    @mock.patch.object(Introspection, "remove_interface")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_remove_interface_while_connected_device_owned_datastream(
+        self,
+        mock_get_interface,
+        mock_remove_interface,
+        mock__send_introspection,
+        mock_unsubscribe,
+        mock_delete_props_from_interface,
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_type_properties.return_value = False
+        mock_get_interface.return_value = mock_interface
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
+
+        interface_name = "interface name"
+        device.remove_interface(interface_name)
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_remove_interface.assert_called_once_with(interface_name)
+        mock_delete_props_from_interface.assert_not_called()
+        mock__send_introspection.assert_called_once()
+        mock_interface.is_server_owned.assert_called_once()
+        mock_unsubscribe.assert_not_called()
+
+    # __send_introspection is tested together with the connect method
+    @mock.patch.object(AstarteDatabaseSQLite, "delete_props_from_interface")
+    @mock.patch.object(Client, "unsubscribe")
+    @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
+    @mock.patch.object(Introspection, "remove_interface")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_remove_interface_while_connecting_raises(
+        self,
+        mock_get_interface,
+        mock_remove_interface,
+        mock__send_introspection,
+        mock_unsubscribe,
+        mock_delete_props_from_interface,
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTING
+
+        interface_name = "interface name"
+
+        self.assertRaises(DeviceConnectingError, lambda: device.remove_interface(interface_name))
+
+        mock_get_interface.assert_not_called()
+        mock_remove_interface.assert_not_called()
+        mock_delete_props_from_interface.assert_not_called()
+        mock__send_introspection.assert_not_called()
+        mock_unsubscribe.assert_not_called()
+
+    # __send_introspection is tested together with the connect method
+    @mock.patch.object(AstarteDatabaseSQLite, "delete_props_from_interface")
+    @mock.patch.object(Client, "unsubscribe")
+    @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
+    @mock.patch.object(Introspection, "remove_interface")
+    @mock.patch.object(Introspection, "get_interface")
+    def test_remove_interface_interface_not_in_introspection_raises(
+        self,
+        mock_get_interface,
+        mock_remove_interface,
+        mock__send_introspection,
+        mock_unsubscribe,
+        mock_delete_props_from_interface,
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_get_interface.return_value = None
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
+
+        interface_name = "interface name"
+        self.assertRaises(InterfaceNotFoundError, lambda: device.remove_interface(interface_name))
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_remove_interface.assert_not_called()
+        mock_delete_props_from_interface.assert_not_called()
+        mock__send_introspection.assert_not_called()
+        mock_unsubscribe.assert_not_called()
+
+    @mock.patch.object(DeviceMqtt, "add_interface_from_json")
     @mock.patch("astarte.device.device.open", new_callable=mock.mock_open)
     @mock.patch("astarte.device.device.json.load", return_value="Fake json content")
     @mock.patch.object(Path, "is_file", return_value=True)
-    @mock.patch.object(Introspection, "add_interface")
     def test_add_interface_from_file(
-        self, mock_add_interface, mock_isfile, mock_json_load, mock_open
+        self, mock_isfile, mock_json_load, mock_open, mock_add_interface_from_json
     ):
         device = self.helper_initialize_device(loop=None)
 
         device.add_interface_from_file(Path.cwd())
-        assert mock_isfile.call_count == 1
+
+        mock_isfile.assert_called_once()
         mock_open.assert_called_once_with(Path.cwd(), "r", encoding="utf-8")
         mock_json_load.assert_called_once()
-        mock_add_interface.assert_called_once_with("Fake json content")
+        mock_add_interface_from_json.assert_called_once_with("Fake json content")
 
     @mock.patch.object(Path, "is_file", return_value=False)
     def test_add_interface_from_file_missing_file_err(self, mock_isfile):
@@ -133,7 +349,7 @@ class UnitTests(unittest.TestCase):
         self.assertRaises(
             InterfaceFileNotFoundError, lambda: device.add_interface_from_file(Path.cwd())
         )
-        assert mock_isfile.call_count == 1
+        mock_isfile.assert_called_once()
 
     @mock.patch.object(Path, "is_file", return_value=True)
     @mock.patch("astarte.device.device.open", new_callable=mock.mock_open)
@@ -148,9 +364,9 @@ class UnitTests(unittest.TestCase):
         self.assertRaises(
             InterfaceFileDecodeError, lambda: device.add_interface_from_file(Path.cwd())
         )
+        mock_isfile.assert_called_once()
         mock_json_err.assert_called_once()
         mock_open.assert_called_once()
-        mock_isfile.assert_called_once()
         mock_json_load.assert_called_once()
 
     @mock.patch.object(
@@ -191,14 +407,6 @@ class UnitTests(unittest.TestCase):
         )
         mock_exists.assert_called_once()
         mock_is_dir.assert_called_once()
-
-    @mock.patch.object(Introspection, "remove_interface")
-    def test_remove_interface(self, mock_remove_interface):
-        device = self.helper_initialize_device(loop=None)
-
-        interface_name = "interface name"
-        device.remove_interface(interface_name)
-        mock_remove_interface.assert_called_once_with(interface_name)
 
     def test_get_device_id(self):
         device = self.helper_initialize_device(loop=None)
@@ -286,7 +494,7 @@ class UnitTests(unittest.TestCase):
     ):
         device = self.helper_initialize_device(loop=None)
 
-        device._DeviceMqtt__is_connected = True
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
 
         mock_urlparse.return_value.hostname = "mocked hostname"
         mock_urlparse.return_value.port = "mocked port"
@@ -515,7 +723,7 @@ class UnitTests(unittest.TestCase):
         device.disconnect()
         mock_disconnect.assert_not_called()
 
-        device._DeviceMqtt__is_connected = True
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
 
         device.disconnect()
         mock_disconnect.assert_called_once()
@@ -525,7 +733,7 @@ class UnitTests(unittest.TestCase):
 
         self.assertFalse(device.is_connected())
 
-        device._DeviceMqtt__is_connected = True
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
 
         self.assertTrue(device.is_connected())
 
@@ -544,6 +752,8 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -570,6 +780,46 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
     @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
+    def test_send_device_not_connected_raises_device_disconnected_err(
+        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
+    ):
+        device = self.helper_initialize_device(loop=None)
+
+        mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_aggregation_object.return_value = False
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_type_properties.return_value = False
+        mock_get_interface.return_value = mock_interface
+
+        mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+
+        device._DeviceMqtt__connection_state = ConnectionState.DISCONNECTED
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = 12
+        timestamp = datetime.now()
+        self.assertRaises(
+            DeviceDisconnectedError,
+            lambda: device.send(interface_name, interface_path, payload, timestamp),
+        )
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
+            interface_path, payload, timestamp
+        )
+        mock_bson_dumps.assert_not_called()
+        mock_interface.is_type_properties.assert_not_called()
+        mock_db_store.assert_not_called()
+        mock_interface.get_reliability.assert_not_called()
+        mock_mqtt_publish.assert_not_called()
+
+    @mock.patch.object(Client, "publish")
+    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
+    @mock.patch("astarte.device.device_mqtt.bson.dumps")
+    @mock.patch.object(Introspection, "get_interface")
     def test_send_zero_is_ok(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
     ):
@@ -583,6 +833,8 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -623,6 +875,8 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -840,6 +1094,8 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
 
         interface_name = "interface name"
         interface_path = "interface path"
@@ -1067,6 +1323,8 @@ class UnitTests(unittest.TestCase):
         mock_interface.is_type_properties.return_value = True
         mock_get_interface.return_value = mock_interface
 
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
+
         interface_name = "interface name"
         interface_path = "interface path"
         device.unset_property(interface_name, interface_path)
@@ -1184,6 +1442,8 @@ class UnitTests(unittest.TestCase):
         mock_interface.is_type_properties.return_value = True
         mock_interface.get_mapping.return_value = None
         mock_get_interface.return_value = mock_interface
+
+        device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
 
         interface_name = "interface name"
         interface_path = "interface path"

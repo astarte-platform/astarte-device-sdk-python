@@ -86,6 +86,17 @@ class AstarteDatabase(ABC):
         """
 
     @abstractmethod
+    def delete_props_from_interface(self, interface: str) -> None:
+        """
+        Delete all the properties from the database belonging to an interface.
+
+        Parameters
+        ----------
+        interface : str
+            The interface name.
+        """
+
+    @abstractmethod
     def clear(self) -> None:
         """
         Fully clear the database of all the properties.
@@ -203,6 +214,22 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         connection.cursor().execute(
             "DELETE FROM properties WHERE interface=? AND path=?",
             (interface, path),
+        )
+        connection.commit()
+
+    def delete_props_from_interface(self, interface: str) -> None:
+        """
+        Delete all the properties from the database belonging to an interface.
+
+        Parameters
+        ----------
+        interface : str
+            See documentation in AstarteDatabase.
+        """
+        connection = sqlite3.connect(self.__database_path)
+        connection.cursor().execute(
+            "DELETE FROM properties WHERE interface=?",
+            (interface,),
         )
         connection.commit()
 
