@@ -18,31 +18,31 @@
 
 from __future__ import annotations
 
-import logging
 import collections.abc
+import logging
 import os
 import ssl
 import zlib
-from pathlib import Path
 from datetime import datetime
-from urllib.parse import urlparse
 from enum import Enum
+from pathlib import Path
+from urllib.parse import urlparse
 
 import bson
 import paho.mqtt.client as mqtt
+
 from astarte.device import crypto, pairing_handler
-from astarte.device.interface import Interface
-from astarte.device.database import AstarteDatabaseSQLite, AstarteDatabase
+from astarte.device.database import AstarteDatabase, AstarteDatabaseSQLite
+from astarte.device.device import Device
 from astarte.device.exceptions import (
-    ValidationError,
-    PersistencyDirectoryNotFoundError,
     APIError,
-    InterfaceNotFoundError,
     DeviceConnectingError,
     DeviceDisconnectedError,
+    InterfaceNotFoundError,
+    PersistencyDirectoryNotFoundError,
+    ValidationError,
 )
-
-from astarte.device.device import Device
+from astarte.device.interface import Interface
 
 
 class ConnectionState(Enum):

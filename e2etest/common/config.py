@@ -19,8 +19,8 @@
 Contains common configuration for all tests.
 """
 
-from datetime import datetime, timezone
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 

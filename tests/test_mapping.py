@@ -22,7 +22,8 @@
 import unittest
 from datetime import datetime
 from math import nan
-from astarte.device import Mapping, ValidationError, InterfaceFileDecodeError
+
+from astarte.device import InterfaceFileDecodeError, Mapping, ValidationError
 
 
 class UnitTests(unittest.TestCase):

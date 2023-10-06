@@ -18,8 +18,9 @@
 
 import ast
 import io
-import re
 import os
+import re
+
 from setuptools import find_namespace_packages, setup
 
 DEPENDENCIES = [

@@ -25,6 +25,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from time import sleep
+
 from termcolor import cprint
 
 from astarte.device import DeviceMqtt

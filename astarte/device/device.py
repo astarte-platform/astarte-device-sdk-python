@@ -18,25 +18,23 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+import asyncio
 import collections.abc
 import json
-import asyncio
-from pathlib import Path
-from datetime import datetime
-from collections.abc import Callable
 import logging
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from datetime import datetime
+from pathlib import Path
 
-from astarte.device.interface import Interface
-from astarte.device.introspection import Introspection
-from astarte.device.exceptions import (
-    ValidationError,
-    InterfaceNotFoundError,
-    InterfaceFileNotFoundError,
-)
 from astarte.device.exceptions import (
     InterfaceFileDecodeError,
+    InterfaceFileNotFoundError,
+    InterfaceNotFoundError,
+    ValidationError,
 )
+from astarte.device.interface import Interface
+from astarte.device.introspection import Introspection
 
 
 class Device(ABC):

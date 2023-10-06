@@ -19,16 +19,17 @@
 End to end testing framework.
 Specifically designed to test persistency.
 """
-import os
 import asyncio
-import time
-import sqlite3
-import pickle
-from pathlib import Path
-from threading import Thread, Lock
-from termcolor import cprint
 import importlib.util
+import os
+import pickle
+import sqlite3
 import sys
+import time
+from pathlib import Path
+from threading import Lock, Thread
+
+from termcolor import cprint
 
 # Assuming this script is called from the root folder of this project.
 prj_path = Path(os.getcwd())
@@ -51,11 +52,11 @@ spec.loader.exec_module(http_requests)
 
 from config import TestCfg
 from http_requests import (
-    post_server_interface,
-    prepare_transmit_data,
     delete_server_interface,
     get_server_interface,
     parse_received_data,
+    post_server_interface,
+    prepare_transmit_data,
 )
 
 rx_data_lock = Lock()

@@ -19,17 +19,17 @@
 Contains the tests for aggregated object datastreams.
 """
 
-import time
 import base64
 import copy
+import time
 from threading import Lock
+
+from config import TestCfg
 from dateutil import parser
+from http_requests import get_server_interface, post_server_interface
 from termcolor import cprint
 
 from astarte.device import DeviceMqtt
-from http_requests import get_server_interface, post_server_interface
-
-from config import TestCfg
 
 
 def test_aggregate_from_device_to_server(device: DeviceMqtt, test_cfg: TestCfg):

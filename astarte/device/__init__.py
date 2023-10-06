@@ -21,26 +21,26 @@ __version__ = "0.12.0"
 
 # Export what we care about
 from .device_mqtt import DeviceMqtt
-from .introspection import Introspection
-from .interface import Interface
-from .mapping import Mapping
-from .pairing_handler import (
-    register_device_with_jwt_token,
-    register_device_with_private_key,
-    generate_device_id,
-    generate_random_device_id,
-)
 from .exceptions import (
-    AstarteError,
-    DeviceAlreadyRegisteredError,
-    AuthorizationError,
     APIError,
-    ValidationError,
-    PersistencyDirectoryNotFoundError,
-    InterfaceFileNotFoundError,
-    InterfaceFileDecodeError,
-    InterfaceNotFoundError,
-    JWTGenerationError,
+    AstarteError,
+    AuthorizationError,
+    DeviceAlreadyRegisteredError,
     DeviceConnectingError,
     DeviceDisconnectedError,
+    InterfaceFileDecodeError,
+    InterfaceFileNotFoundError,
+    InterfaceNotFoundError,
+    JWTGenerationError,
+    PersistencyDirectoryNotFoundError,
+    ValidationError,
+)
+from .interface import Interface
+from .introspection import Introspection
+from .mapping import Mapping
+from .pairing_handler import (
+    generate_device_id,
+    generate_random_device_id,
+    register_device_with_jwt_token,
+    register_device_with_private_key,
 )

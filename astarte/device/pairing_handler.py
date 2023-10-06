@@ -21,7 +21,7 @@ from __future__ import annotations
 import datetime
 import http
 from base64 import urlsafe_b64encode
-from uuid import UUID, uuid5, uuid4
+from uuid import UUID, uuid4, uuid5
 
 import jwt
 import requests

@@ -21,12 +21,12 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
-from astarte.device.mapping import Mapping
 from astarte.device.exceptions import (
-    ValidationError,
-    InterfaceNotFoundError,
     InterfaceFileDecodeError,
+    InterfaceNotFoundError,
+    ValidationError,
 )
+from astarte.device.mapping import Mapping
 
 DEVICE = "device"
 SERVER = "server"

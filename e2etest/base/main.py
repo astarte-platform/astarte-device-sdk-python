@@ -18,14 +18,15 @@
 """
 End to end testing framework.
 """
-import os
-import time
 import asyncio
-from pathlib import Path
-from threading import Thread, Lock
-from termcolor import cprint
 import importlib.util
+import os
 import sys
+import time
+from pathlib import Path
+from threading import Lock, Thread
+
+from termcolor import cprint
 
 # Assuming this script is called from the root folder of this project.
 prj_path = Path(os.getcwd())
@@ -46,16 +47,19 @@ http_requests = importlib.util.module_from_spec(spec)
 sys.modules["http_requests"] = http_requests
 spec.loader.exec_module(http_requests)
 
+from aggregate import (
+    test_aggregate_from_device_to_server,
+    test_aggregate_from_server_to_device,
+)
 from config import TestCfg
-
-from datastream import test_datastream_from_device_to_server
-from datastream import test_datastream_from_server_to_device
-
-from property import test_properties_from_device_to_server
-from property import test_properties_from_server_to_device
-
-from aggregate import test_aggregate_from_device_to_server
-from aggregate import test_aggregate_from_server_to_device
+from datastream import (
+    test_datastream_from_device_to_server,
+    test_datastream_from_server_to_device,
+)
+from property import (
+    test_properties_from_device_to_server,
+    test_properties_from_server_to_device,
+)
 
 rx_data_lock = Lock()
 rx_data = {}

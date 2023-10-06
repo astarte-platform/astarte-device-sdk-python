@@ -25,8 +25,8 @@ import unittest
 from unittest import mock
 
 from cryptography import x509
-from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import serialization
+from cryptography.x509.oid import NameOID
 
 from astarte.device import crypto
 

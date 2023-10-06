@@ -21,20 +21,19 @@
 # pylint: disable=missing-return-type-doc,no-value-for-parameter,protected-access,
 # pylint: disable=too-many-public-methods,no-self-use
 
-import unittest
-from unittest import mock
-
-from uuid import UUID
 import datetime
+import unittest
 from http import HTTPStatus
-from jwt import exceptions
+from unittest import mock
+from uuid import UUID
 
+from jwt import exceptions
 
 from astarte.device import pairing_handler
 from astarte.device.exceptions import (
+    APIError,
     AuthorizationError,
     DeviceAlreadyRegisteredError,
-    APIError,
     JWTGenerationError,
 )
 
