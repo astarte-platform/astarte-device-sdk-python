@@ -101,7 +101,6 @@ def main(cb_loop: Optional[asyncio.AbstractEventLoop] = None):
         credentials_secret=_CREDENTIAL_SECRET,
         pairing_base_url=_PAIRING_URL,
         persistency_dir=_PERSISTENCY_DIR,
-        loop=cb_loop,
     )
     # Load all the interfaces
     device.add_interface_from_file(_INTERFACE_FILE)
@@ -109,7 +108,7 @@ def main(cb_loop: Optional[asyncio.AbstractEventLoop] = None):
     # Connect the device
     device.connect()
     # Attach the callback
-    device.on_data_received = callback
+    device.set_events_callbacks(on_data_received=callback, loop=cb_loop)
 
     print("Initialization completed, waiting for messages")
     while True:

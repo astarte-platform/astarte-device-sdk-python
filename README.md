@@ -33,7 +33,6 @@ device = DeviceMqtt(
     credentials_secret="credentials secret",
     pairing_base_url="pairing url",
     persistency_dir=".",
-    loop=None,
     ignore_ssl_errors=False,
 )
 # Add a single interface from a .json file
@@ -83,7 +82,7 @@ def my_callback(device: DeviceMqtt, name: str, path: str, payload: dict):
 # ... Create a device and connect it to Astarte ...
 
 # Setup the callback
-device.on_data_received = my_callback
+device.set_events_callbacks(on_data_received=my_callback)
 
 # Keep the program running
 while True:

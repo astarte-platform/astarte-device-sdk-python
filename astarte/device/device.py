@@ -21,11 +21,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import collections.abc
 import json
+import asyncio
 from pathlib import Path
 from datetime import datetime
 from collections.abc import Callable
 import logging
-import asyncio
 
 from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
@@ -45,45 +45,15 @@ class Device(ABC):
 
     This class is agnostic of a transport layer. It should be used to implement transport specific
     children classes.
-
-    **Threading and Concurrency**
-
-    When configuring callbacks, threading has to be taken into account, as depending on the
-    transport implementation it might be required to run them on a different thread from the device
-    class. When creating a device, it is possible to specify an asyncio.loop() to automatically
-    manage this detail. When a loop is specified, all callbacks will be called in the context of
-    that loop, guaranteeing thread-safety and making sure that the user does not have to take any
-    further action beyond consuming the callback.
-
-    When a loop is not specified, callbacks are invoked just as standard Python functions. This
-    inevitably means that the user will have to take into account the fact that the callback will
-    be invoked in the same thread a the transport implementation. In particular, blocking the
-    execution of the transport thread might cause deadlocks and, in general, malfunctions in the
-    SDK. For this reason, the usage of asyncio is strongly recommended.
-
-    Attributes
-    ----------
-    on_data_received : Callable[[Device, string, string, object], None]
-        A function that will be invoked everytime data is received from Astarte. Parameters are
-        the device itself, the Interface name, the Interface path, and the payload. The payload
-        will reflect the type defined in the Interface.
     """
 
     @abstractmethod
-    def __init__(self, loop: asyncio.AbstractEventLoop | None = None):
-        """
-        Parameters
-        ----------
-        loop : asyncio.loop (optional)
-            An optional loop which will be used for invoking callbacks. When this is not none,
-            the device will call any specified callback through loop.call_soon_threadsafe, ensuring
-            that the callbacks will be run in the thread the loop belongs to. Usually, you want
-            to set this to get_running_loop(). When not sent, callbacks will be invoked as a
-            standard function - keep in mind this means your callbacks might create deadlocks.
-        """
-        self._loop = loop
+    def __init__(self):
         self._introspection = Introspection()
-        self.on_data_received: Callable[[Device, str, str, object], None] | None = None
+        self._on_connected: Callable[[Device], None] | None = None
+        self._on_data_received: Callable[[Device, str, str, object], None] | None = None
+        self._on_disconnected: Callable[[Device, int], None] | None = None
+        self._loop = None
 
     @abstractmethod
     def add_interface_from_json(self, interface_json: dict):
@@ -161,6 +131,42 @@ class Device(ABC):
             functions.
         """
 
+    def set_events_callbacks(
+        self,
+        on_connected: Callable[[Device], None] | None = None,
+        on_data_received: Callable[[Device, str, str, object], None] | None = None,
+        on_disconnected: Callable[[Device, int], None] | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+    ) -> None:
+        """
+        Can be used to set various callbacks to user provided functions.
+
+        note:: All parameters default to None. Meaning that all unspeficied callbacks will be
+        disabled. Same for the event loop.
+
+        Parameters
+        ----------
+        on_connected : Callable[[Device], None] | None
+            A function that will be invoked everytime the device is connected.
+        on_data_received : Callable[[Device, string, string, object], None] | None
+            A function that will be invoked everytime data is received from Astarte. Parameters are
+            the device itself, the Interface name, the Interface path, and the payload. The payload
+            will reflect the type defined in the Interface.
+        on_disconnected : Callable[[Device], None] | None
+            A function that will be invoked everytime the device experiences a disconnection event.
+            The int parameter bears the disconnect reason. With 0 being a graceful disconnection.
+        loop : asyncio.AbstractEventLoop | None
+            An optional loop which will be used for invoking the callbacks. When this is not None,
+            the device will call any specified callback through loop.call_soon_threadsafe, ensuring
+            that the callbacks will be run in thread the loop belongs to. Usually, you want
+            to set this to get_running_loop(). When not sent, callbacks will be invoked as a
+            standard function - keep in mind this means your callbacks might create deadlocks.
+        """
+        self._on_connected = on_connected
+        self._on_data_received = on_data_received
+        self._on_disconnected = on_disconnected
+        self._loop = loop
+
     @abstractmethod
     def connect(self) -> None:
         """
@@ -171,6 +177,17 @@ class Device(ABC):
     def disconnect(self) -> None:
         """
         Disconnects the device from Astarte.
+        """
+
+    @abstractmethod
+    def is_connected(self) -> bool:
+        """
+        Returns whether the device is currently connected.
+
+        Returns
+        -------
+        bool
+            The device connection status.
         """
 
     def send(
@@ -420,14 +437,14 @@ class Device(ABC):
         if self._loop:
             # Use threadsafe, as we're in a different thread here
             self._loop.call_soon_threadsafe(
-                self.on_data_received,
+                self._on_data_received,
                 self,
                 interface_name,
                 path,
                 payload,
             )
         else:
-            self.on_data_received(self, interface_name, path, payload)
+            self._on_data_received(self, interface_name, path, payload)
 
     @abstractmethod
     def _store_property(

@@ -19,13 +19,11 @@
 from __future__ import annotations
 
 import logging
-import asyncio
 import collections.abc
 import os
 import ssl
 import zlib
 from pathlib import Path
-from collections.abc import Callable
 from datetime import datetime
 from urllib.parse import urlparse
 from enum import Enum
@@ -57,35 +55,28 @@ class ConnectionState(Enum):
     DISCONNECTED = 3
 
 
-class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
+class DeviceMqtt(Device):
     """
     Astarte device implementation using the MQTT transport protocol.
 
     **Threading and Concurrency**
 
-    This SDK uses paho-mqtt under the hood to provide Transport connectivity. As such,
-    it is bound by paho-mqtt's behaviors in terms of threading. When a device connects,
-    a new thread is spawned and an event loop is run there to manage all the connection events.
+    This SDK uses paho-mqtt under the hood as a transport layer. As such, it is bound by
+    paho-mqtt's behavior in terms of threading. When a device connects, a new thread is spawned
+    and an event loop is run there to manage all the connection events.
 
     This SDK spares the user from this detail - on the other hand, when configuring callbacks,
-    threading has to be taken into account. When creating a device, it is possible to specify an
-    asyncio.loop() to automatically manage this detail. When a loop is specified, all callbacks
-    will be called in the context of that loop, guaranteeing thread-safety and making sure that
-    the user does not have to take any further action beyond consuming the callback.
+    threading has to be taken into account. When configuring the callback functions, it is
+    possible to specify an asyncio.loop() to automatically manage this detail. When a loop is
+    specified, all callbacks will be called in the context of that loop, guaranteeing
+    thread-safety and making sure that the user does not have to take any further action beyond
+    consuming the callback.
 
     When a loop is not specified, callbacks are invoked just as standard Python functions. This
-    inevitably means that the user will have to take into account the fact that the callback will
-    be invoked in the Thread of the MQTT connection. In particular, blocking the execution of
-    that thread might cause deadlocks and, in general, malfunctions in the SDK. For this reason, the
-    usage of asyncio is strongly recommended.
-
-    Attributes
-    ----------
-    on_connected : Callable[[DeviceMqtt], None]
-        A function that will be invoked everytime the device successfully connects.
-    on_disconnected : Callable[[DeviceMqtt, int], None]
-        A function that will be invoked everytime the device disconnects. The int parameter bears
-        the disconnect reason.
+    inevitably means that the user will have to take into account the fact that the callback
+    will be invoked in the thread of the MQTT connection. In particular, blocking the execution
+    of that thread might cause deadlocks and, in general, malfunctions in the SDK. For this
+    reason, the usage of asyncio is strongly recommended.
     """
 
     def __init__(
@@ -96,7 +87,6 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         pairing_base_url: str,
         persistency_dir: str,
         database: AstarteDatabase | None = None,
-        loop: asyncio.AbstractEventLoop | None = None,
         ignore_ssl_errors: bool = False,
     ):
         """
@@ -117,16 +107,10 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
             Path to an existing directory which will be used for holding persistency for this
             device: certificates, caching and more. It doesn't have to be unique per device,
             a subdirectory for the given device ID will be created.
-        database : AstarteDatabase (optional)
+        database : AstarteDatabase | None
             User instantiated database to use for caching properties. When None, a native SQLite
             database will be created and used in the persistency_dir.
-        loop : asyncio.loop (optional)
-            An optional loop which will be used for invoking callbacks. When this is not none,
-            device will call any specified callback through loop.call_soon_threadsafe, ensuring
-            that the callbacks will be run in thread the loop belongs to. Usually, you want
-            to set this to get_running_loop(). When not sent, callbacks will be invoked as a
-            standard function - keep in mind this means your callbacks might create deadlocks.
-        ignore_ssl_errors: bool (optional)
+        ignore_ssl_errors: bool
             Useful if you're using the device to connect to a test instance of Astarte with
             self-signed certificates, it is not recommended to leave this `true` in production.
             Defaults to `false`, if `true` the device will ignore SSL errors during connection.
@@ -135,7 +119,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         PersistencyDirectoryNotFoundError
             If the provided persistency directory does not exists.
         """
-        super().__init__(loop)
+        super().__init__()
 
         if not os.path.isdir(persistency_dir):
             raise PersistencyDirectoryNotFoundError(f"{persistency_dir} is not a directory")
@@ -167,9 +151,6 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         self.__is_crypto_setup = False
         self.__connection_state = ConnectionState.DISCONNECTED
         self.__ignore_ssl_errors = ignore_ssl_errors
-
-        self.on_connected: Callable[[DeviceMqtt], None] | None = None
-        self.on_disconnected: Callable[[DeviceMqtt, int], None] | None = None
 
         self.__setup_mqtt_client()
 
@@ -450,12 +431,12 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
             self.__send_empty_cache()
             self.__send_device_owned_properties()
 
-        if self.on_connected:
+        if self._on_connected:
             if self._loop:
                 # Use threadsafe, as we're in a different thread here
-                self._loop.call_soon_threadsafe(self.on_connected, self)
+                self._loop.call_soon_threadsafe(self._on_connected, self)
             else:
-                self.on_connected(self)
+                self._on_connected(self)
 
     def __on_disconnect(self, _client, _userdata, rc):
         """
@@ -476,12 +457,12 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
         """
         self.__connection_state = ConnectionState.DISCONNECTED
 
-        if self.on_disconnected:
+        if self._on_disconnected:
             if self._loop:
                 # Use threadsafe, as we're in a different thread here
-                self._loop.call_soon_threadsafe(self.on_disconnected, self, rc)
+                self._loop.call_soon_threadsafe(self._on_disconnected, self, rc)
             else:
-                self.on_disconnected(self, rc)
+                self._on_disconnected(self, rc)
 
         # If rc was explicit, stop the loop (after the callback)
         if not rc:
@@ -521,7 +502,7 @@ class DeviceMqtt(Device):  # pylint: disable=too-many-instance-attributes
             return
 
         # Check if callback is set
-        if not self.on_data_received:
+        if not self._on_data_received:
             return
 
         # Extract payload from BSON
