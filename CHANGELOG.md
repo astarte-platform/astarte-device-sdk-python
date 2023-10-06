@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adding or removing interfaces from a device while the device is connected.
   If an interface is added or removed the new device introspection is immediately sent to Astarte.
 
+### Changed
+- Callbacks should be set using the `set_events_callbacks` method instead of setting the attributes
+  directly.
+- `asyncio` loop is argument of `set_events_callbacks` instead of class constructor.
+
 ### Fixed
 - False values on boolean endpoints for server owned interfaces are correctly processed.
 
