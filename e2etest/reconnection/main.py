@@ -19,26 +19,26 @@
 End to end testing framework.
 Specifically designed to test persistency.
 """
-import os
 import asyncio
-import time
-import sqlite3
+import importlib.util
+import os
 import pickle
-import requests
+import sqlite3
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Thread, Lock
+from threading import Lock, Thread
+
+import requests
 from termcolor import cprint
-import importlib.util
-import sys
 
 # Assuming this script is called from the root folder of this project.
 prj_path = Path(os.getcwd())
 if str(prj_path) not in sys.path:
     sys.path.insert(0, str(prj_path))
 
-from astarte.device import DeviceMqtt
-from astarte.device import InterfaceNotFoundError, DeviceDisconnectedError
+from astarte.device import DeviceDisconnectedError, DeviceMqtt, InterfaceNotFoundError
 
 config_path = Path.joinpath(Path.cwd(), "e2etest", "common", "config.py")
 spec = importlib.util.spec_from_file_location("config", config_path)
@@ -53,9 +53,7 @@ sys.modules["http_requests"] = http_requests
 spec.loader.exec_module(http_requests)
 
 from config import TestCfg
-from http_requests import (
-    get_server_interface,
-)
+from http_requests import get_server_interface
 
 
 def on_connected_cbk(_):

@@ -21,11 +21,12 @@
 
 import unittest
 from unittest import mock
+
 from astarte.device import Interface, Mapping
 from astarte.device.exceptions import (
-    ValidationError,
-    InterfaceNotFoundError,
     InterfaceFileDecodeError,
+    InterfaceNotFoundError,
+    ValidationError,
 )
 
 

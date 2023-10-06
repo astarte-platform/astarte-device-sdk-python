@@ -21,31 +21,31 @@
 # pylint: disable=missing-return-type-doc,no-value-for-parameter,protected-access,
 # pylint: disable=too-many-public-methods,no-self-use
 
+import ssl
 import unittest
+from datetime import datetime
+from json import JSONDecodeError
+from pathlib import Path
 from unittest import mock
 
-import ssl
-from pathlib import Path
-from json import JSONDecodeError
-from datetime import datetime
 import paho
 from paho.mqtt.client import Client
 
-from astarte.device.interface import Interface
-from astarte.device.database import AstarteDatabaseSQLite
 from astarte.device import DeviceMqtt
+from astarte.device.database import AstarteDatabaseSQLite
 from astarte.device.device_mqtt import ConnectionState
-from astarte.device.introspection import Introspection
 from astarte.device.exceptions import (
-    PersistencyDirectoryNotFoundError,
-    InterfaceFileNotFoundError,
-    InterfaceFileDecodeError,
-    ValidationError,
-    InterfaceNotFoundError,
     APIError,
     DeviceConnectingError,
     DeviceDisconnectedError,
+    InterfaceFileDecodeError,
+    InterfaceFileNotFoundError,
+    InterfaceNotFoundError,
+    PersistencyDirectoryNotFoundError,
+    ValidationError,
 )
+from astarte.device.interface import Interface
+from astarte.device.introspection import Introspection
 
 
 class UnitTests(unittest.TestCase):

@@ -18,13 +18,13 @@
 
 from __future__ import annotations
 
+import re
+from collections import namedtuple
 from datetime import datetime
 from math import isfinite
-import re
-from typing import Union, List
-from collections import namedtuple
+from typing import List, Union
 
-from astarte.device.exceptions import ValidationError, InterfaceFileDecodeError
+from astarte.device.exceptions import InterfaceFileDecodeError, ValidationError
 
 # Astarte Types definition
 IntList = List[int]

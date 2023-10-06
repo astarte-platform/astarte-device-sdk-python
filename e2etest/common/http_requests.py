@@ -18,13 +18,13 @@
 """
 Contains useful wrappers for HTTPS requests.
 """
-import json
 import base64
+import json
+
 import requests
+from config import TestCfg
 from dateutil import parser
 from termcolor import cprint
-
-from config import TestCfg
 
 
 def get_server_interface(test_cfg: TestCfg, interface: str):

@@ -21,11 +21,10 @@ API for an SQLite database to be used for Astarte properties persistency.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-
-import sqlite3
-from pathlib import Path
 import pickle
+import sqlite3
+from abc import ABC, abstractmethod
+from pathlib import Path
 
 
 class AstarteDatabase(ABC):

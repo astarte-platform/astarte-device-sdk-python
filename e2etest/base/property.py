@@ -21,16 +21,16 @@ Contains the tests for individual properties.
 
 import time
 from threading import Lock
-from termcolor import cprint
 
 from config import TestCfg
 from http_requests import (
-    get_server_interface,
-    post_server_interface,
     delete_server_interface,
+    get_server_interface,
     parse_received_data,
+    post_server_interface,
     prepare_transmit_data,
 )
+from termcolor import cprint
 
 from astarte.device import DeviceMqtt
 
