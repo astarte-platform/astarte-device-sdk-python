@@ -368,7 +368,6 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         credentials_secret=test_cfg.credentials_secret,
         pairing_base_url=test_cfg.pairing_url,
         persistency_dir=persistency_dir,
-        loop=cb_loop,
         ignore_ssl_errors=False,
     )
     interface_files = [
@@ -390,9 +389,12 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     for f in interface_files:
         device.add_interface_from_file(f)
 
-    device.on_connected = on_connected_cbk
-    device.on_data_received = on_data_received_cbk
-    device.on_disconnected = on_disconnected_cbk
+    device.set_events_callbacks(
+        on_connected=on_connected_cbk,
+        on_data_received=on_data_received_cbk,
+        on_disconnected=on_disconnected_cbk,
+        loop=cb_loop,
+    )
 
     test_add_and_remove_interface_while_disconnected(device, test_cfg)
 

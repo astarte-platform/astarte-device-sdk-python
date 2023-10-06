@@ -81,9 +81,11 @@ if __name__ == "__main__":
     # Load all the interfaces
     device.add_interfaces_from_dir(_INTERFACES_DIR)
     # Set all the callback functions
-    device.on_connected = on_connected_cbk
-    device.on_data_received = on_data_received_cbk
-    device.on_disconnected = on_disconnected_cbk
+    device.set_events_callbacks(
+        on_connected=on_connected_cbk,
+        on_data_received=on_data_received_cbk,
+        on_disconnected=on_disconnected_cbk,
+    )
     # Connect the device
     device.connect()
 
