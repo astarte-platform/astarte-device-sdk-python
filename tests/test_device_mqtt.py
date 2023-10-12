@@ -30,7 +30,7 @@ from unittest import mock
 import paho
 from paho.mqtt.client import Client
 
-from astarte.device import DeviceMqtt
+from astarte.device import DeviceMqtt, Interface
 from astarte.device.database import AstarteDatabaseSQLite
 from astarte.device.device_mqtt import ConnectionState
 from astarte.device.exceptions import (
@@ -107,14 +107,16 @@ class UnitTests(unittest.TestCase):
         mock_db.assert_called_once_with(Path("./tests/device_id/caching/astarte.db"))
         return device
 
+    @mock.patch("astarte.device.device_mqtt.Interface")
     @mock.patch.object(Introspection, "add_interface")
-    def test_add_interface_from_json_while_not_connected(self, mock_add_interface):
+    def test_add_interface_from_json_while_not_connected(self, mock_add_interface, mock_interface):
         device = self.helper_initialize_device()
 
         interface_json = {"json content": 42}
         device.add_interface_from_json(interface_json)
 
-        mock_add_interface.assert_called_once_with(interface_json)
+        mock_interface.assert_called_once_with(interface_json)
+        mock_add_interface.assert_called_once_with(mock_interface.return_value)
 
     # __send_introspection is tested together with the connect method
     @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
@@ -134,8 +136,8 @@ class UnitTests(unittest.TestCase):
         interface_json = {"json content": 42}
         device.add_interface_from_json(interface_json)
 
-        mock_add_interface.assert_called_once_with(interface_json)
         mock_interface.assert_called_once_with(interface_json)
+        mock_add_interface.assert_called_once_with(mock_interface.return_value)
         mock_subscribe.assert_called_once_with("realm_name/device_id/<interface-name>/#", qos=2)
         mock__send_introspection.assert_called_once()
 
@@ -156,8 +158,8 @@ class UnitTests(unittest.TestCase):
         interface_json = {"json content": 42}
         device.add_interface_from_json(interface_json)
 
-        mock_add_interface.assert_called_once_with(interface_json)
         mock_interface.assert_called_once_with(interface_json)
+        mock_add_interface.assert_called_once_with(mock_interface.return_value)
         mock_subscribe.assert_not_called()
         mock__send_introspection.assert_called_once()
 

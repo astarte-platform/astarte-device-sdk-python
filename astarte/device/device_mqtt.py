@@ -179,9 +179,9 @@ class DeviceMqtt(Device):
         """
         if self.__connection_state is ConnectionState.CONNECTING:
             raise DeviceConnectingError("Interfaces cannot be added while device is connecting.")
-        self._introspection.add_interface(interface_json)
+        interface = Interface(interface_json)
+        self._introspection.add_interface(interface)
         if self.__connection_state is ConnectionState.CONNECTED:
-            interface = Interface(interface_json)
             if interface.is_server_owned():
                 self.__mqtt_client.subscribe(f"{self.__get_base_topic()}/{interface.name}/#", qos=2)
             self.__send_introspection()
