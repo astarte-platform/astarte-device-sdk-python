@@ -42,7 +42,7 @@ jobs:
         run: |
           astartectl realm-management interfaces sync $GITHUB_WORKSPACE/e2etest/interfaces/*.json --non-interactive
           astartectl realm-management interfaces ls
-      - name: Setup env variables common for both devices
+      - name: Setup env variables common for all devices
         run: |
           echo "E2E_REALM=test" >> $GITHUB_ENV
           APPENGINE_TOKEN=$(astartectl utils gen-jwt appengine)
@@ -67,8 +67,10 @@ jobs:
           echo "E2E_DEVICE_3_ID=$DEVICE_3_ID" >> $GITHUB_ENV
           CREDENTIALS_SECRET_3=$(astartectl pairing agent register --compact-output -- "$DEVICE_3_ID")
           echo "E2E_CREDENTIALS_SECRET_3=$CREDENTIALS_SECRET_3" >> $GITHUB_ENV
-      - name: Install the astarte device Python module
+      - name: Install the Astarte device Python module
         run: |
+          python3 -m pip install --upgrade pip
+          pip install astarte-message-hub-proto
           python3 -m pip install -e .[e2e]
       - name: Run test base
         uses: nick-fields/retry@v2
