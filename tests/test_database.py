@@ -106,7 +106,6 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_version = mock.MagicMock()
         mock_path = mock.MagicMock()
-        mock_value = mock.MagicMock()
         db.store_prop(mock_interface, mock_version, mock_path, None)
 
         mock_delete_prop.assert_called_once_with(mock_interface, mock_path)
@@ -210,7 +209,6 @@ class UnitTests(unittest.TestCase):
         mock_sqlite3_connect.reset_mock()
 
         mock_interface = mock.MagicMock()
-        mock_path = mock.MagicMock()
         db.delete_props_from_interface(mock_interface)
 
         mock_sqlite3_connect.assert_called_once_with(mock_database_name)
@@ -255,8 +253,6 @@ class UnitTests(unittest.TestCase):
         db = database.AstarteDatabaseSQLite(mock_database_name)
         mock_sqlite3_connect.reset_mock()
 
-        mock_interface = mock.MagicMock()
-        mock_path = mock.MagicMock()
         result = db.load_all_props()
 
         mock_sqlite3_connect.assert_called_once_with(mock_database_name)

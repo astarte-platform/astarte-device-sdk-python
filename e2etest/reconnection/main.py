@@ -19,6 +19,7 @@
 End to end testing framework.
 Specifically designed to test persistency.
 """
+import argparse
 import asyncio
 import importlib.util
 import os
@@ -38,7 +39,12 @@ prj_path = Path(os.getcwd())
 if str(prj_path) not in sys.path:
     sys.path.insert(0, str(prj_path))
 
-from astarte.device import DeviceDisconnectedError, DeviceMqtt, InterfaceNotFoundError
+from astarte.device import (
+    DeviceDisconnectedError,
+    DeviceGrpc,
+    DeviceMqtt,
+    InterfaceNotFoundError,
+)
 
 config_path = Path.joinpath(Path.cwd(), "e2etest", "common", "config.py")
 spec = importlib.util.spec_from_file_location("config", config_path)
@@ -151,7 +157,7 @@ def test_add_and_remove_interface_while_disconnected(device: DeviceMqtt, test_cf
         sys.exit(1)
 
     try:
-        get_server_interface(test_cfg, test_cfg.interface_device_data)
+        get_server_interface(test_cfg, test_cfg.interface_device_data, quiet=True)
     except requests.exceptions.HTTPError:
         # Correct behaviour
         pass
@@ -207,7 +213,7 @@ def test_add_and_remove_interface_while_connected(device: DeviceMqtt, test_cfg: 
         sys.exit(1)
 
     try:
-        get_server_interface(test_cfg, test_cfg.interface_device_data)
+        get_server_interface(test_cfg, test_cfg.interface_device_data, quiet=True)
     except requests.exceptions.HTTPError:
         # Correct behaviour
         pass
@@ -360,33 +366,22 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     persistency_dir = Path.joinpath(Path.cwd(), "e2etest", "reconnection", "build")
     if not Path.is_dir(persistency_dir):
         os.makedirs(persistency_dir)
-    device = DeviceMqtt(
-        device_id=test_cfg.device_id,
-        realm=test_cfg.realm,
-        credentials_secret=test_cfg.credentials_secret,
-        pairing_base_url=test_cfg.pairing_url,
-        persistency_dir=persistency_dir,
-        ignore_ssl_errors=False,
-    )
-    interface_files = [
-        test_cfg.interfaces_fld.joinpath(
-            "org.astarte-platform.python.e2etest.DeviceAggregate.json"
-        ),
-        test_cfg.interfaces_fld.joinpath(
-            "org.astarte-platform.python.e2etest.DeviceDatastream.json"
-        ),
-        test_cfg.interfaces_fld.joinpath("org.astarte-platform.python.e2etest.DeviceProperty.json"),
-        test_cfg.interfaces_fld.joinpath(
-            "org.astarte-platform.python.e2etest.ServerAggregate.json"
-        ),
-        test_cfg.interfaces_fld.joinpath(
-            "org.astarte-platform.python.e2etest.ServerDatastream.json"
-        ),
-        test_cfg.interfaces_fld.joinpath("org.astarte-platform.python.e2etest.ServerProperty.json"),
-    ]
-    for f in interface_files:
-        device.add_interface_from_file(f)
 
+    if test_cfg.grpc_socket_port is None:
+        device = DeviceMqtt(
+            device_id=test_cfg.device_id,
+            realm=test_cfg.realm,
+            credentials_secret=test_cfg.credentials_secret,
+            pairing_base_url=test_cfg.pairing_url,
+            persistency_dir=persistency_dir,
+            ignore_ssl_errors=False,
+        )
+    else:
+        device = DeviceGrpc(
+            server_addr=f"localhost:{test_cfg.grpc_socket_port}", node_uuid=test_cfg.grpc_node_uuid
+        )
+
+    device.add_interfaces_from_dir(test_cfg.interfaces_fld)
     device.set_events_callbacks(
         on_connected=on_connected_cbk,
         on_data_received=on_data_received_cbk,
@@ -402,9 +397,10 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
 
     time.sleep(0.5)
 
-    test_add_and_remove_property_interface_while_connected(persistency_dir, device, test_cfg)
+    if test_cfg.grpc_socket_port is None:
+        test_add_and_remove_property_interface_while_connected(persistency_dir, device, test_cfg)
 
-    time.sleep(0.5)
+        time.sleep(0.5)
 
 
 def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:
@@ -416,13 +412,17 @@ def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--device_n", default=3, type=int)
+    args = parser.parse_args()
+
     # Generate an async loop and thread
     call_back_loop = asyncio.new_event_loop()
     call_back_thread = Thread(target=start_call_back_loop, args=[call_back_loop], daemon=True)
     call_back_thread.start()
 
     try:
-        main(call_back_loop, TestCfg(number=3))
+        main(call_back_loop, TestCfg(number=args.device_n))
     except Exception as e:
         call_back_loop.stop()
         call_back_thread.join(timeout=1)

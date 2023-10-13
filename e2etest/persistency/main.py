@@ -19,6 +19,7 @@
 End to end testing framework.
 Specifically designed to test persistency.
 """
+import argparse
 import asyncio
 import importlib.util
 import os
@@ -360,13 +361,17 @@ def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--device_n", default=2, type=int)
+    args = parser.parse_args()
+
     # Generate an async loop and thread
     call_back_loop = asyncio.new_event_loop()
     call_back_thread = Thread(target=start_call_back_loop, args=[call_back_loop], daemon=True)
     call_back_thread.start()
 
     try:
-        main(call_back_loop, TestCfg(number=2))
+        main(call_back_loop, TestCfg(number=args.device_n))
     except Exception as e:
         call_back_loop.stop()
         call_back_thread.join(timeout=1)

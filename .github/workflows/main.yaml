@@ -35,6 +35,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install astarte-message-hub-proto
         pip install setuptools wheel twine
     - name: Build dist
       run: python setup.py sdist bdist_wheel
@@ -59,6 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install astarte-message-hub-proto
           pip install -e .[unit]
       - name: Run tests
         run: python -m pytest

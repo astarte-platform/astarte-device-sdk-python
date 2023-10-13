@@ -25,6 +25,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 
 from astarte.device.exceptions import (
@@ -35,6 +36,16 @@ from astarte.device.exceptions import (
 )
 from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
+
+
+class ConnectionState(Enum):
+    """
+    Possible connection states for a device.
+    """
+
+    CONNECTING = 1
+    CONNECTED = 2
+    DISCONNECTED = 3
 
 
 class Device(ABC):

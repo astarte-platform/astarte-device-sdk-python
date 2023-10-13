@@ -24,7 +24,6 @@ import os
 import ssl
 import zlib
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -33,7 +32,7 @@ import paho.mqtt.client as mqtt
 
 from astarte.device import crypto, pairing_handler
 from astarte.device.database import AstarteDatabase, AstarteDatabaseSQLite
-from astarte.device.device import Device
+from astarte.device.device import ConnectionState, Device
 from astarte.device.exceptions import (
     APIError,
     DeviceConnectingError,
@@ -43,16 +42,6 @@ from astarte.device.exceptions import (
     ValidationError,
 )
 from astarte.device.interface import Interface
-
-
-class ConnectionState(Enum):
-    """
-    Possible connection states for a device.
-    """
-
-    CONNECTING = 1
-    CONNECTED = 2
-    DISCONNECTED = 3
 
 
 class DeviceMqtt(Device):
@@ -179,9 +168,9 @@ class DeviceMqtt(Device):
         """
         if self.__connection_state is ConnectionState.CONNECTING:
             raise DeviceConnectingError("Interfaces cannot be added while device is connecting.")
-        self._introspection.add_interface(interface_json)
+        interface = Interface(interface_json)
+        self._introspection.add_interface(interface)
         if self.__connection_state is ConnectionState.CONNECTED:
-            interface = Interface(interface_json)
             if interface.is_server_owned():
                 self.__mqtt_client.subscribe(f"{self.__get_base_topic()}/{interface.name}/#", qos=2)
             self.__send_introspection()

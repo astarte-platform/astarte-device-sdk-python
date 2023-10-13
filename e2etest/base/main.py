@@ -18,6 +18,7 @@
 """
 End to end testing framework.
 """
+import argparse
 import asyncio
 import importlib.util
 import os
@@ -33,7 +34,7 @@ prj_path = Path(os.getcwd())
 if str(prj_path) not in sys.path:
     sys.path.insert(0, str(prj_path))
 
-from astarte.device import DeviceMqtt
+from astarte.device import DeviceGrpc, DeviceMqtt
 
 config_path = Path.joinpath(Path.cwd(), "e2etest", "common", "config.py")
 spec = importlib.util.spec_from_file_location("config", config_path)
@@ -96,14 +97,21 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     persistency_dir = Path.joinpath(Path.cwd(), "e2etest", "base", "build")
     if not Path.is_dir(persistency_dir):
         os.makedirs(persistency_dir)
-    device = DeviceMqtt(
-        device_id=test_cfg.device_id,
-        realm=test_cfg.realm,
-        credentials_secret=test_cfg.credentials_secret,
-        pairing_base_url=test_cfg.pairing_url,
-        persistency_dir=persistency_dir,
-        ignore_ssl_errors=False,
-    )
+
+    if test_cfg.grpc_socket_port is None:
+        device = DeviceMqtt(
+            device_id=test_cfg.device_id,
+            realm=test_cfg.realm,
+            credentials_secret=test_cfg.credentials_secret,
+            pairing_base_url=test_cfg.pairing_url,
+            persistency_dir=persistency_dir,
+            ignore_ssl_errors=False,
+        )
+    else:
+        device = DeviceGrpc(
+            server_addr=f"localhost:{test_cfg.grpc_socket_port}", node_uuid=test_cfg.grpc_node_uuid
+        )
+
     device.add_interfaces_from_dir(test_cfg.interfaces_fld)
     device.set_events_callbacks(
         on_connected=on_connected_cbk,
@@ -141,6 +149,8 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
 
     test_properties_from_server_to_device(test_cfg, rx_data_lock, rx_data)
 
+    device.disconnect()
+
 
 def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:
     """
@@ -151,13 +161,17 @@ def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--device_n", default=1, type=int)
+    args = parser.parse_args()
+
     # Generate an async loop and thread
     call_back_loop = asyncio.new_event_loop()
     call_back_thread = Thread(target=start_call_back_loop, args=[call_back_loop], daemon=True)
     call_back_thread.start()
 
     try:
-        main(call_back_loop, TestCfg(number=1))
+        main(call_back_loop, TestCfg(number=args.device_n))
     except Exception as e:
         call_back_loop.stop()
         call_back_thread.join(timeout=1)

@@ -19,12 +19,11 @@
 # pylint: disable=useless-suppression,missing-function-docstring,missing-class-docstring
 # pylint: disable=too-many-statements,too-many-instance-attributes,missing-return-doc
 # pylint: disable=missing-return-type-doc,no-value-for-parameter,protected-access,
-# pylint: disable=too-many-public-methods,no-self-use
+# pylint: disable=too-many-public-methods,no-self-use, too-many-locals
 
 import ssl
 import unittest
 from datetime import datetime
-from json import JSONDecodeError
 from pathlib import Path
 from unittest import mock
 
@@ -33,18 +32,15 @@ from paho.mqtt.client import Client
 
 from astarte.device import DeviceMqtt
 from astarte.device.database import AstarteDatabaseSQLite
-from astarte.device.device_mqtt import ConnectionState
+from astarte.device.device import ConnectionState
 from astarte.device.exceptions import (
     APIError,
     DeviceConnectingError,
     DeviceDisconnectedError,
-    InterfaceFileDecodeError,
-    InterfaceFileNotFoundError,
     InterfaceNotFoundError,
     PersistencyDirectoryNotFoundError,
     ValidationError,
 )
-from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
 
 
@@ -56,7 +52,7 @@ class UnitTests(unittest.TestCase):
     @mock.patch("astarte.device.device_mqtt.os.mkdir")
     @mock.patch("astarte.device.device_mqtt.os.path.isdir", side_effect=[True, False, False, False])
     def test_initialization_ok(self, isdir_mock, mkdir_mock, mock_db):
-        device = DeviceMqtt(
+        DeviceMqtt(
             "device_id",
             "realm_name",
             "credential_secret",
@@ -111,14 +107,16 @@ class UnitTests(unittest.TestCase):
         mock_db.assert_called_once_with(Path("./tests/device_id/caching/astarte.db"))
         return device
 
+    @mock.patch("astarte.device.device_mqtt.Interface")
     @mock.patch.object(Introspection, "add_interface")
-    def test_add_interface_from_json_while_not_connected(self, mock_add_interface):
+    def test_add_interface_from_json_while_not_connected(self, mock_add_interface, mock_interface):
         device = self.helper_initialize_device()
 
         interface_json = {"json content": 42}
         device.add_interface_from_json(interface_json)
 
-        mock_add_interface.assert_called_once_with(interface_json)
+        mock_interface.assert_called_once_with(interface_json)
+        mock_add_interface.assert_called_once_with(mock_interface.return_value)
 
     # __send_introspection is tested together with the connect method
     @mock.patch.object(DeviceMqtt, "_DeviceMqtt__send_introspection")
@@ -138,8 +136,8 @@ class UnitTests(unittest.TestCase):
         interface_json = {"json content": 42}
         device.add_interface_from_json(interface_json)
 
-        mock_add_interface.assert_called_once_with(interface_json)
         mock_interface.assert_called_once_with(interface_json)
+        mock_add_interface.assert_called_once_with(mock_interface.return_value)
         mock_subscribe.assert_called_once_with("realm_name/device_id/<interface-name>/#", qos=2)
         mock__send_introspection.assert_called_once()
 
@@ -160,8 +158,8 @@ class UnitTests(unittest.TestCase):
         interface_json = {"json content": 42}
         device.add_interface_from_json(interface_json)
 
-        mock_add_interface.assert_called_once_with(interface_json)
         mock_interface.assert_called_once_with(interface_json)
+        mock_add_interface.assert_called_once_with(mock_interface.return_value)
         mock_subscribe.assert_not_called()
         mock__send_introspection.assert_called_once()
 
@@ -321,88 +319,6 @@ class UnitTests(unittest.TestCase):
         mock_delete_props_from_interface.assert_not_called()
         mock__send_introspection.assert_not_called()
         mock_unsubscribe.assert_not_called()
-
-    @mock.patch.object(DeviceMqtt, "add_interface_from_json")
-    @mock.patch("astarte.device.device.open", new_callable=mock.mock_open)
-    @mock.patch("astarte.device.device.json.load", return_value="Fake json content")
-    @mock.patch.object(Path, "is_file", return_value=True)
-    def test_add_interface_from_file(
-        self, mock_isfile, mock_json_load, mock_open, mock_add_interface_from_json
-    ):
-        device = self.helper_initialize_device()
-
-        device.add_interface_from_file(Path.cwd())
-
-        mock_isfile.assert_called_once()
-        mock_open.assert_called_once_with(Path.cwd(), "r", encoding="utf-8")
-        mock_json_load.assert_called_once()
-        mock_add_interface_from_json.assert_called_once_with("Fake json content")
-
-    @mock.patch.object(Path, "is_file", return_value=False)
-    def test_add_interface_from_file_missing_file_err(self, mock_isfile):
-        device = self.helper_initialize_device()
-
-        self.assertRaises(
-            InterfaceFileNotFoundError, lambda: device.add_interface_from_file(Path.cwd())
-        )
-        mock_isfile.assert_called_once()
-
-    @mock.patch.object(Path, "is_file", return_value=True)
-    @mock.patch("astarte.device.device.open", new_callable=mock.mock_open)
-    @mock.patch("astarte.device.device.json.load")
-    @mock.patch.object(JSONDecodeError, "__init__", return_value=None)
-    def test_add_interface_from_file_incorrect_json_err(
-        self, mock_json_err, mock_json_load, mock_open, mock_isfile
-    ):
-        device = self.helper_initialize_device()
-
-        mock_json_load.side_effect = JSONDecodeError()
-        self.assertRaises(
-            InterfaceFileDecodeError, lambda: device.add_interface_from_file(Path.cwd())
-        )
-        mock_isfile.assert_called_once()
-        mock_json_err.assert_called_once()
-        mock_open.assert_called_once()
-        mock_json_load.assert_called_once()
-
-    @mock.patch.object(
-        Path, "iterdir", return_value=[Path("f1.json"), Path("f.exe"), Path("f2.json")]
-    )
-    @mock.patch.object(Path, "is_dir", return_value=True)
-    @mock.patch.object(Path, "exists", return_value=True)
-    @mock.patch.object(DeviceMqtt, "add_interface_from_file")
-    def test_add_interface_from_dir(
-        self, mock_add_interface, mock_exists, mock_is_dir, mock_iterdir
-    ):
-        device = self.helper_initialize_device()
-
-        device.add_interfaces_from_dir(Path.cwd())
-        mock_exists.assert_called_once()
-        mock_is_dir.assert_called_once()
-        mock_iterdir.assert_called_once()
-        calls = [mock.call(Path("f1.json")), mock.call(Path("f2.json"))]
-        mock_add_interface.assert_has_calls(calls)
-        self.assertEqual(mock_add_interface.call_count, 2)
-
-    @mock.patch.object(Path, "exists", return_value=False)
-    def test_add_interface_from_dir_non_existing_dir_err(self, mock_exists):
-        device = self.helper_initialize_device()
-
-        self.assertRaises(
-            InterfaceFileNotFoundError, lambda: device.add_interfaces_from_dir(Path.cwd())
-        )
-        mock_exists.assert_called_once()
-
-    @mock.patch.object(Path, "is_dir", return_value=False)
-    @mock.patch.object(Path, "exists", return_value=True)
-    def test_add_interface_from_dir_not_a_dir_err(self, mock_exists, mock_is_dir):
-        device = self.helper_initialize_device()
-
-        self.assertRaises(
-            InterfaceFileNotFoundError, lambda: device.add_interfaces_from_dir(Path.cwd())
-        )
-        mock_exists.assert_called_once()
-        mock_is_dir.assert_called_once()
 
     def test_get_device_id(self):
         device = self.helper_initialize_device()
@@ -685,7 +601,7 @@ class UnitTests(unittest.TestCase):
         mock_urlparse.return_value.hostname = None
         mock_urlparse.return_value.port = None
 
-        self.assertRaises(APIError, lambda: device.connect())
+        self.assertRaises(APIError, device.connect)
 
         mock_has_certificate.assert_called_once_with("./tests/device_id/crypto")
         mock_obtain_certificate.assert_called_once_with(
@@ -902,181 +818,6 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
     @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
-    def test_send_non_existing_interface_raises_interface_not_found(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_get_interface.return_value = None
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            InterfaceNotFoundError,
-            lambda: device.send(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_to_a_server_owned_interface_raises(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.is_server_owned.return_value = True
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_aggregation_object.assert_not_called()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_an_aggregate_raises_validation_err(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_interface.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_aggregation_object.assert_called_once_with()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_none_payload_type_raises_validation_err(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = None
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_interface.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_aggregation_object.assert_called_once()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_wrong_payload_type_raises_validation_err(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = {"something": 12}
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_interface.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_aggregation_object.assert_called_once()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_interface_validate_raises_validation_err(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
-        mock_interface.validate_payload_and_timestamp.side_effect = ValidationError("Error msg")
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
-        )
-
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
-            interface_path, payload, timestamp
-        )
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_interface.get_reliability.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
     def test_send_aggregate(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
     ):
@@ -1118,196 +859,6 @@ class UnitTests(unittest.TestCase):
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
     @mock.patch("astarte.device.device_mqtt.bson.dumps")
     @mock.patch.object(Introspection, "get_interface")
-    def test_send_aggregate_non_existing_interface_raises_interface_not_found(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_get_interface.return_value = None
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = {"something": 12}
-        timestamp = datetime.now()
-        self.assertRaises(
-            InterfaceNotFoundError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_aggregate_server_owned_interface_raises_validation_err(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_interface.is_server_owned.return_value = True
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = {"something": 12}
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_interface.is_server_owned.assert_called_once()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_aggregate_is_not_an_aggregate_raises_validation_err(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
-        mock_interface.is_type_properties.return_value = False
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = {"something": 12}
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate_payload_and_timestamp.assert_not_called()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_interface.get_reliability.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_aggregate_none_payload_type_raises(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_interface.is_type_properties.return_value = False
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = None
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate_payload_and_timestamp.assert_not_called()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_interface.get_reliability.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_aggregate_wrong_payload_type_raises(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_interface.is_type_properties.return_value = False
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = 12
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate_payload_and_timestamp.assert_not_called()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_interface.get_reliability.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_send_aggregate_interface_validate_raises_validation_err(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_interface.is_type_properties.return_value = False
-        mock_interface.validate_payload_and_timestamp.side_effect = ValidationError("Error msg")
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        payload = {"something": 12}
-        timestamp = datetime.now()
-        self.assertRaises(
-            ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
-        )
-
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
-            interface_path, payload, timestamp
-        )
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_interface.get_reliability.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
     def test_unset_property(
         self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
     ):
@@ -1340,88 +891,6 @@ class UnitTests(unittest.TestCase):
             bytes("", "utf-8"),
             qos=mock_interface.get_reliability.return_value,
         )
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_unset_property_non_existing_interface_raises_interface_not_found(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_get_interface.return_value = None
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        self.assertRaises(
-            InterfaceNotFoundError,
-            lambda: device.unset_property(interface_name, interface_path),
-        )
-
-        mock_get_interface.assert_called_once_with("interface name")
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_unset_property_server_owned_interface_raises(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_interface.is_server_owned.return_value = True
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        self.assertRaises(
-            ValidationError, lambda: device.unset_property(interface_name, interface_path)
-        )
-
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_type_properties.assert_not_called()
-        mock_interface.validate_payload_and_timestamp.assert_not_called()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_interface.get_reliability.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
-
-    @mock.patch.object(Client, "publish")
-    @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
-    @mock.patch("astarte.device.device_mqtt.bson.dumps")
-    @mock.patch.object(Introspection, "get_interface")
-    def test_unset_property_interface_not_a_property_raises(
-        self, mock_get_interface, mock_bson_dumps, mock_db_store, mock_mqtt_publish
-    ):
-        device = self.helper_initialize_device()
-
-        mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = False
-        mock_get_interface.return_value = mock_interface
-
-        interface_name = "interface name"
-        interface_path = "interface path"
-        self.assertRaises(
-            ValidationError, lambda: device.unset_property(interface_name, interface_path)
-        )
-
-        mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_type_properties.assert_called_once()
-        mock_interface.validate_payload_and_timestamp.assert_not_called()
-        mock_bson_dumps.assert_not_called()
-        mock_db_store.assert_not_called()
-        mock_interface.get_reliability.assert_not_called()
-        mock_mqtt_publish.assert_not_called()
 
     @mock.patch.object(Client, "publish")
     @mock.patch.object(AstarteDatabaseSQLite, "store_prop")
@@ -1959,49 +1428,6 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.assert_not_called()
 
     @mock.patch("astarte.device.device_mqtt.bson.loads")
-    @mock.patch.object(Introspection, "get_interface", return_value=None)
-    def test__on_message_unregistered_interface_name(self, mock_get_interface, mock_bson_loads):
-        device = self.helper_initialize_device()
-
-        mock_bson_loads.return_value = {"v": "payload_value"}
-
-        mock_message = mock.MagicMock()
-        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
-
-        on_data_received_mock = mock.MagicMock()
-        device.set_events_callbacks(on_data_received=on_data_received_mock)
-        device._DeviceMqtt__on_message(None, None, msg=mock_message)
-
-        mock_bson_loads.assert_called_once_with(mock_message.payload)
-        mock_get_interface.assert_called_once_with("interface_name")
-        on_data_received_mock.assert_not_called()
-
-    @mock.patch("astarte.device.device_mqtt.bson.loads")
-    @mock.patch.object(Introspection, "get_interface")
-    def test__on_message_device_owned_interface(self, mock_get_interface, mock_bson_loads):
-        device = self.helper_initialize_device()
-
-        mock_bson_loads.return_value = {"v": "payload_value"}
-
-        mock_get_interface.return_value.is_server_owned.return_value = False
-
-        mock_message = mock.MagicMock()
-        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
-
-        on_data_received_mock = mock.MagicMock()
-        device.set_events_callbacks(on_data_received=on_data_received_mock)
-        device._DeviceMqtt__on_message(None, None, msg=mock_message)
-
-        mock_bson_loads.assert_called_once_with(mock_message.payload)
-        mock_get_interface.assert_called_once_with("interface_name")
-        mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
-        mock_get_interface.return_value.validate_path.assert_not_called()
-        mock_get_interface.return_value.validate_payload.assert_not_called()
-        mock_get_interface.return_value.is_type_properties.assert_not_called()
-        on_data_received_mock.assert_not_called()
-
-    @mock.patch("astarte.device.device_mqtt.bson.loads")
     @mock.patch.object(Introspection, "get_interface")
     def test__on_message_payload_missing_value_field(self, mock_get_interface, mock_bson_loads):
         device = self.helper_initialize_device()
@@ -2021,86 +1447,6 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
         mock_get_interface.return_value.validate_path.assert_not_called()
         mock_get_interface.return_value.validate_payload.assert_not_called()
-        mock_get_interface.return_value.is_type_properties.assert_not_called()
-        on_data_received_mock.assert_not_called()
-
-    @mock.patch("astarte.device.device_mqtt.bson.loads")
-    @mock.patch.object(Introspection, "get_interface")
-    def test__on_message_empty_payload_but_not_a_property(
-        self, mock_get_interface, mock_bson_loads
-    ):
-        device = self.helper_initialize_device()
-
-        mock_get_interface.return_value.is_property_endpoint_resettable.return_value = False
-
-        mock_message = mock.MagicMock()
-        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
-        mock_message.payload = None
-
-        on_data_received_mock = mock.MagicMock()
-        device.set_events_callbacks(on_data_received=on_data_received_mock)
-        device._DeviceMqtt__on_message(None, None, msg=mock_message)
-
-        mock_bson_loads.assert_not_called()
-        mock_get_interface.assert_called_once_with("interface_name")
-        mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_property_endpoint_resettable.assert_called_once()
-        mock_get_interface.return_value.validate_path.assert_not_called()
-        mock_get_interface.return_value.validate_payload.assert_not_called()
-        mock_get_interface.return_value.is_type_properties.assert_not_called()
-        on_data_received_mock.assert_not_called()
-
-    @mock.patch("astarte.device.device_mqtt.bson.loads")
-    @mock.patch.object(Introspection, "get_interface")
-    def test__on_message_incorrect_path(self, mock_get_interface, mock_bson_loads):
-        device = self.helper_initialize_device()
-
-        mock_bson_loads.return_value = {"v": "payload_value"}
-        mock_get_interface.return_value.validate_path.side_effect = ValidationError("")
-
-        mock_message = mock.MagicMock()
-        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
-
-        on_data_received_mock = mock.MagicMock()
-        device.set_events_callbacks(on_data_received=on_data_received_mock)
-        device._DeviceMqtt__on_message(None, None, msg=mock_message)
-
-        mock_bson_loads.assert_called_once_with(mock_message.payload)
-        mock_get_interface.assert_called_once_with("interface_name")
-        mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
-        mock_get_interface.return_value.validate_path.assert_called_once_with(
-            "/endpoint/path", "payload_value"
-        )
-        mock_get_interface.return_value.validate_payload.assert_not_called()
-        mock_get_interface.return_value.is_type_properties.assert_not_called()
-        on_data_received_mock.assert_not_called()
-
-    @mock.patch("astarte.device.device_mqtt.bson.loads")
-    @mock.patch.object(Introspection, "get_interface")
-    def test__on_message_payload_validation_failure(self, mock_get_interface, mock_bson_loads):
-        device = self.helper_initialize_device()
-
-        mock_bson_loads.return_value = {"v": "payload_value"}
-        mock_get_interface.return_value.validate_payload.side_effect = ValidationError("")
-
-        mock_message = mock.MagicMock()
-        mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
-
-        on_data_received_mock = mock.MagicMock()
-        device.set_events_callbacks(on_data_received=on_data_received_mock)
-        device._DeviceMqtt__on_message(None, None, msg=mock_message)
-
-        mock_bson_loads.assert_called_once_with(mock_message.payload)
-        mock_get_interface.assert_called_once_with("interface_name")
-        mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
-        mock_get_interface.return_value.validate_path.assert_called_once_with(
-            "/endpoint/path", "payload_value"
-        )
-        mock_get_interface.return_value.validate_payload.assert_called_once_with(
-            "/endpoint/path", "payload_value"
-        )
         mock_get_interface.return_value.is_type_properties.assert_not_called()
         on_data_received_mock.assert_not_called()
 

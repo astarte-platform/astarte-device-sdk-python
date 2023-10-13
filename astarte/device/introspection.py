@@ -35,20 +35,18 @@ class Introspection:
     def __init__(self):
         self.__interfaces_list = {}
 
-    def add_interface(self, interface_definition: dict) -> None:
+    def add_interface(self, interface: Interface) -> None:
         """
-        Adds an Interface to the Introspection
+        Adds an interface to the introspection
 
-        This will add an Interface definition to the device. It has to be called before
-        :py:func:`connect`, as it will be used for building the device Introspection.
+        This will add an interface to the device.
 
         Parameters
         ----------
-        interface_definition : dict
-            An Astarte Interface definition in the form of a Python dictionary. Usually obtained
-            by using json.loads() on an Interface file.
+        interface : Interface
+            An Astarte interface object. Usually obtained by using json.loads() on an interface
+            file and then using the loaded json to initialize the interface object.
         """
-        interface = Interface(interface_definition)
         self.__interfaces_list[interface.name] = interface
 
     def remove_interface(self, interface_name: str) -> None:

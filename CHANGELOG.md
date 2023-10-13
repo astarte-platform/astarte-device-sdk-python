@@ -4,16 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.12.1] - Unreleased
+## [Unreleased]
 
 ### Added
 - Adding or removing interfaces from a device while the device is connected.
   If an interface is added or removed the new device introspection is immediately sent to Astarte.
+- GRPC transport implementation. Connection to the Astarte message hub through GRPC is provided
+  by the new class `DeviceGrpc`.
 
 ### Changed
 - Callbacks should be set using the `set_events_callbacks` method instead of setting the attributes
   directly.
 - `asyncio` loop is argument of `set_events_callbacks` instead of class constructor.
+- `Device` class is now an abstract class representing a generic device with no transport
+  implementation.
+  The functionality previously provided by `Device` is now provided by `DeviceMqtt` with identical
+  APIs.
 
 ### Fixed
 - False values on boolean endpoints for server owned interfaces are correctly processed.

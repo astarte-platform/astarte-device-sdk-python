@@ -31,12 +31,11 @@ class UnitTests(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_initialization(self):
+    def test_introspection_initialization(self):
         introspection = Introspection()
         self.assertEqual(introspection._Introspection__interfaces_list, {})
 
-    @mock.patch("astarte.device.introspection.Interface")
-    def test_add_interface(self, mock_interface):
+    def test_introspection_add_interface(self):
         introspection = Introspection()
         self.assertEqual(introspection._Introspection__interfaces_list, {})
 
@@ -44,27 +43,23 @@ class UnitTests(unittest.TestCase):
         interface_instance_1.name = "first interface"
         interface_instance_2 = mock.MagicMock()
         interface_instance_2.name = "second interface"
-        mock_interface.side_effect = [interface_instance_1, interface_instance_2]
 
-        interface_instance_1_dict = {"interface": "definition"}
-        introspection.add_interface(interface_instance_1_dict)
-        mock_interface.assert_called_once_with(interface_instance_1_dict)
+        introspection.add_interface(interface_instance_1)
         self.assertEqual(
             introspection._Introspection__interfaces_list,
             {interface_instance_1.name: interface_instance_1},
         )
 
-        mock_interface.reset_mock()
-        interface_instance_2_dict = {"another": "different", "interface": "definition"}
-        introspection.add_interface(interface_instance_2_dict)
-        mock_interface.assert_called_once_with(interface_instance_2_dict)
+        introspection.add_interface(interface_instance_2)
         self.assertEqual(
             introspection._Introspection__interfaces_list,
-            {"first interface": interface_instance_1, "second interface": interface_instance_2},
+            {
+                interface_instance_1.name: interface_instance_1,
+                interface_instance_2.name: interface_instance_2,
+            },
         )
 
-    @mock.patch("astarte.device.introspection.Interface")
-    def test_add_interface_duplicated(self, mock_interface):
+    def test_introspection_add_interface_duplicated(self):
         introspection = Introspection()
         self.assertEqual(introspection._Introspection__interfaces_list, {})
 
@@ -72,26 +67,20 @@ class UnitTests(unittest.TestCase):
         interface_instance_1.name = "first interface"
         interface_instance_2 = mock.MagicMock()
         interface_instance_2.name = "first interface"
-        mock_interface.side_effect = [interface_instance_1, interface_instance_2]
 
-        interface_instance_1_dict = {"interface": "definition"}
-        introspection.add_interface(interface_instance_1_dict)
-        mock_interface.assert_called_once_with(interface_instance_1_dict)
+        introspection.add_interface(interface_instance_1)
         self.assertEqual(
             introspection._Introspection__interfaces_list,
             {interface_instance_1.name: interface_instance_1},
         )
 
-        mock_interface.reset_mock()
-        interface_instance_2_dict = {"interface": "definition"}
-        introspection.add_interface(interface_instance_2_dict)
-        mock_interface.assert_called_once_with(interface_instance_2_dict)
+        introspection.add_interface(interface_instance_2)
         self.assertEqual(
             introspection._Introspection__interfaces_list,
-            {"first interface": interface_instance_2},
+            {interface_instance_2.name: interface_instance_2},
         )
 
-    def test_remove_interface(self):
+    def test_introspection_remove_interface(self):
         introspection = Introspection()
 
         mock_interface_1 = mock.MagicMock()
@@ -129,7 +118,7 @@ class UnitTests(unittest.TestCase):
             },
         )
 
-    def test_get_interface(self):
+    def test_introspection_get_interface(self):
         introspection = Introspection()
 
         mock_interface_1 = mock.MagicMock()
@@ -153,7 +142,7 @@ class UnitTests(unittest.TestCase):
         interface = introspection.get_interface("interface_4")
         self.assertEqual(interface, None)
 
-    def test_get_all_interfaces(self):
+    def test_introspection_get_all_interfaces(self):
         introspection = Introspection()
 
         interfaces = introspection.get_all_interfaces()
@@ -171,7 +160,7 @@ class UnitTests(unittest.TestCase):
         interfaces = introspection.get_all_interfaces()
         self.assertEqual(list(interfaces), [mock_interface_1, mock_interface_2, mock_interface_3])
 
-    def test_get_all_server_owned_interfaces(self):
+    def test_introspection_get_all_server_owned_interfaces(self):
         introspection = Introspection()
 
         interfaces = introspection.get_all_server_owned_interfaces()
