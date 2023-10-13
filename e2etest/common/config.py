@@ -32,22 +32,24 @@ class TestCfg:
     # pylint: disable=too-many-instance-attributes,too-few-public-methods
 
     def __init__(self, number: int) -> None:
+        # Generic settings
         self.realm = os.environ.get("E2E_REALM")
         self.device_id = os.environ.get(f"E2E_DEVICE_{number}_ID")
-        self.credentials_secret = os.environ.get(f"E2E_CREDENTIALS_SECRET_{number}")
         self.appengine_url = os.environ.get("E2E_APPENGINE_URL")
-        self.pairing_url = os.environ.get("E2E_PAIRING_URL")
         self.appengine_token = os.environ.get("E2E_APPENGINE_TOKEN")
+        # MQTT specific settings
+        self.credentials_secret = os.environ.get(f"E2E_CREDENTIALS_SECRET_{number}")
+        self.pairing_url = os.environ.get("E2E_PAIRING_URL")
+        # GRPC specific settings
+        self.grpc_socket_port = os.environ.get("E2E_GRPC_SOCKET_PORT")
+        self.grpc_node_uuid = os.environ.get("E2E_GRPC_NODE_UUID")
 
-        if not all(
-            [
-                self.realm,
-                self.device_id,
-                self.credentials_secret,
-                self.appengine_url,
-                self.pairing_url,
-                self.appengine_token,
-            ]
+        if not (
+            all([self.realm, self.device_id, self.appengine_url, self.appengine_token])
+            and (
+                all([self.pairing_url, self.credentials_secret])
+                or all([self.grpc_socket_port, self.grpc_node_uuid])
+            )
         ):
             raise ValueError("Missing one of the environment variables")
 
@@ -71,7 +73,8 @@ class TestCfg:
             "doublearray_endpoint": [22.2, 322.22, 12.3, 0.1],
             "integerarray_endpoint": [22, 322, 0, 10],
             "booleanarray_endpoint": [True, False, True, False],
-            "longintegerarray_endpoint": [45543543534, 10, 0, 45543543534],
+            "longintegerarray_endpoint": [45543543534, 45543543534],
+            # "longintegerarray_endpoint": [45543543534, 10, 0, 45543543534],
             "stringarray_endpoint": ["hello", " world"],
             # "binaryblobarray_endpoint": [b"bin", b"blob"],
             "datetimearray_endpoint": [

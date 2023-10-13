@@ -27,7 +27,7 @@ from dateutil import parser
 from termcolor import cprint
 
 
-def get_server_interface(test_cfg: TestCfg, interface: str):
+def get_server_interface(test_cfg: TestCfg, interface: str, quiet: bool = False):
     """
     Wrapper for a GET request for the server returning the specified interface data.
     """
@@ -44,13 +44,16 @@ def get_server_interface(test_cfg: TestCfg, interface: str):
     print(f"Sending HTTP GET request: {request_body}", flush=True)
     res = requests.get(request_body, headers=headers, timeout=1)
     if res.status_code != 200:
-        cprint(res.text, "red", flush=True)
+        if not quiet:
+            cprint(res.text, "red", flush=True)
         raise requests.HTTPError("GET request failed.")
 
     return res.json()
 
 
-def post_server_interface(test_cfg: TestCfg, interface: str, endpoint: str, data: dict):
+def post_server_interface(
+    test_cfg: TestCfg, interface: str, endpoint: str, data: dict, quiet: bool = False
+):
     """
     Wrapper for a POST request for the server, uploading new values to an interface.
     """
@@ -72,11 +75,12 @@ def post_server_interface(test_cfg: TestCfg, interface: str, endpoint: str, data
     print(f"Sending HTTP POST request: {request_body} {json_data}", flush=True)
     res = requests.post(url=request_body, data=json_data, headers=headers, timeout=1)
     if res.status_code != 200:
-        cprint(res.text, "red", flush=True)
+        if not quiet:
+            cprint(res.text, "red", flush=True)
         raise requests.HTTPError("POST request failed.")
 
 
-def delete_server_interface(test_cfg: TestCfg, interface: str, endpoint: str):
+def delete_server_interface(test_cfg: TestCfg, interface: str, endpoint: str, quiet: bool = False):
     """
     Wrapper for a DELETE request for the server, deleting an endpoint.
     """
@@ -97,7 +101,8 @@ def delete_server_interface(test_cfg: TestCfg, interface: str, endpoint: str):
     print(f"Sending HTTP DELETE request: {request_body}", flush=True)
     res = requests.delete(request_body, headers=headers, timeout=1)
     if res.status_code != 204:
-        cprint(res.text, "red", flush=True)
+        if not quiet:
+            cprint(res.text, "red", flush=True)
         raise requests.HTTPError("DELETE request failed.")
 
 

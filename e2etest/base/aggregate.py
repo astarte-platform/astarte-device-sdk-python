@@ -29,10 +29,10 @@ from dateutil import parser
 from http_requests import get_server_interface, post_server_interface
 from termcolor import cprint
 
-from astarte.device import DeviceMqtt
+from astarte.device.device import Device
 
 
-def test_aggregate_from_device_to_server(device: DeviceMqtt, test_cfg: TestCfg):
+def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg):
     """
     Test for aggregated object datastreams in the direction from device to server
     """

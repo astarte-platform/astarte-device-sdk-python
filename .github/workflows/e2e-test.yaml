@@ -20,8 +20,11 @@ name: End to End test
 
 on: [pull_request, create]
 
+env:
+  PB_REL: https://github.com/protocolbuffers/protobuf/releases
+
 jobs:
-  e2e-test:
+  e2e-test-mqtt:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -78,7 +81,6 @@ jobs:
           timeout_seconds: 30
           max_attempts: 2
           command: |
-            source venv/bin/activate
             export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
             python3 e2etest/base/main.py
       - name: Run test for persistency
@@ -97,3 +99,115 @@ jobs:
           command: |
             export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
             python3 e2etest/reconnection/main.py
+  e2e-test-grpc:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - name: Checkout astarte-device-sdk-python
+        uses: actions/checkout@v4
+        with:
+          path: astarte-device-sdk-python
+      - name: Checkout astarte-message-hub
+        uses: actions/checkout@v4
+        with:
+          repository: astarte-platform/astarte-message-hub
+          path: astarte-message-hub
+          ref: v0.5.2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Protoc
+        run: |
+          curl -LO $PB_REL/download/v24.3/protoc-24.3-linux-x86_64.zip
+          unzip protoc-24.3-linux-x86_64.zip -d $HOME/.local
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Create Astarte Cluster
+        id: astarte
+        uses: astarte-platform/astarte-cluster-action@v1
+        with:
+          astarte_version: "1.1"
+      - name: Install interface
+        run: |
+          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/astarte-device-sdk-python/e2etest/interfaces/*.json --non-interactive
+          astartectl realm-management interfaces ls
+      - name: Setup device generic env variables
+        run: |
+          echo "E2E_REALM=test" >> $GITHUB_ENV
+          APPENGINE_TOKEN=$(astartectl utils gen-jwt appengine)
+          echo "E2E_APPENGINE_TOKEN=$APPENGINE_TOKEN" >> $GITHUB_ENV
+          echo "E2E_APPENGINE_URL=https://api.autotest.astarte-platform.org/appengine" >> $GITHUB_ENV
+          echo "E2E_PAIRING_URL=https://api.autotest.astarte-platform.org/pairing" >> $GITHUB_ENV
+      - name: Setup device specific env variables
+        run: |
+          DEVICE_1_ID=$(astartectl utils device-id generate-random)
+          echo "E2E_DEVICE_1_ID=$DEVICE_1_ID" >> $GITHUB_ENV
+          CREDENTIALS_SECRET_1=$(astartectl pairing agent register --compact-output -- "$DEVICE_1_ID")
+          echo "E2E_CREDENTIALS_SECRET_1=$CREDENTIALS_SECRET_1" >> $GITHUB_ENV
+      - name: Fill in config file
+        run: |
+          echo "realm = \"$E2E_REALM\"" > message-hub-config.toml
+          echo "pairing_url = \"$E2E_PAIRING_URL\"" >> message-hub-config.toml
+          echo "grpc_socket_port = 50051" >> message-hub-config.toml
+          echo "device_id = \"$E2E_DEVICE_1_ID\"" >> message-hub-config.toml
+          echo "credentials_secret = \"$E2E_CREDENTIALS_SECRET_1\"" >> message-hub-config.toml
+          echo "store_directory = \"./tmp\"" >> message-hub-config.toml
+          cat message-hub-config.toml
+        working-directory: ./astarte-message-hub
+      - name: Setup GRPC node specific env variables
+        run: |
+          echo "E2E_GRPC_SOCKET_PORT=50051" >> $GITHUB_ENV
+          echo "E2E_GRPC_NODE_UUID=98bb9fe5-b4ce-4dea-9b88-8d1f8525e4b4" >> $GITHUB_ENV
+        working-directory: ./astarte-message-hub
+      - name: Create folder for binary
+        run: |
+          mkdir ./astarte-message-hub/target
+          mkdir ./astarte-message-hub/target/release
+      - name: Restore cached astarte-message-hub binary
+        id: cache-astarte-message-hub-restore
+        uses: actions/cache/restore@v3
+        with:
+          path: ./astarte-message-hub/target/release/astarte-message-hub
+          key: astarte-message-hub-v0.5.2-test
+      - name: Build message hub
+        if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
+        run: cargo build --release
+        working-directory: ./astarte-message-hub
+      - name: Save grpc_python_plugin
+        if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
+        id: cache-astarte-message-hub-save
+        uses: actions/cache/save@v3
+        with:
+          path: ./astarte-message-hub/target/release/astarte-message-hub
+          key: ${{ steps.cache-astarte-message-hub-restore.outputs.cache-primary-key }}
+      - name: Install the Astarte device Python module
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install astarte-message-hub-proto
+          python3 -m pip install -e .[e2e]
+        working-directory: ./astarte-device-sdk-python
+      - name: Wait for 5 seconds
+        run: sleep 5
+      - name: Run message hub
+        run: nohup ./target/release/astarte-message-hub > nohup.out 2> nohup.err < /dev/null &
+        working-directory: ./astarte-message-hub
+      - name: Wait for 5 seconds
+        run: sleep 5
+      - name: Run test base
+        run: |
+          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+          python3 ./e2etest/base/main.py --device_n 1
+        working-directory: ./astarte-device-sdk-python
+      - name: Run test for reconnection
+        run: |
+          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+          python3 ./e2etest/reconnection/main.py --device_n 1
+        working-directory: ./astarte-device-sdk-python

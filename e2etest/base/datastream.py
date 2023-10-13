@@ -31,10 +31,10 @@ from http_requests import (
 )
 from termcolor import cprint
 
-from astarte.device import DeviceMqtt
+from astarte.device.device import Device
 
 
-def test_datastream_from_device_to_server(device: DeviceMqtt, test_cfg: TestCfg):
+def test_datastream_from_device_to_server(device: Device, test_cfg: TestCfg):
     """
     Test for individual datastreams in the direction from device to server
     """
