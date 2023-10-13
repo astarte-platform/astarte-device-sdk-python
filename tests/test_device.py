@@ -16,6 +16,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# pylint: disable=missing-function-docstring,missing-class-docstring
+# pylint: disable=no-value-for-parameter,protected-access,
+# pylint: disable=too-many-public-methods,no-self-use, abstract-class-instantiated
+
 import unittest
 from datetime import datetime
 from json import JSONDecodeError
@@ -67,7 +71,7 @@ class TestMyAbstract(unittest.TestCase):
         _send_generic.return_value = 3
         _store_property.return_value = 3
 
-        device = Device()
+        Device()
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), add_interface_from_json=mock.DEFAULT)
     @mock.patch("astarte.device.device.open", new_callable=mock.mock_open)

@@ -19,7 +19,7 @@
 # pylint: disable=useless-suppression,missing-function-docstring,missing-class-docstring
 # pylint: disable=too-many-statements,too-many-instance-attributes,missing-return-doc
 # pylint: disable=missing-return-type-doc,no-value-for-parameter,protected-access,
-# pylint: disable=too-many-public-methods,no-self-use
+# pylint: disable=too-many-public-methods,no-self-use, too-many-locals
 
 import ssl
 import unittest
@@ -30,9 +30,9 @@ from unittest import mock
 import paho
 from paho.mqtt.client import Client
 
-from astarte.device import DeviceMqtt, Interface
+from astarte.device import DeviceMqtt
 from astarte.device.database import AstarteDatabaseSQLite
-from astarte.device.device_mqtt import ConnectionState
+from astarte.device.device import ConnectionState
 from astarte.device.exceptions import (
     APIError,
     DeviceConnectingError,
@@ -52,7 +52,7 @@ class UnitTests(unittest.TestCase):
     @mock.patch("astarte.device.device_mqtt.os.mkdir")
     @mock.patch("astarte.device.device_mqtt.os.path.isdir", side_effect=[True, False, False, False])
     def test_initialization_ok(self, isdir_mock, mkdir_mock, mock_db):
-        device = DeviceMqtt(
+        DeviceMqtt(
             "device_id",
             "realm_name",
             "credential_secret",
@@ -601,7 +601,7 @@ class UnitTests(unittest.TestCase):
         mock_urlparse.return_value.hostname = None
         mock_urlparse.return_value.port = None
 
-        self.assertRaises(APIError, lambda: device.connect())
+        self.assertRaises(APIError, device.connect)
 
         mock_has_certificate.assert_called_once_with("./tests/device_id/crypto")
         mock_obtain_certificate.assert_called_once_with(

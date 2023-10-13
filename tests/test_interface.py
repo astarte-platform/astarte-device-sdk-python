@@ -17,7 +17,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # pylint: disable=useless-suppression,missing-function-docstring,missing-class-docstring
-# pylint: disable=too-many-statements,too-many-instance-attributes
+# pylint: disable=too-many-statements,too-many-instance-attributes, no-self-use
+# pylint: disable=too-many-public-methods
 
 import unittest
 from unittest import mock

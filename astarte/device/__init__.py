@@ -20,6 +20,7 @@
 __version__ = "0.12.0"
 
 # Export what we care about
+from .device_grpc import DeviceGrpc
 from .device_mqtt import DeviceMqtt
 from .exceptions import (
     APIError,
