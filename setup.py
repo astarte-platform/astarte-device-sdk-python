@@ -29,6 +29,7 @@ DEPENDENCIES = [
     "cryptography",
     "bson",
     "PyJWT>=1.7.0",
+    "astarte-message-hub-proto",
 ]
 EXCLUDE_FROM_PACKAGES = ["contrib", "docs", "tests*", "venv"]
 CURDIR = os.path.abspath(os.path.dirname(__file__))
