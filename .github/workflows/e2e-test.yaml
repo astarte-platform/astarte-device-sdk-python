@@ -73,7 +73,6 @@ jobs:
       - name: Install the Astarte device Python module
         run: |
           python3 -m pip install --upgrade pip
-          pip install astarte-message-hub-proto
           python3 -m pip install -e .[e2e]
       - name: Run test base
         uses: nick-fields/retry@v2
@@ -191,7 +190,6 @@ jobs:
       - name: Install the Astarte device Python module
         run: |
           python3 -m pip install --upgrade pip
-          pip install astarte-message-hub-proto
           python3 -m pip install -e .[e2e]
         working-directory: ./astarte-device-sdk-python
       - name: Wait for 5 seconds
