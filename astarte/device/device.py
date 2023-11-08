@@ -431,9 +431,10 @@ class Device(ABC):
         # Check the received path corresponds to the one in the interface
         try:
             interface.validate_path(path, payload)
-        except ValidationError:
+        except ValidationError as val_err:
+            logging.warning("Validation error: %s", val_err)
             logging.warning(
-                "Received message on incorrect endpoint for interface %s: %s, %s",
+                "Received message on incorrect endpoint for interface %s, path %s, payload %s.",
                 interface_name,
                 path,
                 payload,
@@ -444,9 +445,10 @@ class Device(ABC):
         if payload and not self.__disable_receive_validation:
             try:
                 interface.validate_payload(path, payload)
-            except ValidationError:
+            except ValidationError as val_err:
+                logging.warning("Validation error: %s", val_err)
                 logging.warning(
-                    "Received incompatible payload for interface %s: %s, %s",
+                    "Received incompatible payload for interface %s, path %s, payload %s.",
                     interface_name,
                     path,
                     payload,
