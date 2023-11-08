@@ -26,7 +26,7 @@ from threading import Lock
 
 from config import TestCfg
 from dateutil import parser
-from http_requests import get_server_interface, post_server_interface
+from http_requests import get_server_interface, post_server_interface, prepare_transmit_data
 from termcolor import cprint
 
 from astarte.device.device import Device
@@ -68,11 +68,11 @@ def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg):
         parser.parse(dt) for dt in parsed_res["datetimearray_endpoint"]
     ]
 
-    # # Decode binary blob from base64
-    # parsed_res["binaryblob_endpoint"] = base64.b64decode(parsed_res["binaryblob_endpoint"])
-    # parsed_res["binaryblobarray_endpoint"] = [
-    #     base64.b64decode(dt) for dt in parsed_res["binaryblobarray_endpoint"]
-    # ]
+    # Decode binary blob from base64
+    parsed_res["binaryblob_endpoint"] = base64.b64decode(parsed_res["binaryblob_endpoint"])
+    parsed_res["binaryblobarray_endpoint"] = [
+        base64.b64decode(dt) for dt in parsed_res["binaryblobarray_endpoint"]
+    ]
 
     # Check received and sent data match
     if parsed_res != test_cfg.mock_data:
@@ -89,9 +89,13 @@ def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, 
         flush=True,
     )
 
-    post_server_interface(
-        test_cfg, test_cfg.interface_server_aggr, "/sensor_id", test_cfg.mock_data
-    )
+    data = copy.deepcopy(test_cfg.mock_data)
+    key = "binaryblob_endpoint"
+    data[key] = prepare_transmit_data(key, data[key])
+    key = "binaryblobarray_endpoint"
+    data[key] = prepare_transmit_data(key, data[key])
+
+    post_server_interface(test_cfg, test_cfg.interface_server_aggr, "/sensor_id", data)
 
     time.sleep(1)
 
