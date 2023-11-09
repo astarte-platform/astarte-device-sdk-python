@@ -642,6 +642,33 @@ class TestMyAbstract(unittest.TestCase):
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _store_property=mock.DEFAULT)
     @mock.patch.object(Introspection, "get_interface")
+    def test_device_on_message_generic_no_validation(self, mock_get_interface, _store_property):
+        device = Device()
+        device.disable_receive_validation()
+
+        on_data_received_mock = mock.MagicMock()
+        device.set_events_callbacks(on_data_received=on_data_received_mock)
+        interface_name = "interface name"
+        interface_path = "interface path"
+        mock_message = mock.MagicMock()
+        device._on_message_generic(interface_name, interface_path, mock_message)
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_get_interface.return_value.is_server_owned.assert_called_once()
+        mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
+        mock_get_interface.return_value.validate_path.assert_called_once_with(
+            interface_path, mock_message
+        )
+        mock_get_interface.return_value.validate_payload.assert_not_called()
+        _store_property.assert_called_once_with(
+            mock_get_interface.return_value, interface_path, mock_message
+        )
+        on_data_received_mock.assert_called_once_with(
+            device, interface_name, interface_path, mock_message
+        )
+
+    @mock.patch.multiple(Device, __abstractmethods__=set(), _store_property=mock.DEFAULT)
+    @mock.patch.object(Introspection, "get_interface")
     def test_device_on_message_generic_with_threading(self, mock_get_interface, _store_property):
         device = Device()
 
