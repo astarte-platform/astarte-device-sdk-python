@@ -63,6 +63,18 @@ class Device(ABC):
         self._on_data_received: Callable[[Device, str, str, object], None] | None = None
         self._on_disconnected: Callable[[Device, int], None] | None = None
         self._loop = None
+        self._disable_receive_validation = False
+
+    def disable_receive_validation(self):
+        """
+        Disable validation for the message reception.
+
+        N.B. This is a temporary workaround specifically designed to bypass bugs in Astarte core.
+             It should not be used carelessly.
+
+        See: https://github.com/astarte-platform/astarte-device-sdk-python/issues/136
+        """
+        self._disable_receive_validation = True
 
     @abstractmethod
     def add_interface_from_json(self, interface_json: dict):
@@ -429,7 +441,7 @@ class Device(ABC):
             return
 
         # Check the payload matches with the interface
-        if payload:
+        if payload and not self._disable_receive_validation:
             try:
                 interface.validate_payload(path, payload)
             except ValidationError:
