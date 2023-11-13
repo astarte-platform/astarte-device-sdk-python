@@ -17,7 +17,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Version of the module
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 # Export what we care about
 from .device_grpc import DeviceGrpc
