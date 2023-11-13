@@ -43,10 +43,10 @@ copyright = '2021-2022, SECOMind'
 author = 'SECOMind'
 
 # The short X.Y version
-version = '0.12'
+version = '0.13'
 
 # The full version, including alpha/beta/rc tags
-release = '0.12.0'
+release = '0.13.0'
 
 
 # -- General configuration ---------------------------------------------------
