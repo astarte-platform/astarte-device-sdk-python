@@ -172,7 +172,7 @@ jobs:
           mkdir ./astarte-message-hub/target/release
       - name: Restore cached astarte-message-hub binary
         id: cache-astarte-message-hub-restore
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: ./astarte-message-hub/target/release/astarte-message-hub
           key: astarte-message-hub-v0.5.2-test
@@ -183,7 +183,7 @@ jobs:
       - name: Save grpc_python_plugin
         if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
         id: cache-astarte-message-hub-save
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         with:
           path: ./astarte-message-hub/target/release/astarte-message-hub
           key: ${{ steps.cache-astarte-message-hub-restore.outputs.cache-primary-key }}
