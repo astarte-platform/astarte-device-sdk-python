@@ -342,9 +342,9 @@ def __register_device_headers_with_private_key(private_key_file) -> dict:
     """
     headers = {}
     try:
-        headers[
-            "Authorization"
-        ] = f'Bearer {__generate_token(private_key_file, key_type="pairing")}'
+        headers["Authorization"] = (
+            f'Bearer {__generate_token(private_key_file, key_type="pairing")}'
+        )
         return headers
     except jwt.exceptions.PyJWTError as exc:
         raise exceptions.JWTGenerationError("Error encoding or decoding the JWT token.") from exc
