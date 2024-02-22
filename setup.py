@@ -25,7 +25,7 @@ from setuptools import find_namespace_packages, setup
 
 DEPENDENCIES = [
     "requests>=2.22.0",
-    "paho-mqtt",
+    "paho-mqtt==1.6.1",
     "cryptography",
     "bson",
     "PyJWT>=1.7.0",
