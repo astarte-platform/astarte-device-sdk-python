@@ -45,7 +45,7 @@ author = 'SECOMind'
 version = '0.12'
 
 # The full version, including alpha/beta/rc tags
-release = '0.12.0'
+release = '0.12.1'
 
 
 # -- General configuration ---------------------------------------------------
