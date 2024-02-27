@@ -73,8 +73,10 @@ def main():
     # Connect the device
     device.connect()
 
+    sleep(1)
+
     # Set properties
-    sensor_id = "b2c5a6ed-ebe4-4c5c-9d8a-6d2f114fc6e5"
+    sensor_id = "b2c5a6ed_ebe4_4c5c_9d8a_6d2f114fc6e5"
     device.send(
         "org.astarte-platform.genericsensors.AvailableSensors",
         f"/{sensor_id}/name",
