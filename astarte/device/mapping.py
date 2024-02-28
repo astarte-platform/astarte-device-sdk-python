@@ -247,10 +247,6 @@ class Mapping:
             # pylint: disable-next=unidiomatic-typecheck
             if type(payload) is not list:
                 raise ValidationError(f"Expecting list payload for {self.endpoint}")
-            if payload == []:
-                raise ValidationError(
-                    f"Attempting to validate an empty payload for {self.endpoint}"
-                )
             for element in payload:
                 self._validate_element(element, self.__actual_type.subtype)
 
