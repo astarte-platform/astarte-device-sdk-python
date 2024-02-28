@@ -31,14 +31,14 @@ class TestCfg:
 
     # pylint: disable=too-many-instance-attributes,too-few-public-methods
 
-    def __init__(self, number: int) -> None:
+    def __init__(self, device_n: int, mock_data_n: int) -> None:
         # Generic settings
         self.realm = os.environ.get("E2E_REALM")
-        self.device_id = os.environ.get(f"E2E_DEVICE_{number}_ID")
+        self.device_id = os.environ.get(f"E2E_DEVICE_{device_n}_ID")
         self.appengine_url = os.environ.get("E2E_APPENGINE_URL")
         self.appengine_token = os.environ.get("E2E_APPENGINE_TOKEN")
         # MQTT specific settings
-        self.credentials_secret = os.environ.get(f"E2E_CREDENTIALS_SECRET_{number}")
+        self.credentials_secret = os.environ.get(f"E2E_CREDENTIALS_SECRET_{device_n}")
         self.pairing_url = os.environ.get("E2E_PAIRING_URL")
         # GRPC specific settings
         self.grpc_socket_port = os.environ.get("E2E_GRPC_SOCKET_PORT")
@@ -62,23 +62,44 @@ class TestCfg:
         self.interface_server_prop = "org.astarte-platform.python.e2etest.ServerProperty"
         self.interface_device_prop = "org.astarte-platform.python.e2etest.DeviceProperty"
 
-        self.mock_data = {
-            "double_endpoint": 5.4,
-            "integer_endpoint": 42,
-            "boolean_endpoint": True,
-            "longinteger_endpoint": 45543543534,
-            "string_endpoint": "hello",
-            # "binaryblob_endpoint": b"binblob",
-            "datetime_endpoint": datetime(2022, 11, 22, 10, 11, 21, 0, tzinfo=timezone.utc),
-            "doublearray_endpoint": [22.2, 322.22, 12.3, 0.1],
-            "integerarray_endpoint": [22, 322, 0, 10],
-            "booleanarray_endpoint": [True, False, True, False],
-            "longintegerarray_endpoint": [45543543534, 45543543534],
-            # "longintegerarray_endpoint": [45543543534, 10, 0, 45543543534],
-            "stringarray_endpoint": ["hello", " world"],
-            # "binaryblobarray_endpoint": [b"bin", b"blob"],
-            "datetimearray_endpoint": [
-                datetime(2022, 11, 22, 10, 11, 21, 0, tzinfo=timezone.utc),
-                datetime(2022, 10, 21, 12, 5, 33, 0, tzinfo=timezone.utc),
-            ],
-        }
+        mock_data_opts = [
+            {
+                "double_endpoint": 5.4,
+                "integer_endpoint": 42,
+                "boolean_endpoint": True,
+                "longinteger_endpoint": 45543543534,
+                "string_endpoint": "hello",
+                # "binaryblob_endpoint": b"binblob",
+                "datetime_endpoint": datetime(2022, 11, 22, 10, 11, 21, 0, tzinfo=timezone.utc),
+                "doublearray_endpoint": [22.2, 322.22, 12.3, 0.1],
+                "integerarray_endpoint": [22, 322, 0, 10],
+                "booleanarray_endpoint": [True, False, True, False],
+                "longintegerarray_endpoint": [45543543534, 45543543534],
+                # "longintegerarray_endpoint": [45543543534, 10, 0, 45543543534],
+                "stringarray_endpoint": ["hello", " world"],
+                # "binaryblobarray_endpoint": [b"bin", b"blob"],
+                "datetimearray_endpoint": [
+                    datetime(2022, 11, 22, 10, 11, 21, 0, tzinfo=timezone.utc),
+                    datetime(2022, 10, 21, 12, 5, 33, 0, tzinfo=timezone.utc),
+                ],
+            },
+            {
+                "double_endpoint": 0.0,
+                "integer_endpoint": 0,
+                "boolean_endpoint": False,
+                "longinteger_endpoint": 0,
+                "string_endpoint": "",
+                # "binaryblob_endpoint": b"binblob",
+                "datetime_endpoint": datetime(2022, 11, 22, 10, 11, 21, 0, tzinfo=timezone.utc),
+                "doublearray_endpoint": [],
+                "integerarray_endpoint": [],
+                "booleanarray_endpoint": [],
+                "longintegerarray_endpoint": [],
+                # "longintegerarray_endpoint": [],
+                "stringarray_endpoint": [],
+                # "binaryblobarray_endpoint": [],
+                "datetimearray_endpoint": [],
+            },
+        ]
+
+        self.mock_data = mock_data_opts[mock_data_n - 1]
