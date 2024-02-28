@@ -414,17 +414,37 @@ class UnitTests(unittest.TestCase):
         mapping_datetimearray = Mapping(self.mapping_datetimearray_dict, True)
         mapping_datetimearray.validate_payload([datetime.now()])
 
+    def test_mapping_validate_payload_empty_arrays(self):
+        mapping_integerarray = Mapping(self.mapping_integerarray_dict, True)
+        mapping_integerarray.validate_payload([])
+
+        mapping_longintegerarray = Mapping(self.mapping_longintegerarray_dict, True)
+        mapping_longintegerarray.validate_payload([])
+
+        mapping_doublearray = Mapping(self.mapping_doublearray_dict, True)
+        mapping_doublearray.validate_payload([])
+
+        mapping_stringarray = Mapping(self.mapping_stringarray_dict, True)
+        mapping_stringarray.validate_payload([])
+
+        mapping_binaryblobarray = Mapping(self.mapping_binaryblobarray_dict, True)
+        mapping_binaryblobarray.validate_payload([])
+
+        mapping_booleanarray = Mapping(self.mapping_booleanarray_dict, True)
+        mapping_booleanarray.validate_payload([])
+
+        mapping_datetimearray = Mapping(self.mapping_datetimearray_dict, True)
+        mapping_datetimearray.validate_payload([])
+
     def test_mapping_validate_payload_empty_payload_err(self):
         mapping_basic = Mapping(self.mapping_double_dict, True)
 
         self.assertRaises(ValidationError, lambda: mapping_basic.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_basic.validate_payload([]))
         mapping_basic.validate_payload(0.0)
 
     def test_mapping_validate_payload_integer_mapping_incorrect_type_err(self):
         mapping_integer = Mapping(self.mapping_integer_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_integer.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_integer.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_integer.validate_payload(0.0))
         self.assertRaises(ValidationError, lambda: mapping_integer.validate_payload(25.4))
         self.assertRaises(ValidationError, lambda: mapping_integer.validate_payload("hello"))
@@ -443,7 +463,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_longinteger_mapping_incorrect_type_err(self):
         mapping_longinteger = Mapping(self.mapping_longinteger_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_longinteger.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_longinteger.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_longinteger.validate_payload(0.0))
         self.assertRaises(ValidationError, lambda: mapping_longinteger.validate_payload(25.4))
         self.assertRaises(ValidationError, lambda: mapping_longinteger.validate_payload("hello"))
@@ -464,7 +483,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_double_mapping_incorrect_type_err(self):
         mapping_double = Mapping(self.mapping_double_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_double.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_double.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_double.validate_payload(0))
         self.assertRaises(ValidationError, lambda: mapping_double.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_double.validate_payload("hello"))
@@ -483,7 +501,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_string_mapping_incorrect_type_err(self):
         mapping_string = Mapping(self.mapping_string_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_string.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_string.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_string.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_string.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_string.validate_payload(b"hello"))
@@ -501,7 +518,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_binaryblob_mapping_incorrect_type_err(self):
         mapping_binaryblob = Mapping(self.mapping_binaryblob_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_binaryblob.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_binaryblob.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_binaryblob.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_binaryblob.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_binaryblob.validate_payload("hello"))
@@ -521,7 +537,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_boolean_mapping_incorrect_type_err(self):
         mapping_boolean = Mapping(self.mapping_boolean_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_boolean.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_boolean.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_boolean.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_boolean.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_boolean.validate_payload(b"hello"))
@@ -539,7 +554,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_datetime_mapping_incorrect_type_err(self):
         mapping_datetime = Mapping(self.mapping_datetime_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_datetime.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_datetime.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_datetime.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_datetime.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_datetime.validate_payload(b"hello"))
@@ -557,7 +571,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_integerarray_mapping_incorrect_type_err(self):
         mapping_integerarray = Mapping(self.mapping_integerarray_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_integerarray.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_integerarray.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_integerarray.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_integerarray.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_integerarray.validate_payload(b"hello"))
@@ -579,7 +592,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_longintegerarray_mapping_incorrect_type_err(self):
         mapping_longintegerarray = Mapping(self.mapping_longintegerarray_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_longintegerarray.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_longintegerarray.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_longintegerarray.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_longintegerarray.validate_payload(12.0))
         self.assertRaises(
@@ -611,7 +623,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_doublearray_mapping_incorrect_type_err(self):
         mapping_doublearray = Mapping(self.mapping_doublearray_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_doublearray.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_doublearray.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_doublearray.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_doublearray.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_doublearray.validate_payload(b"hello"))
@@ -631,7 +642,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_stringarray_mapping_incorrect_type_err(self):
         mapping_stringarray = Mapping(self.mapping_stringarray_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_stringarray.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_stringarray.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_stringarray.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_stringarray.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_stringarray.validate_payload(b"hello"))
@@ -651,7 +661,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_binaryblobarray_mapping_incorrect_type_err(self):
         mapping_binaryblobarray = Mapping(self.mapping_binaryblobarray_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_binaryblobarray.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_binaryblobarray.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_binaryblobarray.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_binaryblobarray.validate_payload(12.0))
         self.assertRaises(
@@ -677,7 +686,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_booleanarray_mapping_incorrect_type_err(self):
         mapping_booleanarray = Mapping(self.mapping_booleanarray_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_booleanarray.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_booleanarray.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_booleanarray.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_booleanarray.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_booleanarray.validate_payload(b"hello"))
@@ -699,7 +707,6 @@ class UnitTests(unittest.TestCase):
     def test_mapping_validate_payload_datetimearray_mapping_incorrect_type_err(self):
         mapping_datetimearray = Mapping(self.mapping_datetimearray_dict, True)
         self.assertRaises(ValidationError, lambda: mapping_datetimearray.validate_payload(None))
-        self.assertRaises(ValidationError, lambda: mapping_datetimearray.validate_payload([]))
         self.assertRaises(ValidationError, lambda: mapping_datetimearray.validate_payload(25))
         self.assertRaises(ValidationError, lambda: mapping_datetimearray.validate_payload(12.0))
         self.assertRaises(ValidationError, lambda: mapping_datetimearray.validate_payload(b"hello"))
