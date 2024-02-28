@@ -34,7 +34,7 @@ from termcolor import cprint
 from astarte.device.device import Device
 
 
-def test_datastream_from_device_to_server(device: Device, test_cfg: TestCfg):
+def test_datastream_from_device_to_server(device: Device, test_cfg: TestCfg, empty_array: bool):
     """
     Test for individual datastreams in the direction from device to server
     """
@@ -44,6 +44,8 @@ def test_datastream_from_device_to_server(device: Device, test_cfg: TestCfg):
         flush=True,
     )
     for key, value in test_cfg.mock_data.items():
+        if empty_array and (type(value) is list):
+            value = []
         device.send(test_cfg.interface_device_data, "/" + key, value, datetime.now(tz=timezone.utc))
         time.sleep(0.005)
 
@@ -52,21 +54,32 @@ def test_datastream_from_device_to_server(device: Device, test_cfg: TestCfg):
     cprint("\nChecking data stored on the server.", color="cyan", flush=True)
     json_res = get_server_interface(test_cfg, test_cfg.interface_device_data)
     parsed_res = {key: value.get("value") for key, value in json_res.get("data", {}).items()}
-    if (not parsed_res) or (not all(parsed_res.values())):
+    if not parsed_res:
+        cprint("Received: " + str(json_res), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
 
     # Make sure all the keys have been correctly received
     if parsed_res.keys() != test_cfg.mock_data.keys():
+        cprint("Expected: " + str(test_cfg.mock_data), "red", flush=True)
+        cprint("Received: " + str(parsed_res), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
 
     parse_received_data(parsed_res)
 
     # Check received and sent data match
-    if parsed_res != test_cfg.mock_data:
+    mock_data = {
+        key: value if (type(value) is not list) else None
+        for key, value in test_cfg.mock_data.items()
+    } if empty_array else test_cfg.mock_data
+    if parsed_res != mock_data:
+        cprint("Expected: " + str(mock_data), "red", flush=True)
+        cprint("Received: " + str(parsed_res), "red", flush=True)
         raise ValueError("Incorrect data stored on server")
 
 
-def test_datastream_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, rx_data: dict):
+def test_datastream_from_server_to_device(
+    test_cfg: TestCfg, rx_data_lock: Lock, rx_data: dict, empty_array: bool
+):
     """
     Test for individual datastreams in the direction from server to device
     """
@@ -78,6 +91,8 @@ def test_datastream_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock,
 
     for key, value in test_cfg.mock_data.items():
         value = prepare_transmit_data(key, value)
+        if empty_array and (type(value) is list):
+            value = []
         post_server_interface(test_cfg, test_cfg.interface_server_data, "/" + key, value)
         time.sleep(0.005)
 
@@ -93,6 +108,11 @@ def test_datastream_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock,
         parsed_rx_data = rx_data.get(test_cfg.interface_server_data)
 
     # Make sure all the data has been correctly received
-    if parsed_rx_data != {("/" + k): v for (k, v) in test_cfg.mock_data.items()}:
-        cprint(parsed_rx_data, "red", flush=True)
+    mock_data = {
+        key: value if (type(value) is not list) else []
+        for key, value in test_cfg.mock_data.items()
+    } if empty_array else test_cfg.mock_data
+    if parsed_rx_data != {("/" + k): v for (k, v) in mock_data.items()}:
+        cprint("Expected: " + str({("/" + k): v for (k, v) in mock_data.items()}), "red", flush=True)
+        cprint("Received: " + str(parsed_rx_data), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")

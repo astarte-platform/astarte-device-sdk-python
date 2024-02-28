@@ -125,13 +125,13 @@ def parse_received_data(data):
     # Parse datetime from string to datetime
     if "datetime_endpoint" in data:
         data["datetime_endpoint"] = parser.parse(data["datetime_endpoint"])
-    if "datetimearray_endpoint" in data:
+    if ("datetimearray_endpoint" in data) and (data["datetimearray_endpoint"] != None):
         data["datetimearray_endpoint"] = [parser.parse(dt) for dt in data["datetimearray_endpoint"]]
 
     # Decode binary blob from base64
     if "binaryblob_endpoint" in data:
         data["binaryblob_endpoint"] = base64.b64decode(data["binaryblob_endpoint"])
-    if "binaryblobarray_endpoint" in data:
+    if ("binaryblobarray_endpoint" in data) and (data["binaryblobarray_endpoint"] != None):
         data["binaryblobarray_endpoint"] = [
             base64.b64decode(dt) for dt in data["binaryblobarray_endpoint"]
         ]

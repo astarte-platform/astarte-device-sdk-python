@@ -36,7 +36,7 @@ from termcolor import cprint
 from astarte.device.device import Device
 
 
-def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg):
+def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg, empty_array: bool):
     """
     Test for aggregated object datastreams in the direction from device to server
     """
@@ -45,7 +45,11 @@ def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg):
         color="cyan",
         flush=True,
     )
-    device.send_aggregate(test_cfg.interface_device_aggr, "/sensor_id", test_cfg.mock_data)
+    mock_data = {
+        key: value if (type(value) is not list) else []
+        for key, value in test_cfg.mock_data.items()
+    } if empty_array else test_cfg.mock_data
+    device.send_aggregate(test_cfg.interface_device_aggr, "/sensor_id", mock_data)
 
     time.sleep(1)
 
@@ -62,28 +66,35 @@ def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg):
 
     # Parse longint from string to int
     parsed_res["longinteger_endpoint"] = int(parsed_res["longinteger_endpoint"])
-    parsed_res["longintegerarray_endpoint"] = [
-        int(dt) for dt in parsed_res["longintegerarray_endpoint"]
-    ]
+    if parsed_res["longintegerarray_endpoint"] != None:
+        parsed_res["longintegerarray_endpoint"] = [
+            int(dt) for dt in parsed_res["longintegerarray_endpoint"]
+        ]
 
     # Parse datetime from string to datetime
     parsed_res["datetime_endpoint"] = parser.parse(parsed_res["datetime_endpoint"])
-    parsed_res["datetimearray_endpoint"] = [
-        parser.parse(dt) for dt in parsed_res["datetimearray_endpoint"]
-    ]
+    if parsed_res["datetimearray_endpoint"] != None:
+        parsed_res["datetimearray_endpoint"] = [
+            parser.parse(dt) for dt in parsed_res["datetimearray_endpoint"]
+        ]
 
     # Decode binary blob from base64
     parsed_res["binaryblob_endpoint"] = base64.b64decode(parsed_res["binaryblob_endpoint"])
-    parsed_res["binaryblobarray_endpoint"] = [
-        base64.b64decode(dt) for dt in parsed_res["binaryblobarray_endpoint"]
-    ]
+    if parsed_res["binaryblobarray_endpoint"] != None:
+        parsed_res["binaryblobarray_endpoint"] = [
+            base64.b64decode(dt) for dt in parsed_res["binaryblobarray_endpoint"]
+        ]
 
     # Check received and sent data match
-    if parsed_res != test_cfg.mock_data:
+    mock_data = {
+        key: value if (type(value) is not list) else None
+        for key, value in test_cfg.mock_data.items()
+    } if empty_array else test_cfg.mock_data
+    if parsed_res != mock_data:
         raise ValueError("Incorrect data stored on server")
 
 
-def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, rx_data: dict):
+def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, rx_data: dict, empty_array: bool):
     """
     Test for aggregated object datastreams in the direction from server to device
     """
@@ -99,6 +110,11 @@ def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, 
     key = "binaryblobarray_endpoint"
     data[key] = prepare_transmit_data(key, data[key])
 
+    data = {
+        key: value if (type(value) is not list) else []
+        for key, value in data.items()
+    } if empty_array else data
+
     post_server_interface(test_cfg, test_cfg.interface_server_aggr, "/sensor_id", data)
 
     time.sleep(1)
@@ -112,5 +128,9 @@ def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, 
         parsed_rx_data = rx_data.get(test_cfg.interface_server_aggr).get("/sensor_id")
 
     # Make sure all the data has been correctly received
-    if parsed_rx_data != test_cfg.mock_data:
+    mock_data = {
+        key: value if (type(value) is not list) else []
+        for key, value in test_cfg.mock_data.items()
+    } if empty_array else test_cfg.mock_data
+    if parsed_rx_data != mock_data:
         raise ValueError("Incorrectly formatted response from server")

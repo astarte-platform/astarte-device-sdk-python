@@ -127,27 +127,51 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         print("Connection failed.", flush=True)
         sys.exit(1)
 
-    test_datastream_from_device_to_server(device, test_cfg)
+    test_datastream_from_device_to_server(device, test_cfg, empty_array=False)
 
     time.sleep(1)
 
-    test_datastream_from_server_to_device(test_cfg, rx_data_lock, rx_data)
+    test_datastream_from_server_to_device(test_cfg, rx_data_lock, rx_data, empty_array=False)
 
     time.sleep(1)
 
-    test_aggregate_from_device_to_server(device, test_cfg)
+    test_aggregate_from_device_to_server(device, test_cfg, empty_array=False)
 
     time.sleep(1)
 
-    test_aggregate_from_server_to_device(test_cfg, rx_data_lock, rx_data)
+    test_aggregate_from_server_to_device(test_cfg, rx_data_lock, rx_data, empty_array=False)
 
     time.sleep(1)
 
-    test_properties_from_device_to_server(device, test_cfg)
+    test_properties_from_device_to_server(device, test_cfg, empty_array=False)
 
     time.sleep(1)
 
-    test_properties_from_server_to_device(test_cfg, rx_data_lock, rx_data)
+    test_properties_from_server_to_device(test_cfg, rx_data_lock, rx_data, empty_array=False)
+
+    time.sleep(1)
+
+    test_datastream_from_device_to_server(device, test_cfg, empty_array=True)
+
+    time.sleep(1)
+
+    test_datastream_from_server_to_device(test_cfg, rx_data_lock, rx_data, empty_array=True)
+
+    time.sleep(1)
+
+    test_aggregate_from_device_to_server(device, test_cfg, empty_array=True)
+
+    time.sleep(1)
+
+    test_aggregate_from_server_to_device(test_cfg, rx_data_lock, rx_data, empty_array=True)
+
+    time.sleep(1)
+
+    test_properties_from_device_to_server(device, test_cfg, empty_array=True)
+
+    time.sleep(1)
+
+    test_properties_from_server_to_device(test_cfg, rx_data_lock, rx_data, empty_array=True)
 
     device.disconnect()
 
