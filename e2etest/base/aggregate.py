@@ -19,14 +19,16 @@
 Contains the tests for aggregated object datastreams.
 """
 
-import base64
-import copy
 import time
 from threading import Lock
 
 from config import TestCfg
 from dateutil import parser
-from http_requests import get_server_interface, post_server_interface
+from http_requests import (
+    get_server_interface,
+    parse_received_data,
+    post_server_interface,
+)
 from termcolor import cprint
 
 from astarte.device.device import Device
@@ -56,23 +58,7 @@ def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg):
     # Remove timestamp
     parsed_res.pop("timestamp")
 
-    # Parse longint from string to int
-    parsed_res["longinteger_endpoint"] = int(parsed_res["longinteger_endpoint"])
-    parsed_res["longintegerarray_endpoint"] = [
-        int(dt) for dt in parsed_res["longintegerarray_endpoint"]
-    ]
-
-    # Parse datetime from string to datetime
-    parsed_res["datetime_endpoint"] = parser.parse(parsed_res["datetime_endpoint"])
-    parsed_res["datetimearray_endpoint"] = [
-        parser.parse(dt) for dt in parsed_res["datetimearray_endpoint"]
-    ]
-
-    # # Decode binary blob from base64
-    # parsed_res["binaryblob_endpoint"] = base64.b64decode(parsed_res["binaryblob_endpoint"])
-    # parsed_res["binaryblobarray_endpoint"] = [
-    #     base64.b64decode(dt) for dt in parsed_res["binaryblobarray_endpoint"]
-    # ]
+    parse_received_data(parsed_res)
 
     # Check received and sent data match
     if parsed_res != test_cfg.mock_data:

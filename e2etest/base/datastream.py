@@ -52,17 +52,22 @@ def test_datastream_from_device_to_server(device: Device, test_cfg: TestCfg):
     cprint("\nChecking data stored on the server.", color="cyan", flush=True)
     json_res = get_server_interface(test_cfg, test_cfg.interface_device_data)
     parsed_res = {key: value.get("value") for key, value in json_res.get("data", {}).items()}
-    if (not parsed_res) or (not all(parsed_res.values())):
+    if not parsed_res:
+        cprint("Received: " + str(json_res), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
 
     # Make sure all the keys have been correctly received
     if parsed_res.keys() != test_cfg.mock_data.keys():
+        cprint("Expected: " + str(test_cfg.mock_data), "red", flush=True)
+        cprint("Received: " + str(parsed_res), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
 
     parse_received_data(parsed_res)
 
     # Check received and sent data match
     if parsed_res != test_cfg.mock_data:
+        cprint("Expected: " + str(test_cfg.mock_data), "red", flush=True)
+        cprint("Received: " + str(parsed_res), "red", flush=True)
         raise ValueError("Incorrect data stored on server")
 
 
@@ -94,5 +99,10 @@ def test_datastream_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock,
 
     # Make sure all the data has been correctly received
     if parsed_rx_data != {("/" + k): v for (k, v) in test_cfg.mock_data.items()}:
-        cprint(parsed_rx_data, "red", flush=True)
+        cprint(
+            "Expected: " + str({("/" + k): v for (k, v) in test_cfg.mock_data.items()}),
+            "red",
+            flush=True,
+        )
+        cprint("Received: " + str(parsed_rx_data), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")

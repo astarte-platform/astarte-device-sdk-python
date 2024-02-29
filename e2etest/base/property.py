@@ -50,14 +50,15 @@ def test_properties_from_device_to_server(device: Device, test_cfg: TestCfg):
     json_res = get_server_interface(test_cfg, test_cfg.interface_device_prop)
     parsed_res = json_res.get("data", {}).get("sensor_id")
     if not parsed_res:
-        cprint(json_res, "red", flush=True)
+        cprint("Response: " + str(json_res), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
 
     parse_received_data(parsed_res)
 
     # Check received and sent data match
     if parsed_res != test_cfg.mock_data:
-        cprint(parsed_res, "red", flush=True)
+        cprint("Expected: " + str(test_cfg.mock_data), "red", flush=True)
+        cprint("Received: " + str(parsed_res), "red", flush=True)
         raise ValueError("Incorrect data stored on server")
 
     # Unset all the properties
@@ -74,7 +75,8 @@ def test_properties_from_device_to_server(device: Device, test_cfg: TestCfg):
 
     # Check received and sent data match
     if parsed_res != {}:
-        cprint(parsed_res, "red", flush=True)
+        cprint("Expected: " + str(dict()), "red", flush=True)
+        cprint("Received: " + str(parsed_res), "red", flush=True)
         raise ValueError("Incorrect data stored on server")
 
 
@@ -108,7 +110,12 @@ def test_properties_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock,
         parsed_rx_data = rx_data.get(test_cfg.interface_server_prop)
 
     if parsed_rx_data != {("/sensor_id/" + k): v for (k, v) in test_cfg.mock_data.items()}:
-        cprint(parsed_rx_data, "red", flush=True)
+        cprint(
+            "Expected: " + str({("/sensor_id/" + k): v for (k, v) in test_cfg.mock_data.items()}),
+            "red",
+            flush=True,
+        )
+        cprint("Received: " + str(parsed_rx_data), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")
 
     # Unset all the properties
@@ -129,5 +136,10 @@ def test_properties_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock,
         parsed_rx_data = rx_data.get(test_cfg.interface_server_prop)
 
     if parsed_rx_data != {"/sensor_id/" + k: None for k in test_cfg.mock_data}:
-        cprint(parsed_rx_data, "red", flush=True)
+        cprint(
+            "Expected: " + str({"/sensor_id/" + k: None for k in test_cfg.mock_data}),
+            "red",
+            flush=True,
+        )
+        cprint("Received: " + str(parsed_rx_data), "red", flush=True)
         raise ValueError("Incorrectly formatted response from server")

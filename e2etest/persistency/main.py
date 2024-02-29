@@ -363,6 +363,7 @@ def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--device_n", default=2, type=int)
+    parser.add_argument("--mock_data_n", default=1, type=int)
     args = parser.parse_args()
 
     # Generate an async loop and thread
@@ -371,7 +372,7 @@ if __name__ == "__main__":
     call_back_thread.start()
 
     try:
-        main(call_back_loop, TestCfg(number=args.device_n))
+        main(call_back_loop, TestCfg(device_n=args.device_n, mock_data_n=args.mock_data_n))
     except Exception as e:
         call_back_loop.stop()
         call_back_thread.join(timeout=1)
