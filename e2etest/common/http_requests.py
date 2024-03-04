@@ -122,6 +122,17 @@ def parse_received_data(data):
     Some of the received data is not automatically parsed as Python types.
     Specifically, datetime and binaryblob should be converted manually from strings.
     """
+    # Parse all None values to an empty list
+    for key, value in data.items():
+        if (key.endswith("array_endpoint")) and (value == None):
+            data[key] = []
+
+    # Parse longinteger from string to number (only necessary for aggregates)
+    if "longinteger_endpoint" in data:
+        data["longinteger_endpoint"] = int(data["longinteger_endpoint"])
+    if "longintegerarray_endpoint" in data:
+        data["longintegerarray_endpoint"] = [int(dt) for dt in data["longintegerarray_endpoint"]]
+
     # Parse datetime from string to datetime
     if "datetime_endpoint" in data:
         data["datetime_endpoint"] = parser.parse(data["datetime_endpoint"])

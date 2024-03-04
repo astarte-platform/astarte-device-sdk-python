@@ -77,11 +77,12 @@ jobs:
       - name: Run test base
         uses: nick-fields/retry@v2
         with:
-          timeout_seconds: 30
+          timeout_seconds: 60
           max_attempts: 2
           command: |
             export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-            python3 e2etest/base/main.py
+            python3 e2etest/base/main.py --mock_data_n 1
+            python3 e2etest/base/main.py --mock_data_n 2
       - name: Run test for persistency
         uses: nick-fields/retry@v2
         with:
@@ -113,7 +114,7 @@ jobs:
         with:
           repository: astarte-platform/astarte-message-hub
           path: astarte-message-hub
-          ref: v0.5.2
+          ref: 643be3a68d18fe03573f38cc708dd2e91283730f
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -175,7 +176,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ./astarte-message-hub/target/release/astarte-message-hub
-          key: astarte-message-hub-v0.5.2-test
+          key: astarte-message-hub-643be3a68d18fe03573f38cc708dd2e91283730f-test
       - name: Build message hub
         if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
         run: cargo build --release
@@ -202,7 +203,8 @@ jobs:
       - name: Run test base
         run: |
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-          python3 ./e2etest/base/main.py --device_n 1
+          python3 e2etest/base/main.py --device_n 1 --mock_data_n 1
+          python3 e2etest/base/main.py --device_n 1 --mock_data_n 2
         working-directory: ./astarte-device-sdk-python
       - name: Run test for reconnection
         run: |
