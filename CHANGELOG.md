@@ -4,8 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.13.2] - 2024-03-04
+### Fixed
+- Streaming of empty arrays from the device to Astarte is now allowed.
 
+## [0.13.1] - 2024-02-22
+
+## [0.12.1] - 2024-02-22
+### Fixed
+- Dependency `paho-mqtt` is locked to v1.6.1 due to incompatibility with the latest version.
+
+## [0.13.0] - 2023-11-13
 ### Added
 - Adding or removing interfaces from a device while the device is connected.
   If an interface is added or removed the new device introspection is immediately sent to Astarte.
