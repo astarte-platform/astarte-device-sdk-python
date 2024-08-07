@@ -114,7 +114,7 @@ jobs:
         with:
           repository: astarte-platform/astarte-message-hub
           path: astarte-message-hub
-          ref: 643be3a68d18fe03573f38cc708dd2e91283730f
+          ref: v0.5.4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
@@ -176,7 +176,7 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: ./astarte-message-hub/target/release/astarte-message-hub
-          key: astarte-message-hub-643be3a68d18fe03573f38cc708dd2e91283730f-test
+          key: astarte-message-hub-v0.5.4
       - name: Build message hub
         if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
         run: cargo build --release
