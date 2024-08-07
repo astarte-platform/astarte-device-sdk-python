@@ -121,8 +121,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install Protoc
         run: |
-          curl -LO $PB_REL/download/v24.3/protoc-24.3-linux-x86_64.zip
-          unzip protoc-24.3-linux-x86_64.zip -d $HOME/.local
+          curl -LO $PB_REL/download/v26.1/protoc-26.1-linux-x86_64.zip
+          unzip protoc-26.1-linux-x86_64.zip -d $HOME/.local
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
