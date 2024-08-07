@@ -21,46 +21,45 @@
 Example showing how to send/receive individual datastreams.
 
 """
+
+import argparse
 import time
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
-from termcolor import cprint
-
 from astarte.device import DeviceGrpc
 
-_ROOT_DIR = Path(__file__).parent.absolute()
-_INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
-_SERVER_ADDR = "SERVER ADDRESS HERE"
-_NODE_UUID = "NODE UUID HERE"
+_INTERFACES_DIR = Path(__file__).parent.joinpath("interfaces").absolute()
+_CONFIGURATION_FILE = Path(__file__).parent.joinpath("config.toml").absolute()
+
+
+def on_connected_cbk(_):
+    """
+    Callback for a connection event.
+    """
+    print("Device connected.")
 
 
 def on_data_received_cbk(device: DeviceGrpc, interface_name: str, path: str, payload: dict):
     """
     Callback for a data reception event.
     """
-    cprint(
-        f"Received message for interface: {interface_name} and path: {path}.",
-        color="cyan",
-        flush=True,
-    )
-    cprint(f"    Payload: {payload}", color="cyan", flush=True)
+    print(f"Received message for interface: {interface_name} and path: {path}.")
+    print(f"    Payload: {payload}")
 
 
-# If called as a script
-if __name__ == "__main__":
-    # Instantiate the device
-    device = DeviceGrpc(server_addr=_SERVER_ADDR, node_uuid=_NODE_UUID)
-    # Load all the interfaces
-    device.add_interfaces_from_dir(_INTERFACES_DIR)
-    # Set all the callback functions
-    device.set_callbacks(
-        on_data_received=on_data_received_cbk,
-    )
-    # # Connect the device
-    device.connect()
+def on_disconnected_cbk(_, reason: int):
+    """
+    Callback for a disconnection event.
+    """
+    print("Device disconnected" + (f" because: {reason}." if reason else "."))
 
-    time.sleep(1)
+
+def stream_data(device: DeviceGrpc):
+    """
+    Stream some hardcoded tata data from a device to Astarte.
+    """
 
     # Send the binary blob endpoints
     # device.send(
@@ -160,6 +159,47 @@ if __name__ == "__main__":
         datetime.now(tz=timezone.utc),
     )
 
-    time.sleep(60)
+
+# If called as a script
+if __name__ == "__main__":
+
+    # Accept an argument to specify a set time duration for the example
+    parser = argparse.ArgumentParser(
+        description="Datastream sample for the Astarte device SDK Python"
+    )
+    parser.add_argument(
+        "-d",
+        "--duration",
+        type=int,
+        default=30,
+        help="Approximated duration in seconds for the example (default: 30)",
+    )
+    args = parser.parse_args()
+
+    with open(_CONFIGURATION_FILE, "rb") as config_fp:
+        config = tomllib.load(config_fp)
+        _SERVER_ADDR = config["SERVER_ADDR"]
+        _NODE_UUID = config["NODE_UUID"]
+
+    # Instantiate the device
+    device = DeviceGrpc(server_addr=_SERVER_ADDR, node_uuid=_NODE_UUID)
+    # Load all the interfaces
+    device.add_interfaces_from_dir(_INTERFACES_DIR)
+    # Set all the callback functions
+    device.set_events_callbacks(
+        on_connected=on_connected_cbk,
+        on_data_received=on_data_received_cbk,
+        on_disconnected=on_disconnected_cbk,
+    )
+    # # Connect the device
+    device.connect()
+    while not device.is_connected():
+        pass
+
+    # Stream some data from device to Astarte
+    stream_data(device)
+
+    # Sleep for the example duration
+    time.sleep(args.duration)
 
     device.disconnect()
