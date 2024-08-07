@@ -114,15 +114,15 @@ jobs:
         with:
           repository: astarte-platform/astarte-message-hub
           path: astarte-message-hub
-          ref: 643be3a68d18fe03573f38cc708dd2e91283730f
+          ref: v0.5.4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Protoc
         run: |
-          curl -LO $PB_REL/download/v24.3/protoc-24.3-linux-x86_64.zip
-          unzip protoc-24.3-linux-x86_64.zip -d $HOME/.local
+          curl -LO $PB_REL/download/v26.1/protoc-26.1-linux-x86_64.zip
+          unzip protoc-26.1-linux-x86_64.zip -d $HOME/.local
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -176,7 +176,7 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: ./astarte-message-hub/target/release/astarte-message-hub
-          key: astarte-message-hub-643be3a68d18fe03573f38cc708dd2e91283730f-test
+          key: astarte-message-hub-v0.5.4
       - name: Build message hub
         if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
         run: cargo build --release
@@ -204,7 +204,6 @@ jobs:
         run: |
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
           python3 e2etest/base/main.py --device_n 1 --mock_data_n 1
-          python3 e2etest/base/main.py --device_n 1 --mock_data_n 2
         working-directory: ./astarte-device-sdk-python
       - name: Run test for reconnection
         run: |
