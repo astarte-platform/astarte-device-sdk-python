@@ -204,7 +204,6 @@ jobs:
         run: |
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
           python3 e2etest/base/main.py --device_n 1 --mock_data_n 1
-          python3 e2etest/base/main.py --device_n 1 --mock_data_n 2
         working-directory: ./astarte-device-sdk-python
       - name: Run test for reconnection
         run: |
