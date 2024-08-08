@@ -28,7 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+    concurrency:
+      group: e2e-test-mqtt-${{ matrix.python-version }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -103,7 +106,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.12"]
+    concurrency:
+      group: e2e-test-grpc-${{ matrix.python-version }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Checkout astarte-device-sdk-python
         uses: actions/checkout@v4
