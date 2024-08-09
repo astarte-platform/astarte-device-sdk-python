@@ -38,8 +38,6 @@ load-plugins=
     pylint.extensions.broad_try_clause,
     pylint.extensions.dict_init_mutate,
     pylint.extensions.consider_refactoring_into_while_condition,
-    pylint.extensions.comparetozero,
-    pylint.extensions.emptystring,
     pylint.extensions.no_self_use,
     pylint.extensions.redefined_loop_name,
 

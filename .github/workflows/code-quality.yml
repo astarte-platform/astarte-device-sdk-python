@@ -23,6 +23,9 @@ on: [push, pull_request, create]
 jobs:
   static:
     runs-on: ubuntu-latest
+    concurrency:
+      group: static-${{ github.ref }}
+      cancel-in-progress: true
     name: Checks
     steps:
     - uses: actions/checkout@v4
