@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-name: Check examples
+name: Check examples MQTT
 
 on: [pull_request, create]
 
@@ -97,100 +97,3 @@ jobs:
         run: |
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
           python3 ./example_device.py -d 10
-  check-examples-grpc:
-    runs-on: ubuntu-latest
-    concurrency:
-      group: check-examples-grpc-${{ github.ref }}
-      cancel-in-progress: true
-    timeout-minutes: 30
-    steps:
-      - name: Checkout astarte-device-sdk-python
-        uses: actions/checkout@v4
-        with:
-          path: astarte-device-sdk-python
-      - name: Checkout astarte-message-hub
-        uses: actions/checkout@v4
-        with:
-          repository: astarte-platform/astarte-message-hub
-          path: astarte-message-hub
-          ref: v0.5.4
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-      - name: Install Protoc
-        run: |
-          curl -LO $PB_REL/download/v26.1/protoc-26.1-linux-x86_64.zip
-          unzip protoc-26.1-linux-x86_64.zip -d $HOME/.local
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - name: Create Astarte Cluster
-        id: astarte
-        uses: astarte-platform/astarte-cluster-action@v1
-        with:
-          astarte_version: "1.1.1"
-      - name: Install interface
-        run: |
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/astarte-device-sdk-python/examples/grpc/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces ls
-      - name: Setup the configuration file for the grpc example
-        working-directory: ./astarte-device-sdk-python/examples/grpc
-        run: |
-          echo "SERVER_ADDR = \"localhost:50051\"" > config.toml
-          echo "NODE_UUID = \"98bb9fe5-b4ce-4dea-9b88-8d1f8525e4b4\"" >> config.toml
-          cat config.toml
-      - name: Set up configuration file for the message hub
-        working-directory: ./astarte-message-hub
-        run: |
-          echo "realm = \"test\"" > message-hub-config.toml
-          echo "pairing_url = \"https://api.autotest.astarte-platform.org/pairing\"" >> message-hub-config.toml
-          echo "grpc_socket_port = 50051" >> message-hub-config.toml
-          DEVICE_ID=$(astartectl utils device-id generate-random)
-          echo "device_id = \"$DEVICE_ID\"" >> message-hub-config.toml
-          CREDENTIALS_SECRET=$(astartectl pairing agent register --compact-output -- "$DEVICE_ID")
-          echo "credentials_secret = \"$CREDENTIALS_SECRET\"" >> message-hub-config.toml
-          echo "store_directory = \"./tmp\"" >> message-hub-config.toml
-          cat message-hub-config.toml
-      - name: Create folder for binary
-        run: |
-          mkdir ./astarte-message-hub/target
-          mkdir ./astarte-message-hub/target/release
-      - name: Restore cached astarte-message-hub binary
-        id: cache-astarte-message-hub-restore
-        uses: actions/cache/restore@v3
-        with:
-          path: ./astarte-message-hub/target/release/astarte-message-hub
-          key: astarte-message-hub-v0.5.4
-      - name: Build message hub
-        if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
-        working-directory: ./astarte-message-hub
-        run: cargo build --release
-      - name: Save grpc_python_plugin
-        if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
-        id: cache-astarte-message-hub-save
-        uses: actions/cache/save@v3
-        with:
-          path: ./astarte-message-hub/target/release/astarte-message-hub
-          key: ${{ steps.cache-astarte-message-hub-restore.outputs.cache-primary-key }}
-      - name: Install the Astarte device Python module
-        working-directory: ./astarte-device-sdk-python
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -e .
-      - name: Wait for 5 seconds
-        run: sleep 5
-      - name: Run message hub
-        working-directory: ./astarte-message-hub
-        run: nohup ./target/release/astarte-message-hub > nohup.out 2> nohup.err < /dev/null &
-      - name: Wait for 5 seconds
-        run: sleep 5
-      - name: Run grpc example
-        working-directory: ./astarte-device-sdk-python/examples/grpc
-        run: |
-          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-          python3 main.py -d 10
