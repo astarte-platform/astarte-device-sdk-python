@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from datetime import datetime
+from datetime import datetime, timezone
 from os import path
 
 from cryptography import x509
@@ -145,5 +145,9 @@ def certificate_is_valid(crypto_store_dir: str) -> bool:
             certificate = x509.load_pem_x509_certificate(data.encode("ascii"))
         except ValueError:
             return False
-        return certificate.not_valid_before < datetime.utcnow() < certificate.not_valid_after
+        return (
+            certificate.not_valid_before_utc
+            < datetime.now(timezone.utc)
+            < certificate.not_valid_after_utc
+        )
     return False

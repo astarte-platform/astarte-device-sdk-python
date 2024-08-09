@@ -18,9 +18,9 @@
 
 from __future__ import annotations
 
-import datetime
 import http
 from base64 import urlsafe_b64encode
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4, uuid5
 
 import jwt
@@ -412,10 +412,10 @@ def __generate_token(
             real_auth_paths = ["JOIN::.*", "WATCH::.*"]
         else:
             real_auth_paths = [".*::.*"]
-        now = datetime.datetime.utcnow()
+        now = datetime.now(timezone.utc)
         claims = {api_claims[key_type]: real_auth_paths, "iat": now}
         if expiry > 0:
-            claims["exp"] = now + datetime.timedelta(seconds=expiry)
+            claims["exp"] = now + timedelta(seconds=expiry)
 
         encoded = jwt.encode(claims, private_key_pem, algorithm="RS256")
         return encoded.decode()
