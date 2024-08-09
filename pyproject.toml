@@ -31,10 +31,10 @@ dynamic = ["version"]
 dependencies = [
     "requests>=2.22.0",
     "paho-mqtt==1.6.1",
-    "cryptography",
-    "bson",
+    "cryptography>=3.2.1",
+    "bson>=0.5.5",
     "PyJWT>=1.7.0",
-    "astarte-message-hub-proto",
+    "astarte-message-hub-proto==0.6.2",
 ]
 requires-python = ">=3.8"
 authors = [
