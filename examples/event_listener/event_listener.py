@@ -23,33 +23,21 @@ Here we show how to simply connect your device to Astarte and start listening on
 server-owned interface.
 
 """
+
+import argparse
 import asyncio
-import signal
 import tempfile
+import time
+import tomllib
 from pathlib import Path
 from threading import Thread
-from time import sleep
 from typing import Optional, Tuple
 
 from astarte.device import DeviceMqtt
 
-_ROOT_DIR = Path(__file__).parent.absolute()
-_INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
+_INTERFACES_DIR = Path(__file__).parent.joinpath("interfaces").absolute()
 _INTERFACE_FILE = _INTERFACES_DIR.joinpath("org.astarte-platform.genericsensors.SamplingRate.json")
-_DEVICE_ID = "DEVICE_ID_HERE"
-_REALM = "REALM_HERE"
-_CREDENTIAL_SECRET = "CREDENTIAL_SECRET_HERE"
-_PAIRING_URL = "https://api.astarte.EXAMPLE.COM/pairing"
-_PERSISTENCY_DIR = tempfile.gettempdir()
-
-
-class ProgramKilled(Exception):
-    pass
-
-
-def _signal_handler(signum, frame):
-    print("Shutting Down...")
-    raise ProgramKilled
+_CONFIGURATION_FILE = Path(__file__).parent.joinpath("config.toml").absolute()
 
 
 def _start_background_loop(_loop: asyncio.AbstractEventLoop) -> None:
@@ -64,7 +52,9 @@ def _generate_async_loop() -> Tuple[asyncio.AbstractEventLoop, Thread]:
     return _loop, other_thread
 
 
-def callback(device: DeviceMqtt, interface_name: str, path: str, payload: object) -> None:
+def on_data_received_cbk(
+    device: DeviceMqtt, interface_name: str, path: str, payload: object
+) -> None:
     """
     A function where we are going to handle the Astarte events triggered by server-owned interface
     updates.
@@ -89,44 +79,67 @@ def callback(device: DeviceMqtt, interface_name: str, path: str, payload: object
     )
 
 
-def main(cb_loop: Optional[asyncio.AbstractEventLoop] = None):
+def main(duration: int, persistency_dir: str, cb_loop: Optional[asyncio.AbstractEventLoop] = None):
     """
     Main function
     """
+
+    with open(_CONFIGURATION_FILE, "rb") as config_fp:
+        config = tomllib.load(config_fp)
+        _DEVICE_ID = config["DEVICE_ID"]
+        _REALM = config["REALM"]
+        _CREDENTIALS_SECRET = config["CREDENTIALS_SECRET"]
+        _PAIRING_URL = config["PAIRING_URL"]
 
     # Instance the device
     device = DeviceMqtt(
         device_id=_DEVICE_ID,
         realm=_REALM,
-        credentials_secret=_CREDENTIAL_SECRET,
+        credentials_secret=_CREDENTIALS_SECRET,
         pairing_base_url=_PAIRING_URL,
-        persistency_dir=_PERSISTENCY_DIR,
+        persistency_dir=persistency_dir,
     )
     # Load all the interfaces
     device.add_interface_from_file(_INTERFACE_FILE)
 
+    # Attach the callback
+    device.set_events_callbacks(on_data_received=on_data_received_cbk, loop=cb_loop)
+
     # Connect the device
     device.connect()
-    # Attach the callback
-    device.set_events_callbacks(on_data_received=callback, loop=cb_loop)
+    while not device.is_connected():
+        pass
 
     print("Initialization completed, waiting for messages")
-    while True:
-        # We have to keep alive the main loop
-        sleep(5)
+    # Keep alive this thread
+    time.sleep(duration)
+
+    device.disconnect()
 
 
 if __name__ == "__main__":
-    # [Optional] Preparing a different asyncio loop for the callbacks to prevent deadlocks
-    # Replace with loop = None to run the Astarte event callback in the main thread
-    (loop, thread) = _generate_async_loop()
-    try:
-        signal.signal(signal.SIGTERM, _signal_handler)
-        signal.signal(signal.SIGINT, _signal_handler)
-        main(loop)
-    except ProgramKilled:
-        if loop:
-            loop.call_soon_threadsafe(loop.stop)
-            print("Requested async loop stop")
-            thread.join()
-        print("Stopped")
+
+    # Accept an argument to specify a set time duration for the example
+    parser = argparse.ArgumentParser(
+        description="Listener sample for the Astarte device SDK Python"
+    )
+    parser.add_argument(
+        "-d",
+        "--duration",
+        type=int,
+        default=30,
+        help="Approximated duration in seconds for the example (default: 30)",
+    )
+    args = parser.parse_args()
+
+    # Creating a temporary directory
+    with tempfile.TemporaryDirectory(prefix="python_sdk_examples_") as temp_dir:
+
+        # [Optional] Preparing a different asyncio loop for the callbacks to prevent deadlocks
+        # Replace with loop = None to run the Astarte event callback in the main thread
+        (loop, thread) = _generate_async_loop()
+        main(args.duration, temp_dir, loop)
+        loop.call_soon_threadsafe(loop.stop)
+        print("Requested async loop stop")
+        thread.join()
+        print("Async loop stopped")

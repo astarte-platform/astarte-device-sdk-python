@@ -28,52 +28,46 @@ follows:
 3. Geolocation: to publish an object aggregated datastream
 
 """
-import signal
+import argparse
 import tempfile
+import time
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 from random import random
-from time import sleep
 
 from astarte.device import DeviceMqtt
 
-_ROOT_DIR = Path(__file__).parent.absolute()
-_INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
-_DEVICE_ID = "DEVICE_ID_HERE"
-_REALM = "REALM_HERE"
-_CREDENTIAL_SECRET = "CREDENTIAL_SECRET_HERE"
-_PAIRING_URL = "https://api.astarte.EXAMPLE.COM/pairing"
-_PERSISTENCY_DIR = tempfile.gettempdir()
+_INTERFACES_DIR = Path(__file__).parent.joinpath("interfaces").absolute()
+_CONFIGURATION_FILE = Path(__file__).parent.joinpath("config.toml").absolute()
 
 
-class ProgramKilled(Exception):
-    pass
-
-
-def signal_handler(signum, frame):
-    print("Shutting Down...")
-    raise ProgramKilled
-
-
-def main():
+def main(duration: int, persistency_dir: str):
     """
     Main function
     """
+
+    with open(_CONFIGURATION_FILE, "rb") as config_fp:
+        config = tomllib.load(config_fp)
+        _DEVICE_ID = config["DEVICE_ID"]
+        _REALM = config["REALM"]
+        _CREDENTIALS_SECRET = config["CREDENTIALS_SECRET"]
+        _PAIRING_URL = config["PAIRING_URL"]
 
     # Instance the device
     device = DeviceMqtt(
         device_id=_DEVICE_ID,
         realm=_REALM,
-        credentials_secret=_CREDENTIAL_SECRET,
+        credentials_secret=_CREDENTIALS_SECRET,
         pairing_base_url=_PAIRING_URL,
-        persistency_dir=_PERSISTENCY_DIR,
+        persistency_dir=persistency_dir,
     )
     # Load all the interfaces
     device.add_interfaces_from_dir(_INTERFACES_DIR)
     # Connect the device
     device.connect()
-
-    sleep(1)
+    while not device.is_connected():
+        pass
 
     # Set properties
     sensor_id = "b2c5a6ed_ebe4_4c5c_9d8a_6d2f114fc6e5"
@@ -88,6 +82,9 @@ def main():
         "°C",
     )
 
+    # Sleep for one second
+    time.sleep(1)
+
     # Unset property
     device.send(
         "org.astarte-platform.genericsensors.AvailableSensors",
@@ -97,7 +94,9 @@ def main():
     device.unset_property("org.astarte-platform.genericsensors.AvailableSensors", "/wrongId/name")
 
     max_temp = 30
-    while True:
+
+    end_time = time.time() + duration
+    while time.time() < end_time:
         now = datetime.now(tz=timezone.utc)
 
         # Send single datastream
@@ -123,10 +122,21 @@ def main():
             "org.astarte-platform.genericsensors.Geolocation", "/gps", geo_data, now
         )
 
-        sleep(5)
+        time.sleep(5)
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-    main()
+    # Accept an argument to specify a set time duration for the example
+    parser = argparse.ArgumentParser(description="Sample for the Astarte device SDK Python")
+    parser.add_argument(
+        "-d",
+        "--duration",
+        type=int,
+        default=30,
+        help="Approximated duration in seconds for the example (default: 30)",
+    )
+    args = parser.parse_args()
+
+    # Creating a temporary directory
+    with tempfile.TemporaryDirectory(prefix="python_sdk_examples_") as temp_dir:
+        main(args.duration, temp_dir)
