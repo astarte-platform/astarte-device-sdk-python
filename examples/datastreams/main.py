@@ -21,76 +21,46 @@
 Example showing how to send/receive individual datastreams.
 
 """
-import os
+
+import argparse
+import tempfile
+import time
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
-from time import sleep
-
-from termcolor import cprint
 
 from astarte.device import DeviceMqtt
 
-_ROOT_DIR = Path(__file__).parent.absolute()
-_INTERFACES_DIR = _ROOT_DIR.joinpath("interfaces")
-_PERSISTENCY_DIR = _ROOT_DIR.joinpath(_ROOT_DIR, "build")
-if not Path.is_dir(_PERSISTENCY_DIR):
-    os.makedirs(_PERSISTENCY_DIR)
-_DEVICE_ID = "DEVICE ID HERE"
-_REALM = "REALM HERE"
-_CREDENTIAL_SECRET = "CREDENTIAL SECRET HERE"
-_PAIRING_URL = "PAIRING URL HERE"
-_IGNORE_SSL_ERRORS = True
+_INTERFACES_DIR = Path(__file__).parent.joinpath("interfaces").absolute()
+_CONFIGURATION_FILE = Path(__file__).parent.joinpath("config.toml").absolute()
 
 
 def on_connected_cbk(_):
     """
     Callback for a connection event.
     """
-    cprint("Device connected.", color="green", flush=True)
+    print("Device connected.")
 
 
-def on_data_received_cbk(device: DeviceMqtt, interface_name: str, path: str, payload: dict):
+def on_data_received_cbk(_: DeviceMqtt, interface_name: str, path: str, payload: dict):
     """
     Callback for a data reception event.
     """
-    cprint(
-        f"Received message for interface: {interface_name} and path: {path}.",
-        color="cyan",
-        flush=True,
-    )
-    cprint(f"    Payload: {payload}", color="cyan", flush=True)
+    print(f"Received message for interface: {interface_name} and path: {path}.")
+    print(f"    Payload: {payload}")
 
 
 def on_disconnected_cbk(_, reason: int):
     """
     Callback for a disconnection event.
     """
-    cprint(f"Device disconnected because: {reason}.", color="red", flush=True)
+    print("Device disconnected" + (f" because: {reason}." if reason else "."))
 
 
-# If called as a script
-if __name__ == "__main__":
-    # Instance the device
-    device = DeviceMqtt(
-        device_id=_DEVICE_ID,
-        realm=_REALM,
-        credentials_secret=_CREDENTIAL_SECRET,
-        pairing_base_url=_PAIRING_URL,
-        persistency_dir=_PERSISTENCY_DIR,
-        ignore_ssl_errors=_IGNORE_SSL_ERRORS,
-    )
-    # Load all the interfaces
-    device.add_interfaces_from_dir(_INTERFACES_DIR)
-    # Set all the callback functions
-    device.set_events_callbacks(
-        on_connected=on_connected_cbk,
-        on_data_received=on_data_received_cbk,
-        on_disconnected=on_disconnected_cbk,
-    )
-    # Connect the device
-    device.connect()
-
-    sleep(1)
+def stream_data(device: DeviceMqtt):
+    """
+    Stream some hardcoded tata data from a device to Astarte.
+    """
 
     # Send the binary blob endpoints
     device.send(
@@ -190,5 +160,58 @@ if __name__ == "__main__":
         datetime.now(tz=timezone.utc),
     )
 
-    while True:
-        sleep(5)
+
+# If called as a script
+if __name__ == "__main__":
+
+    # Accept an argument to specify a set time duration for the example
+    parser = argparse.ArgumentParser(
+        description="Datastream sample for the Astarte device SDK Python"
+    )
+    parser.add_argument(
+        "-d",
+        "--duration",
+        type=int,
+        default=30,
+        help="Approximated duration in seconds for the example (default: 30)",
+    )
+    args = parser.parse_args()
+
+    with open(_CONFIGURATION_FILE, "rb") as config_fp:
+        config = tomllib.load(config_fp)
+        _DEVICE_ID = config["DEVICE_ID"]
+        _REALM = config["REALM"]
+        _CREDENTIALS_SECRET = config["CREDENTIALS_SECRET"]
+        _PAIRING_URL = config["PAIRING_URL"]
+
+    # Creating a temporary directory
+    with tempfile.TemporaryDirectory(prefix="python_sdk_examples_") as temp_dir:
+
+        # Instantiate the device
+        device = DeviceMqtt(
+            device_id=_DEVICE_ID,
+            realm=_REALM,
+            credentials_secret=_CREDENTIALS_SECRET,
+            pairing_base_url=_PAIRING_URL,
+            persistency_dir=temp_dir,
+        )
+        # Load all the interfaces
+        device.add_interfaces_from_dir(_INTERFACES_DIR)
+        # Set all the callback functions
+        device.set_events_callbacks(
+            on_connected=on_connected_cbk,
+            on_data_received=on_data_received_cbk,
+            on_disconnected=on_disconnected_cbk,
+        )
+        # Connect the device
+        device.connect()
+        while not device.is_connected():
+            pass
+
+        # Stream some data from device to Astarte
+        stream_data(device)
+
+        # Sleep for the example duration
+        time.sleep(args.duration)
+
+        device.disconnect()

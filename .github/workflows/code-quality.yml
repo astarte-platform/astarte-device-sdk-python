@@ -23,6 +23,9 @@ on: [push, pull_request, create]
 jobs:
   static:
     runs-on: ubuntu-latest
+    concurrency:
+      group: static-${{ github.ref }}
+      cancel-in-progress: true
     name: Checks
     steps:
     - uses: actions/checkout@v4
@@ -33,8 +36,6 @@ jobs:
         python3 -m pip install -e .[static]
     - name: Linting
       run: python3 -m pylint astarte/device/*.py
-    - name: Format check (setup.py)
-      run: python3 -m black -l 100 --diff --check setup.py
     - name: Format check (main sources)
       run: python3 -m black -l 100 --diff --check astarte/device/
     - name: Format check (secondary sources)

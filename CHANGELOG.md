@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.3] - 2024-08-12
+### Added
+- A new get started guide.
+
+### Changed
+- Updated the examples and relative readme files.
+
 ## [0.13.2] - 2024-03-04
 ### Fixed
 - Streaming of empty arrays from the device to Astarte is now allowed.
