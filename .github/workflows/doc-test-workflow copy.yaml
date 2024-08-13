@@ -1,0 +1,79 @@
+# This file is part of Astarte.
+#
+# Copyright 2023 SECO Mind Srl
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test docs generation for Github Pages
+
+on: [push]
+
+jobs:
+  get-started-docs:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the source
+      - uses: actions/checkout@v4
+        with:
+          path: astarte-device-sdk-python
+      # Checkout the sdk-doc repository
+      - uses: actions/checkout@v4
+        with:
+          repository: astarte-platform/sdk-doc
+          ssh-key: ${{ secrets.SDK_DOC_DEPLOY_KEY }}
+          path: sdk-doc
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: check-release-branch
+        working-directory: ./astarte-device-sdk-python
+        shell: bash
+        run: |
+          latest_release=$(git branch -r | grep "release-*" | sort -t '-' -k 2,2nr | tail -n 1 | cut -d '/' -f 2)
+          current_branch=$(git branch --show-current)
+          echo "Current branch: $current_branch"
+          echo "Latest release: $latest_release"
+          if [[ "$current_branch" == "$latest_release" ]]; then
+            echo "Current branch is the latest release branch"
+            echo "RESULT=OK" >> $GITHUB_OUTPUT
+          else
+            echo "Current branch is not the latest release branch"
+            echo "RESULT=FAILED" >> $GITHUB_OUTPUT
+          fi
+      - name: Compare and copy get started
+        if: steps.check-release-branch.outputs.RESULT == 'OK'
+        run: |
+          our_get_started="./astarte-device-sdk-python/get_started.md"
+          their_get_started="./sdk-doc/source/get_started/get_started_python.md"
+          if cmp -s "$our_get_started" "$their_get_started"; then
+            echo "Get started are identical, no need for substitution"
+          else
+            diff "$our_get_started" "$their_get_started"
+            cp "$our_get_started" "$their_get_started"
+          fi
+      - name: Commit changes
+        needs: Compare and copy get started
+        working-directory: ./sdk-doc
+        run: |
+          git config --local user.email "astarte-machine@ispirata.com"
+          git config --local user.name "Astarte Bot"
+          git add .
+          git diff-index --quiet HEAD || git commit -m "Update Python SDK get started"
+      - name: Push changes
+        needs: Commit changes
+        working-directory: ./sdk-doc
+        run: |
+          git push origin master
