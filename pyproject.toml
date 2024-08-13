@@ -29,7 +29,7 @@ readme = "README.md"
 license = {text = "Apache-2.0"}
 dynamic = ["version"]
 dependencies = [
-    "requests>=2.22.0",
+    "requests>=2.25.1",
     "paho-mqtt==1.6.1",
     "cryptography>=3.2.1",
     "bson>=0.5.5",
