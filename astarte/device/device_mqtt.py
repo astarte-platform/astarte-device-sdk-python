@@ -308,7 +308,7 @@ class DeviceMqtt(Device):
             return
 
         self.__mqtt_client.disconnect()
-        self.__mqtt_client.loop_stop(force=False)
+        self.__mqtt_client.loop_stop()
 
     def is_connected(self) -> bool:
         """
