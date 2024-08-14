@@ -46,7 +46,8 @@ jobs:
         working-directory: ./astarte-device-sdk-python/docs
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel twine requests paho-mqtt cryptography bson PyJWT "Sphinx<7" m2r2 sphinx_rtd_theme
+          pip install -r requirements.txt
+          pip install -e ..
       - name: Generate Javadocs with Sphinx-doc
         working-directory: ./astarte-device-sdk-python/docs
         run: |
