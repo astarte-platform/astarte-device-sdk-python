@@ -62,18 +62,18 @@ def stream_data(device: DeviceGrpc):
     """
 
     # Send the binary blob endpoints
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/binaryblob_endpoint",
-    #     b"binblob",
-    #     datetime.now(tz=timezone.utc),
-    # )
-    # device.send(
-    #     "org.astarte-platform.python.examples.DeviceDatastream",
-    #     "/binaryblobarray_endpoint",
-    #     [b"bin", b"blob"],
-    #     datetime.now(tz=timezone.utc),
-    # )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/binaryblob_endpoint",
+        b"binblob",
+        datetime.now(tz=timezone.utc),
+    )
+    device.send(
+        "org.astarte-platform.python.examples.DeviceDatastream",
+        "/binaryblobarray_endpoint",
+        [b"bin", b"blob"],
+        datetime.now(tz=timezone.utc),
+    )
 
     # Send the boolean endpoints
     device.send(

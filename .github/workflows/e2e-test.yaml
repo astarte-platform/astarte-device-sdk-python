@@ -107,9 +107,8 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12"]
-        message-hub-version: ["v0.5.4", "v0.6.1"]
     concurrency:
-      group: e2e-test-grpc-${{ matrix.message-hub-version }}-${{ matrix.python-version }}-${{ github.ref }}
+      group: e2e-test-grpc-${{ matrix.python-version }}-${{ github.ref }}
       cancel-in-progress: true
     steps:
       - name: Checkout astarte-device-sdk-python
@@ -121,7 +120,7 @@ jobs:
         with:
           repository: astarte-platform/astarte-message-hub
           path: astarte-message-hub
-          ref: ${{ matrix.message-hub-version }}
+          ref: v0.6.1
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
@@ -183,7 +182,7 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: ./astarte-message-hub/target/release/astarte-message-hub
-          key: astarte-message-hub-${{ matrix.message-hub-version }}
+          key: astarte-message-hub-v0.6.1
       - name: Build message hub
         if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
         run: cargo build --release

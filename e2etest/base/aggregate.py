@@ -28,6 +28,7 @@ from http_requests import (
     get_server_interface,
     parse_received_data,
     post_server_interface,
+    prepare_transmit_data,
 )
 from termcolor import cprint
 
@@ -75,9 +76,11 @@ def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, 
         flush=True,
     )
 
-    post_server_interface(
-        test_cfg, test_cfg.interface_server_aggr, "/sensor_id", test_cfg.mock_data
-    )
+    mock_data_cpy = test_cfg.mock_data.copy()
+    for key, value in mock_data_cpy.items():
+        mock_data_cpy[key] = prepare_transmit_data(key, value)
+
+    post_server_interface(test_cfg, test_cfg.interface_server_aggr, "/sensor_id", mock_data_cpy)
 
     time.sleep(1)
 
