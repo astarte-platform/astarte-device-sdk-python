@@ -16,9 +16,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-name: Check examples grpc
+name: Check examples gRPC
 
-on: [pull_request, create]
+on: [pull_request]
 
 env:
   PB_REL: https://github.com/protocolbuffers/protobuf/releases
