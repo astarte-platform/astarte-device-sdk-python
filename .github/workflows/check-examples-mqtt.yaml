@@ -38,16 +38,16 @@ jobs:
         with:
           python-version: "3.12"
       - name: Create Astarte Cluster
-        id: astarte
         uses: astarte-platform/astarte-cluster-action@v1
         with:
-          astarte_version: "1.1.1"
-      - name: Install interfaces
+          astarte_version: "1.2.0"
+      - name: Install interface
+        working-directory: ./.github/workflows
+        timeout-minutes: 3
         run: |
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/examples/datastreams/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/examples/event_listener/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/examples/example_device/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces ls
+          ./install_interfaces.sh $GITHUB_WORKSPACE/examples/example_device/interfaces
+          ./install_interfaces.sh $GITHUB_WORKSPACE/examples/datastreams/interfaces
+          ./install_interfaces.sh $GITHUB_WORKSPACE/examples/event_listener/interfaces
       - name: Setup the configuration file for the datastream example
         working-directory: ./examples/datastreams
         run: |
