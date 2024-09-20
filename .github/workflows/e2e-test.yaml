@@ -40,14 +40,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Create Astarte Cluster
-        id: astarte
         uses: astarte-platform/astarte-cluster-action@v1
         with:
-          astarte_version: "1.1.1"
+          astarte_version: "1.2.0"
       - name: Install interface
-        run: |
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/e2etest/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces ls
+        working-directory: ./.github/workflows
+        timeout-minutes: 3
+        run: ./install_interfaces.sh $GITHUB_WORKSPACE/e2etest/interfaces
       - name: Setup env variables common for all devices
         run: |
           echo "E2E_REALM=test" >> $GITHUB_ENV
@@ -137,14 +136,13 @@ jobs:
           toolchain: stable
           override: true
       - name: Create Astarte Cluster
-        id: astarte
         uses: astarte-platform/astarte-cluster-action@v1
         with:
-          astarte_version: "1.1.1"
+          astarte_version: "1.2.0"
       - name: Install interface
-        run: |
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/astarte-device-sdk-python/e2etest/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces ls
+        working-directory: ./astarte-device-sdk-python/.github/workflows
+        timeout-minutes: 3
+        run: ./install_interfaces.sh $GITHUB_WORKSPACE/astarte-device-sdk-python/e2etest/interfaces
       - name: Setup device generic env variables
         run: |
           echo "E2E_REALM=test" >> $GITHUB_ENV
