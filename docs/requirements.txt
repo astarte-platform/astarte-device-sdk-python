@@ -1,6 +1,7 @@
 # Copyright 2024 SECO Mind Srl
 # SPDX-License-Identifier: Apache-2.0
 
-Sphinx
-m2r2
-sphinx_rtd_theme
+Sphinx==7.4.7
+setuptools==75.1.0
+m2r2==0.3.3.post2
+sphinx_rtd_theme==2.0.0
