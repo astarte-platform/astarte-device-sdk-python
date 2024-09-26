@@ -118,6 +118,7 @@ disable=
     # Currently the "not callable" error throws false positive warnings
     # See https://github.com/PyCQA/pylint/issues/1493
     not-callable,
+    too-many-positional-arguments
 
 
 [REPORTS]
