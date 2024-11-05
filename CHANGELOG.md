@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 Support for `astarte-message-hub` version `0.6.1`.
 
+### Fixed
+- Client certificates are now validated through the REST APIs instead of checking their
+  expiration. Checking only the certificate expiration would lead to deadlocks since Astarte could
+  have rendered the certificate invalid without notifying the device.
+
 ## [0.13.3] - 2024-08-12
 ### Added
 - A new get started guide.
