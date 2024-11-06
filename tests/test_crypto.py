@@ -166,13 +166,29 @@ class UnitTests(unittest.TestCase):
     @mock.patch("astarte.device.crypto.path.exists", side_effect=[True, True])
     def test_device_has_certificate(self, mock_exists, mock_certificate_is_valid):
         # Has certificate
-        self.assertTrue(crypto.device_has_certificate("store directory"))
+        self.assertTrue(
+            crypto.device_has_certificate(
+                "device_id",
+                "realm_name",
+                "credential_secret",
+                "pairing_base_url",
+                False,
+                "store directory",
+            )
+        )
 
         mock_exists.assert_has_calls(
             [mock.call("store directory/device.crt"), mock.call("store directory/device.key")]
         )
         self.assertEqual(mock_exists.call_count, 2)
-        mock_certificate_is_valid.assert_called_once_with("store directory")
+        mock_certificate_is_valid.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "store directory",
+        )
 
         # Certificate is not valid
         mock_exists.reset_mock()
@@ -181,13 +197,29 @@ class UnitTests(unittest.TestCase):
         mock_certificate_is_valid.return_value = False
         mock_exists.side_effect = [True, True]
 
-        self.assertFalse(crypto.device_has_certificate("store directory"))
+        self.assertFalse(
+            crypto.device_has_certificate(
+                "device_id",
+                "realm_name",
+                "credential_secret",
+                "pairing_base_url",
+                False,
+                "store directory",
+            )
+        )
 
         mock_exists.assert_has_calls(
             [mock.call("store directory/device.crt"), mock.call("store directory/device.key")]
         )
         self.assertEqual(mock_exists.call_count, 2)
-        mock_certificate_is_valid.assert_called_once_with("store directory")
+        mock_certificate_is_valid.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "store directory",
+        )
 
         # Certificate file is not present
         mock_exists.reset_mock()
@@ -196,7 +228,16 @@ class UnitTests(unittest.TestCase):
         mock_certificate_is_valid.return_value = True
         mock_exists.side_effect = [False, True]
 
-        self.assertFalse(crypto.device_has_certificate("store directory"))
+        self.assertFalse(
+            crypto.device_has_certificate(
+                "device_id",
+                "realm_name",
+                "credential_secret",
+                "pairing_base_url",
+                False,
+                "store directory",
+            )
+        )
 
         mock_exists.assert_called_once_with("store directory/device.crt")
         mock_certificate_is_valid.assert_not_called()
@@ -208,7 +249,16 @@ class UnitTests(unittest.TestCase):
         mock_certificate_is_valid.return_value = True
         mock_exists.side_effect = [True, False]
 
-        self.assertFalse(crypto.device_has_certificate("store directory"))
+        self.assertFalse(
+            crypto.device_has_certificate(
+                "device_id",
+                "realm_name",
+                "credential_secret",
+                "pairing_base_url",
+                False,
+                "store directory",
+            )
+        )
 
         mock_exists.assert_has_calls(
             [mock.call("store directory/device.crt"), mock.call("store directory/device.key")]
@@ -216,91 +266,78 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(mock_exists.call_count, 2)
         mock_certificate_is_valid.assert_not_called()
 
-    @mock.patch("astarte.device.crypto.datetime")
-    @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
+    @mock.patch("astarte.device.crypto.pairing_handler.verify_device_certificate")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
-    def test_certificate_is_valid(self, open_mock, mock_load_pem_x509_certificate, mock_datetime):
+    def test_certificate_is_valid(self, open_mock, mock_verify_device_certificate):
         open_mock.return_value.read.return_value = "certificate content"
-        mock_datetime.utcnow.return_value = 42
-        mock_load_pem_x509_certificate.return_value.not_valid_before = 41
-        mock_load_pem_x509_certificate.return_value.not_valid_after = 43
+        mock_verify_device_certificate.return_value = True
 
-        self.assertTrue(crypto.certificate_is_valid("store directory"))
+        self.assertTrue(
+            crypto.certificate_is_valid(
+                "device_id",
+                "realm_name",
+                "credential_secret",
+                "pairing_base_url",
+                False,
+                "store directory",
+            )
+        )
 
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_load_pem_x509_certificate.assert_called_once_with(
-            "certificate content".encode("ascii")
+        mock_verify_device_certificate.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "certificate content",
         )
-        mock_datetime.utcnow.assert_called_once()
 
-    @mock.patch("astarte.device.crypto.datetime")
-    @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
+    @mock.patch("astarte.device.crypto.pairing_handler.verify_device_certificate")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
     def test_certificate_is_valid_empty_certificate(
-        self, open_mock, mock_load_pem_x509_certificate, mock_datetime
+        self, open_mock, mock_verify_device_certificate
     ):
         open_mock.return_value.read.return_value = ""
+        mock_verify_device_certificate.return_value = True
 
-        self.assertFalse(crypto.certificate_is_valid("store directory"))
-
-        open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_load_pem_x509_certificate.assert_not_called()
-        mock_datetime.utcnow.assert_not_called()
-
-    @mock.patch("astarte.device.crypto.datetime")
-    @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
-    @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
-    def test_certificate_is_valid_load_certificate_raises(
-        self, open_mock, mock_load_pem_x509_certificate, mock_datetime
-    ):
-        open_mock.return_value.read.return_value = "certificate content"
-        mock_load_pem_x509_certificate.side_effect = mock.Mock(side_effect=ValueError("Msg"))
-        mock_datetime.utcnow.return_value = 42
-        mock_load_pem_x509_certificate.return_value.not_valid_before = 41
-        mock_load_pem_x509_certificate.return_value.not_valid_after = 43
-
-        self.assertFalse(crypto.certificate_is_valid("store directory"))
-
-        open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_load_pem_x509_certificate.assert_called_once_with(
-            "certificate content".encode("ascii")
+        self.assertFalse(
+            crypto.certificate_is_valid(
+                "device_id",
+                "realm_name",
+                "credential_secret",
+                "pairing_base_url",
+                False,
+                "store directory",
+            )
         )
-        mock_datetime.utcnow.assert_not_called()
-
-    @mock.patch("astarte.device.crypto.datetime")
-    @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
-    @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
-    def test_certificate_is_valid_too_old(
-        self, open_mock, mock_load_pem_x509_certificate, mock_datetime
-    ):
-        open_mock.return_value.read.return_value = "certificate content"
-        mock_datetime.utcnow.return_value = 43
-        mock_load_pem_x509_certificate.return_value.not_valid_before = 41
-        mock_load_pem_x509_certificate.return_value.not_valid_after = 43
-
-        self.assertFalse(crypto.certificate_is_valid("store directory"))
 
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_load_pem_x509_certificate.assert_called_once_with(
-            "certificate content".encode("ascii")
-        )
-        mock_datetime.utcnow.assert_called_once()
+        mock_verify_device_certificate.assert_not_called()
 
-    @mock.patch("astarte.device.crypto.datetime")
-    @mock.patch("astarte.device.crypto.x509.load_pem_x509_certificate")
+    @mock.patch("astarte.device.crypto.pairing_handler.verify_device_certificate")
     @mock.patch("astarte.device.crypto.open", new_callable=mock.mock_open)
-    def test_certificate_is_valid_too_recent(
-        self, open_mock, mock_load_pem_x509_certificate, mock_datetime
-    ):
+    def test_certificate_is_invalid(self, open_mock, mock_verify_device_certificate):
         open_mock.return_value.read.return_value = "certificate content"
-        mock_datetime.utcnow.return_value = 41
-        mock_load_pem_x509_certificate.return_value.not_valid_before = 41
-        mock_load_pem_x509_certificate.return_value.not_valid_after = 43
+        mock_verify_device_certificate.return_value = False
 
-        self.assertFalse(crypto.certificate_is_valid("store directory"))
+        self.assertFalse(
+            crypto.certificate_is_valid(
+                "device_id",
+                "realm_name",
+                "credential_secret",
+                "pairing_base_url",
+                False,
+                "store directory",
+            )
+        )
 
         open_mock.assert_called_once_with("store directory/device.crt", "r", encoding="utf-8")
-        mock_load_pem_x509_certificate.assert_called_once_with(
-            "certificate content".encode("ascii")
+        mock_verify_device_certificate.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "certificate content",
         )
-        mock_datetime.utcnow.assert_called_once()

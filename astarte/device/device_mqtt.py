@@ -222,7 +222,15 @@ class DeviceMqtt(Device):
         if self.__is_crypto_setup:
             return
 
-        if not crypto.device_has_certificate(self.__crypto_dir):
+        # Check certificate validity, or obtain an new certificate
+        if not crypto.device_has_certificate(
+            self.__device_id,
+            self.__realm,
+            self.__credentials_secret,
+            self.__pairing_base_url,
+            self.__ignore_ssl_errors,
+            self.__crypto_dir,
+        ):
             pairing_handler.obtain_device_certificate(
                 self.__device_id,
                 self.__realm,
@@ -456,9 +464,15 @@ class DeviceMqtt(Device):
         # If rc was explicit, stop the loop (after the callback)
         if not rc:
             self.__mqtt_client.loop_stop()
-        # Else check certificate expiration and try reconnection
-        # TODO: check for MQTT_ERR_TLS when Paho correctly returns it
-        elif not crypto.certificate_is_valid(self.__crypto_dir):
+        # Else check certificate validity and try reconnection
+        elif not crypto.certificate_is_valid(
+            self.__device_id,
+            self.__realm,
+            self.__credentials_secret,
+            self.__pairing_base_url,
+            self.__ignore_ssl_errors,
+            self.__crypto_dir,
+        ):
             self.__mqtt_client.loop_stop()
             # If the certificate must be regenerated, old mqtt client is no longer valid as it is
             # bound to the wrong TLS params and paho does not allow to replace them a second time
