@@ -20,3 +20,10 @@ REALM = "<REALM>"
 PAIRING_URL = "<PAIRING_URL>"
 DEVICE_ID = "<DEVICE_ID>"
 CREDENTIALS_SECRET = "<CREDENTIALS_SECRET>"
+STREAM_INDIVIDUAL_DATA = true
+STREAM_AGGREGATED_DATA = true
+SET_PROPERTIES = true
+UNSET_PROPERTIES = true
+# This wait time is the time the device will wait for data from Astarte at the end of all
+# transmissions.
+WAIT_FOR_INCOMING_S = 30

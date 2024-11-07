@@ -74,8 +74,7 @@ class TestCfg:
                 "doublearray_endpoint": [22.2, 322.22, 12.3, 0.1],
                 "integerarray_endpoint": [22, 322, 0, 10],
                 "booleanarray_endpoint": [True, False, True, False],
-                "longintegerarray_endpoint": [45543543534, 45543543534],
-                # "longintegerarray_endpoint": [45543543534, 10, 0, 45543543534],
+                "longintegerarray_endpoint": [45543543534, 10, 0, 45543543534],
                 "stringarray_endpoint": ["hello", " world"],
                 "binaryblobarray_endpoint": [b"bin", b"blob"],
                 "datetimearray_endpoint": [

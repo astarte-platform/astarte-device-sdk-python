@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-name: End to End test
+name: End to End test gRPC
 
 on: [pull_request]
 
@@ -42,7 +42,7 @@ jobs:
         with:
           repository: astarte-platform/astarte-message-hub
           path: astarte-message-hub
-          ref: v0.5.4
+          ref: v0.6.1
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -59,14 +59,13 @@ jobs:
           toolchain: stable
           override: true
       - name: Create Astarte Cluster
-        id: astarte
         uses: astarte-platform/astarte-cluster-action@v1
         with:
-          astarte_version: "1.1.1"
+          astarte_version: "1.2.0"
       - name: Install interface
-        run: |
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/astarte-device-sdk-python/e2etest/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces ls
+        working-directory: ./astarte-device-sdk-python/.github/workflows
+        timeout-minutes: 3
+        run: ./install_interfaces.sh $GITHUB_WORKSPACE/astarte-device-sdk-python/e2etest/interfaces
       - name: Setup device generic env variables
         run: |
           echo "E2E_REALM=test" >> $GITHUB_ENV
@@ -104,7 +103,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ./astarte-message-hub/target/release/astarte-message-hub
-          key: astarte-message-hub-v0.5.4
+          key: astarte-message-hub-v0.6.1
       - name: Build message hub
         if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
         run: cargo build --release

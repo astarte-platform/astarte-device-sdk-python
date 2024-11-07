@@ -1,5 +1,5 @@
 {
-    "interface_name": "org.astarte-platform.python.e2etest.DeviceAggregate",
+    "interface_name": "org.astarte-platform.python.examples.DeviceAggregate",
     "version_major": 0,
     "version_minor": 1,
     "type": "datastream",
@@ -8,11 +8,6 @@
     "description": "Test aggregate interface.",
     "doc": "Test interface used to test aggregates.",
     "mappings": [
-        {
-            "endpoint": "/%{sensor_id}/binaryblob_endpoint",
-            "type": "binaryblob",
-            "explicit_timestamp": false
-        },
         {
             "endpoint": "/%{sensor_id}/double_endpoint",
             "type": "double",
@@ -39,13 +34,13 @@
             "explicit_timestamp": false
         },
         {
-            "endpoint": "/%{sensor_id}/datetime_endpoint",
-            "type": "datetime",
+            "endpoint": "/%{sensor_id}/binaryblob_endpoint",
+            "type": "binaryblob",
             "explicit_timestamp": false
         },
         {
-            "endpoint": "/%{sensor_id}/binaryblobarray_endpoint",
-            "type": "binaryblobarray",
+            "endpoint": "/%{sensor_id}/datetime_endpoint",
+            "type": "datetime",
             "explicit_timestamp": false
         },
         {
@@ -71,6 +66,11 @@
         {
             "endpoint": "/%{sensor_id}/stringarray_endpoint",
             "type": "stringarray",
+            "explicit_timestamp": false
+        },
+        {
+            "endpoint": "/%{sensor_id}/binaryblobarray_endpoint",
+            "type": "binaryblobarray",
             "explicit_timestamp": false
         },
         {

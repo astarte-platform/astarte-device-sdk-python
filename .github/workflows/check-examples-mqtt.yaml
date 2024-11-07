@@ -38,38 +38,16 @@ jobs:
         with:
           python-version: "3.12"
       - name: Create Astarte Cluster
-        id: astarte
         uses: astarte-platform/astarte-cluster-action@v1
         with:
-          astarte_version: "1.1.1"
-      - name: Install interfaces
+          astarte_version: "1.2.0"
+      - name: Install interface
+        working-directory: ./.github/workflows
+        timeout-minutes: 3
         run: |
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/examples/datastreams/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/examples/event_listener/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces sync $GITHUB_WORKSPACE/examples/example_device/interfaces/*.json --non-interactive
-          astartectl realm-management interfaces ls
-      - name: Setup the configuration file for the datastream example
-        working-directory: ./examples/datastreams
-        run: |
-          echo "REALM = \"test\"" > config.toml
-          echo "PAIRING_URL = \"https://api.autotest.astarte-platform.org/pairing\"" >> config.toml
-          DEVICE_ID=$(astartectl utils device-id generate-random)
-          echo "DEVICE_ID = \"$DEVICE_ID\"" >> config.toml
-          CREDENTIALS_SECRET=$(astartectl pairing agent register --compact-output -- "$DEVICE_ID")
-          echo "CREDENTIALS_SECRET = \"$CREDENTIALS_SECRET\"" >> config.toml
-          cat config.toml
-      - name: Setup the configuration file for the event_listener example
-        working-directory: ./examples/event_listener
-        run: |
-          echo "REALM = \"test\"" > config.toml
-          echo "PAIRING_URL = \"https://api.autotest.astarte-platform.org/pairing\"" >> config.toml
-          DEVICE_ID=$(astartectl utils device-id generate-random)
-          echo "DEVICE_ID = \"$DEVICE_ID\"" >> config.toml
-          CREDENTIALS_SECRET=$(astartectl pairing agent register --compact-output -- "$DEVICE_ID")
-          echo "CREDENTIALS_SECRET = \"$CREDENTIALS_SECRET\"" >> config.toml
-          cat config.toml
-      - name: Setup the configuration file for the example device example
-        working-directory: ./examples/example_device
+          ./install_interfaces.sh $GITHUB_WORKSPACE/examples/mqtt/interfaces
+      - name: Setup the configuration file for the example
+        working-directory: ./examples/mqtt
         run: |
           echo "REALM = \"test\"" > config.toml
           echo "PAIRING_URL = \"https://api.autotest.astarte-platform.org/pairing\"" >> config.toml
@@ -82,18 +60,8 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install -e .
-      - name: Execute the datastream example
-        working-directory: ./examples/datastreams
+      - name: Execute the example
+        working-directory: ./examples/mqtt
         run: |
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-          python3 ./main.py -d 10
-      - name: Execute the event_listener example
-        working-directory: ./examples/event_listener
-        run: |
-          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-          python3 ./event_listener.py -d 10
-      - name: Execute the example_device example
-        working-directory: ./examples/example_device
-        run: |
-          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-          python3 ./example_device.py -d 10
+          python3 ./main.py
