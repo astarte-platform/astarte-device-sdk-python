@@ -211,6 +211,64 @@ def obtain_device_certificate(
     crypto.import_device_certificate(res.json()["data"]["client_crt"], crypto_store_dir)
 
 
+def verify_device_certificate(
+    device_id: str,
+    realm: str,
+    credentials_secret: str,
+    pairing_base_url: str,
+    ignore_ssl_errors: bool,
+    cert_pem: str,
+) -> bool:
+    """
+    Utility function that verifies the validity of a device certificate with Astarte
+
+    Parameters
+    ----------
+    device_id: str
+        The device ID
+    realm: str
+        The Astarte realm where the device is registered
+    pairing_base_url: str
+        The base URL for the Astarte pairing APIs
+    credentials_secret: str
+        The credentials secret for the device in the given realm
+    ignore_ssl_errors: str
+        Set to True to ignore SSL errors
+    cert_pem: str
+        Certificate to verify in the PEM format
+
+    Raises
+    ------
+    AuthorizationError
+        If the authentication provided was not correct
+    APIError
+        If a generic Error was returned by the APIs
+
+    Returns
+    -------
+    bool
+        True if the certificate is valid, False otherwise.
+    """
+
+    # Prepare the Pairing API request
+    headers = {"Authorization": f"Bearer {credentials_secret}"}
+    data = {"data": {"client_crt": cert_pem}}
+
+    res = requests.post(
+        f"{pairing_base_url}/v1/{realm}/devices/{device_id}/protocols/astarte_mqtt_v1/credentials/verify",
+        json=data,
+        headers=headers,
+        verify=not ignore_ssl_errors,
+        timeout=DEFAULT_TIMEOUT,
+    )
+    if res.status_code in {http.HTTPStatus.UNAUTHORIZED, http.HTTPStatus.FORBIDDEN}:
+        raise exceptions.AuthorizationError(res.json())
+    if res.status_code != http.HTTPStatus.OK:
+        raise exceptions.APIError(res.json())
+
+    return res.json().get("data", False).get("valid", False)
+
+
 def obtain_device_transport_information(
     device_id: str,
     realm: str,

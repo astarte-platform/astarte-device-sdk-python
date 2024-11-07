@@ -44,7 +44,11 @@ from astarteplatform.msghub.astarte_type_pb2 import (
 from astarteplatform.msghub.message_hub_service_pb2_grpc import MessageHubStub
 from astarteplatform.msghub.node_pb2 import Node
 from google.protobuf.timestamp_pb2 import Timestamp
-from grpc import ChannelConnectivity
+from grpc import (
+    ChannelConnectivity,
+    UnaryStreamClientInterceptor,
+    UnaryUnaryClientInterceptor,
+)
 from grpc._channel import _MultiThreadedRendezvous
 
 # pylint: enable=no-name-in-module
@@ -176,6 +180,11 @@ class DeviceGrpc(Device):
 
         self.__grpc_channel = grpc.insecure_channel(self._server_addr)
         self.__grpc_channel.subscribe(self._on_connectivity_change)
+        unary_unary_interceptor = AstarteUnaryUnaryInterceptor(node_id=self._node_uuid)
+        unary__stream_interceptor = AstarteUnaryStreamInterceptor(node_id=self._node_uuid)
+        self.__grpc_channel = grpc.intercept_channel(
+            self.__grpc_channel, unary_unary_interceptor, unary__stream_interceptor
+        )
         self.__msghub_stub = MessageHubStub(self.__grpc_channel)
 
         self.__msghub_node = Node(
@@ -566,3 +575,120 @@ def _decode_astarte_data_type_individual(astarte_data_type_individual: AstarteDa
     if individual_data_opt == "astarte_date_time_array":
         individual_data = [e.ToDatetime(timezone.utc) for e in individual_data]
     return individual_data
+
+
+class AstarteClientCallDetails(
+    collections.namedtuple(
+        "AstarteClientCallDetails",
+        (
+            "method",
+            "timeout",
+            "metadata",
+            "credentials",
+            "wait_for_ready",
+            "compression",
+        ),
+    ),
+    grpc.ClientCallDetails,
+):
+    """
+    Astarte implementation for gRPC client call details.
+    """
+
+
+class AstarteUnaryUnaryInterceptor(UnaryUnaryClientInterceptor):
+    """
+    Astarte implementation for a gRPC unary-unary client interceptor.
+    """
+
+    def __init__(self, node_id):
+        self.node_id = node_id
+
+    def intercept_unary_unary(self, continuation, client_call_details, request):
+        """
+        Implementation for the abstract interceptor method.
+
+        Parameters
+        ----------
+        continuation : Any
+            See parent class.
+        client_call_details : Any
+            See parent class.
+        request : Any
+            See parent class.
+
+        Returns
+        ------
+        Any
+            See the parent class.
+        """
+        logging.debug("Called interceptor with client call details: %s", str(client_call_details))
+        new_client_call_details = add_node_id_in_metadata(self.node_id, client_call_details)
+        logging.debug("New client call details: %s", str(new_client_call_details))
+        return continuation(new_client_call_details, request)
+
+
+class AstarteUnaryStreamInterceptor(UnaryStreamClientInterceptor):
+    """
+    Astarte implementation for a gRPC unary-stream client interceptor.
+    """
+
+    def __init__(self, node_id):
+        self.node_id = node_id
+
+    def intercept_unary_stream(self, continuation, client_call_details, request):
+        """
+        Implementation for the abstract interceptor method.
+
+        Parameters
+        ----------
+        continuation : Any
+            See parent class.
+        client_call_details : Any
+            See parent class.
+        request : Any
+            See parent class.
+
+        Returns
+        ------
+        Any
+            See the parent class.
+        """
+        logging.debug("Called interceptor with client call details: %s", str(client_call_details))
+        new_client_call_details = add_node_id_in_metadata(self.node_id, client_call_details)
+        logging.debug("New client call details: %s", str(new_client_call_details))
+        return continuation(new_client_call_details, request)
+
+
+def add_node_id_in_metadata(
+    node_id: str, client_call_details: grpc._interceptor._ClientCallDetails
+):
+    """
+    Add an Astarte message hub ID to che grpc client call details as a metadata fields.
+
+    Note: This function doesn't perform in place changes to client_call_details. It returns a
+    totally new set of client call details.
+
+    Parameters
+    ----------
+    node_id : str
+        The node ID to add.
+    client_call_details : Any
+        The client call details to modify.
+
+    Returns
+    ------
+    grpc._interceptor._ClientCallDetails
+        The new client call details.
+    """
+    metadata = client_call_details.metadata if client_call_details.metadata else []
+    metadata.append(("node-id", node_id))
+    new_client_call_details = AstarteClientCallDetails(
+        client_call_details.method,
+        client_call_details.timeout,
+        metadata,
+        client_call_details.credentials,
+        client_call_details.wait_for_ready,
+        client_call_details.compression,
+    )
+    return new_client_call_details

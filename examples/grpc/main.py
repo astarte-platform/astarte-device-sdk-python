@@ -74,6 +74,7 @@ def stream_data(device: DeviceGrpc):
         [b"bin", b"blob"],
         datetime.now(tz=timezone.utc),
     )
+
     # Send the boolean endpoints
     device.send(
         "org.astarte-platform.python.examples.DeviceDatastream",
@@ -102,7 +103,7 @@ def stream_data(device: DeviceGrpc):
         datetime.now(tz=timezone.utc),
     )
 
-    # # Send the double endpoints
+    # Send the double endpoints
     device.send(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/double_endpoint",
@@ -116,7 +117,7 @@ def stream_data(device: DeviceGrpc):
         datetime.now(tz=timezone.utc),
     )
 
-    # # Send the integer endpoints
+    # Send the integer endpoints
     device.send(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/integer_endpoint",
@@ -130,7 +131,7 @@ def stream_data(device: DeviceGrpc):
         datetime.now(tz=timezone.utc),
     )
 
-    # # Send the long integer endpoints
+    # Send the long integer endpoints
     device.send(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/longinteger_endpoint",
@@ -144,7 +145,7 @@ def stream_data(device: DeviceGrpc):
         datetime.now(tz=timezone.utc),
     )
 
-    # # Send the string endpoints
+    # Send the string endpoints
     device.send(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/string_endpoint",

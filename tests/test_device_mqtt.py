@@ -357,7 +357,14 @@ class UnitTests(unittest.TestCase):
         mock_urlparse.return_value.port = "mocked port"
 
         device.connect()
-        mock_has_certificate.assert_called_once_with("./tests/device_id/crypto")
+        mock_has_certificate.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "./tests/device_id/crypto",
+        )
         mock_obtain_certificate.assert_called_once_with(
             "device_id",
             "realm_name",
@@ -493,7 +500,14 @@ class UnitTests(unittest.TestCase):
 
         device.connect()
 
-        mock_has_certificate.assert_called_once_with("./tests/device_id/crypto")
+        mock_has_certificate.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "./tests/device_id/crypto",
+        )
         mock_obtain_certificate.assert_not_called()
         mock_tls_set.assert_called_once_with(
             ca_certs=None,
@@ -544,7 +558,14 @@ class UnitTests(unittest.TestCase):
 
         device.connect()
 
-        mock_has_certificate.assert_called_once_with("./tests/device_id/crypto")
+        mock_has_certificate.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            True,
+            "./tests/device_id/crypto",
+        )
         mock_obtain_certificate.assert_called_once_with(
             "device_id",
             "realm_name",
@@ -603,7 +624,14 @@ class UnitTests(unittest.TestCase):
 
         self.assertRaises(APIError, device.connect)
 
-        mock_has_certificate.assert_called_once_with("./tests/device_id/crypto")
+        mock_has_certificate.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "./tests/device_id/crypto",
+        )
         mock_obtain_certificate.assert_called_once_with(
             "device_id",
             "realm_name",
@@ -1280,7 +1308,14 @@ class UnitTests(unittest.TestCase):
         device._DeviceMqtt__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
 
         on_disconnected_mock.assert_called_once_with(device, paho.mqtt.client.MQTT_ERR_NO_CONN)
-        mock_cartificate_is_valid.assert_called_once_with("./tests/device_id/crypto")
+        mock_cartificate_is_valid.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "./tests/device_id/crypto",
+        )
         mock_loop_stop.assert_called_once()
         mock_connect.assert_called_once()
 
@@ -1297,7 +1332,14 @@ class UnitTests(unittest.TestCase):
         device._DeviceMqtt__on_disconnect(None, None, rc=paho.mqtt.client.MQTT_ERR_NO_CONN)
 
         on_disconnected_mock.assert_called_once_with(device, paho.mqtt.client.MQTT_ERR_NO_CONN)
-        mock_cartificate_is_valid.assert_called_once_with("./tests/device_id/crypto")
+        mock_cartificate_is_valid.assert_called_once_with(
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            False,
+            "./tests/device_id/crypto",
+        )
         mock_loop_stop.assert_not_called()
         mock_connect.assert_not_called()
 

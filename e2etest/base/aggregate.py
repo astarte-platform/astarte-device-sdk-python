@@ -77,13 +77,11 @@ def test_aggregate_from_server_to_device(test_cfg: TestCfg, rx_data_lock: Lock, 
         flush=True,
     )
 
-    data = copy.deepcopy(test_cfg.mock_data)
-    key = "binaryblob_endpoint"
-    data[key] = prepare_transmit_data(key, data[key])
-    key = "binaryblobarray_endpoint"
-    data[key] = prepare_transmit_data(key, data[key])
+    mock_data_cpy = test_cfg.mock_data.copy()
+    for key, value in mock_data_cpy.items():
+        mock_data_cpy[key] = prepare_transmit_data(key, value)
 
-    post_server_interface(test_cfg, test_cfg.interface_server_aggr, "/sensor_id", data)
+    post_server_interface(test_cfg, test_cfg.interface_server_aggr, "/sensor_id", mock_data_cpy)
 
     time.sleep(1)
 

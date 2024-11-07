@@ -249,8 +249,14 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
     @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.grpc.intercept_channel")
+    @mock.patch("astarte.device.device_grpc.AstarteUnaryStreamInterceptor")
+    @mock.patch("astarte.device.device_grpc.AstarteUnaryUnaryInterceptor")
     def test_devicegrpc_connect(
         self,
+        mock_AstarteUnaryUnaryInterceptor,
+        mock_AstarteUnaryStreamInterceptor,
+        mock_intercept_channel,
         mock_insecure_channel,
         mock_msg_hub_stub,
         mock_node,
@@ -273,7 +279,12 @@ class TestMyAbstract(unittest.TestCase):
         mock_insecure_channel.return_value.subscribe.assert_called_once_with(
             device._on_connectivity_change
         )
-        mock_msg_hub_stub.assert_called_once_with(mock_insecure_channel.return_value)
+        mock_intercept_channel.assert_called_once_with(
+            mock_insecure_channel.return_value,
+            mock_AstarteUnaryUnaryInterceptor.return_value,
+            mock_AstarteUnaryStreamInterceptor.return_value,
+        )
+        mock_msg_hub_stub.assert_called_once_with(mock_intercept_channel.return_value)
         mock_node.assert_called_once_with(uuid=node_uuid, interface_jsons=[])
         mock_msg_hub_stub.return_value.Attach.assert_called_once_with(mock_node.return_value)
 
@@ -317,8 +328,14 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
     @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.grpc.intercept_channel")
+    @mock.patch("astarte.device.device_grpc.AstarteUnaryStreamInterceptor")
+    @mock.patch("astarte.device.device_grpc.AstarteUnaryUnaryInterceptor")
     def test_devicegrpc__on_connectivity_change(
         self,
+        mock_AstarteUnaryUnaryInterceptor,
+        mock_AstarteUnaryStreamInterceptor,
+        mock_intercept_channel,
         mock_insecure_channel,
         mock_msg_hub_stub,
         mock_node,
@@ -350,7 +367,12 @@ class TestMyAbstract(unittest.TestCase):
         mock_insecure_channel.return_value.subscribe.assert_called_once_with(
             device._on_connectivity_change
         )
-        mock_msg_hub_stub.assert_called_once_with(mock_insecure_channel.return_value)
+        mock_intercept_channel.assert_called_once_with(
+            mock_insecure_channel.return_value,
+            mock_AstarteUnaryUnaryInterceptor.return_value,
+            mock_AstarteUnaryStreamInterceptor.return_value,
+        )
+        mock_msg_hub_stub.assert_called_once_with(mock_intercept_channel.return_value)
         mock_node.assert_called_once_with(uuid=node_uuid, interface_jsons=[])
         mock_msg_hub_stub.return_value.Attach.assert_called_once_with(mock_node.return_value)
 
@@ -408,8 +430,14 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
     @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.grpc.intercept_channel")
+    @mock.patch("astarte.device.device_grpc.AstarteUnaryStreamInterceptor")
+    @mock.patch("astarte.device.device_grpc.AstarteUnaryUnaryInterceptor")
     def test_devicegrpc__on_connectivity_change_threaded(
         self,
+        mock_AstarteUnaryUnaryInterceptor,
+        mock_AstarteUnaryStreamInterceptor,
+        mock_intercept_channel,
         mock_insecure_channel,
         mock_msg_hub_stub,
         mock_node,
@@ -443,7 +471,12 @@ class TestMyAbstract(unittest.TestCase):
         mock_insecure_channel.return_value.subscribe.assert_called_once_with(
             device._on_connectivity_change
         )
-        mock_msg_hub_stub.assert_called_once_with(mock_insecure_channel.return_value)
+        mock_intercept_channel.assert_called_once_with(
+            mock_insecure_channel.return_value,
+            mock_AstarteUnaryUnaryInterceptor.return_value,
+            mock_AstarteUnaryStreamInterceptor.return_value,
+        )
+        mock_msg_hub_stub.assert_called_once_with(mock_intercept_channel.return_value)
         mock_node.assert_called_once_with(uuid=node_uuid, interface_jsons=[])
         mock_msg_hub_stub.return_value.Attach.assert_called_once_with(mock_node.return_value)
 
@@ -495,8 +528,14 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
     @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.grpc.intercept_channel")
+    @mock.patch("astarte.device.device_grpc.AstarteUnaryStreamInterceptor")
+    @mock.patch("astarte.device.device_grpc.AstarteUnaryUnaryInterceptor")
     def test_devicegrpc__rx_stream_handler(
         self,
+        mock_AstarteUnaryUnaryInterceptor,
+        mock_AstarteUnaryStreamInterceptor,
+        mock_intercept_channel,
         mock_insecure_channel,
         mock_msg_hub_stub,
         mock_node,
@@ -549,7 +588,12 @@ class TestMyAbstract(unittest.TestCase):
         mock_insecure_channel.return_value.subscribe.assert_called_once_with(
             device._on_connectivity_change
         )
-        mock_msg_hub_stub.assert_called_once_with(mock_insecure_channel.return_value)
+        mock_intercept_channel.assert_called_once_with(
+            mock_insecure_channel.return_value,
+            mock_AstarteUnaryUnaryInterceptor.return_value,
+            mock_AstarteUnaryStreamInterceptor.return_value,
+        )
+        mock_msg_hub_stub.assert_called_once_with(mock_intercept_channel.return_value)
         mock_node.assert_called_once_with(uuid=node_uuid, interface_jsons=[])
         mock_msg_hub_stub.return_value.Attach.assert_called_once_with(mock_node.return_value)
 
