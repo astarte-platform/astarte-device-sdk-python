@@ -4,9 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.4] - Unreleased
+## [0.13.4] - 2024-11-07
 ### Added
-Support for `astarte-message-hub` version `0.6.1`.
+- Support for `astarte-message-hub` version `0.6.1`.
+
+### Changed
+- The MQTT samples `datastreams`, `example_device` and `event_listener` have been merged into a
+  single example.
 
 ### Fixed
 - Client certificates are now validated through the REST APIs instead of checking their
