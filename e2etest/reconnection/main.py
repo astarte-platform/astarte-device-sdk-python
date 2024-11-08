@@ -196,7 +196,8 @@ def test_add_and_remove_interface_while_connected(device: DeviceMqtt, test_cfg: 
 
     device.remove_interface(test_cfg.interface_device_data)
 
-    time.sleep(0.5)
+    # Long wait time for message hub to remove the interface on Astarte
+    time.sleep(5)
 
     try:
         device.send(
@@ -297,7 +298,8 @@ def test_add_and_remove_property_interface_while_connected(
 
     device.remove_interface(test_cfg.interface_device_prop)
 
-    time.sleep(0.5)
+    # Long wait time for message hub to remove the interface on Astarte
+    time.sleep(5)
 
     try:
         device.send(
