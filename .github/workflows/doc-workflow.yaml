@@ -85,7 +85,7 @@ jobs:
           ssh-key: ${{ secrets.SDK_DOC_DEPLOY_KEY }}
           path: sdk-doc
       - name: Set up Python 3.12
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.12
       - name: Check release branch
