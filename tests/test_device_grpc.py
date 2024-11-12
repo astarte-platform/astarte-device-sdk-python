@@ -65,11 +65,12 @@ class TestMyAbstract(unittest.TestCase):
         )
         mock_device.assert_called_once()
 
+    @mock.patch("astarte.device.device_grpc.InterfacesJson")
     @mock.patch("astarte.device.device_grpc.json.dumps")
     @mock.patch("astarte.device.device_grpc.Interface")
     @mock.patch.object(Introspection, "add_interface")
     def test_devicegrpc_add_interface_from_json_non_connected_device(
-        self, mock_add_interface, mock_interface, mock_json_dumps
+        self, mock_add_interface, mock_interface, mock_json_dumps, mock_interface_json
     ):
         device = DeviceGrpc(
             "server address",
@@ -87,6 +88,7 @@ class TestMyAbstract(unittest.TestCase):
         assert device._DeviceGrpc__interfaces_bins == {
             mock_interface.return_value.name: mock_json_dumps.return_value.encode.return_value
         }
+        mock_interface_json.assert_not_called()
 
     @mock.patch("astarte.device.device_grpc.json.dumps")
     @mock.patch("astarte.device.device_grpc.Interface")
@@ -112,12 +114,12 @@ class TestMyAbstract(unittest.TestCase):
         mock_json_dumps.assert_not_called()
         assert not device._DeviceGrpc__interfaces_bins
 
-    @mock.patch("astarte.device.device_grpc.Node")
+    @mock.patch("astarte.device.device_grpc.InterfacesJson")
     @mock.patch("astarte.device.device_grpc.json.dumps")
     @mock.patch("astarte.device.device_grpc.Interface")
     @mock.patch.object(Introspection, "add_interface")
     def test_devicegrpc_add_interface_from_json_connected_device(
-        self, mock_add_interface, mock_interface, mock_json_dumps, mock_node
+        self, mock_add_interface, mock_interface, mock_json_dumps, mock_interfaces_json
     ):
         node_uuid = "node uuid"
         device = DeviceGrpc(
@@ -143,11 +145,10 @@ class TestMyAbstract(unittest.TestCase):
             mock_interface.return_value.name: mock_json_dumps.return_value.encode.return_value
         }
 
-        mock_device_stub.Detach.assert_called_once_with(mock_device_node)
-        mock_node.assert_called_once_with(
-            uuid=node_uuid, interface_jsons=[mock_json_dumps.return_value.encode.return_value]
+        mock_interfaces_json.assert_called_once_with(
+            interfaces_json=[mock_json_dumps.return_value.encode.return_value]
         )
-        mock_device_stub.Attach.assert_called_once_with(mock_node.return_value)
+        mock_device_stub.AddInterfaces.assert_called_once_with(mock_interfaces_json.return_value)
 
     @mock.patch.object(Introspection, "remove_interface")
     def test_devicegrpc_remove_interface_non_connected_device(self, mock_remove_interface):
@@ -205,9 +206,11 @@ class TestMyAbstract(unittest.TestCase):
             "<other-interface-name2>": other_interface_2,
         }
 
-    @mock.patch("astarte.device.device_grpc.Node")
+    @mock.patch("astarte.device.device_grpc.InterfacesName")
     @mock.patch.object(Introspection, "remove_interface")
-    def test_devicegrpc_remove_interface_connected_device(self, mock_remove_interface, mock_node):
+    def test_devicegrpc_remove_interface_connected_device(
+        self, mock_remove_interface, mock_interfaces_name
+    ):
         node_uuid = "node uuid"
         device = DeviceGrpc(
             "server address",
@@ -239,11 +242,8 @@ class TestMyAbstract(unittest.TestCase):
             "<other-interface-name2>": other_interface_2,
         }
 
-        mock_device_stub.Detach.assert_called_once_with(mock_device_node)
-        mock_node.assert_called_once_with(
-            uuid=node_uuid, interface_jsons=[other_interface_1, other_interface_2]
-        )
-        mock_device_stub.Attach.assert_called_once_with(mock_node.return_value)
+        mock_interfaces_name.assert_called_once_with(names=[interface_name.encode()])
+        mock_device_stub.RemoveInterfaces.assert_called_once_with(mock_interfaces_name.return_value)
 
     @mock.patch("astarte.device.device_grpc.Thread")
     @mock.patch("astarte.device.device_grpc.Node")
@@ -285,7 +285,7 @@ class TestMyAbstract(unittest.TestCase):
             mock_AstarteUnaryStreamInterceptor.return_value,
         )
         mock_msg_hub_stub.assert_called_once_with(mock_intercept_channel.return_value)
-        mock_node.assert_called_once_with(uuid=node_uuid, interface_jsons=[])
+        mock_node.assert_called_once_with(interfaces_json=[])
         mock_msg_hub_stub.return_value.Attach.assert_called_once_with(mock_node.return_value)
 
         mock_thread.assert_called_once_with(target=device._rx_stream_handler)
@@ -373,7 +373,7 @@ class TestMyAbstract(unittest.TestCase):
             mock_AstarteUnaryStreamInterceptor.return_value,
         )
         mock_msg_hub_stub.assert_called_once_with(mock_intercept_channel.return_value)
-        mock_node.assert_called_once_with(uuid=node_uuid, interface_jsons=[])
+        mock_node.assert_called_once_with(interfaces_json=[])
         mock_msg_hub_stub.return_value.Attach.assert_called_once_with(mock_node.return_value)
 
         mock_thread.assert_called_once_with(target=device._rx_stream_handler)
@@ -477,7 +477,7 @@ class TestMyAbstract(unittest.TestCase):
             mock_AstarteUnaryStreamInterceptor.return_value,
         )
         mock_msg_hub_stub.assert_called_once_with(mock_intercept_channel.return_value)
-        mock_node.assert_called_once_with(uuid=node_uuid, interface_jsons=[])
+        mock_node.assert_called_once_with(interfaces_json=[])
         mock_msg_hub_stub.return_value.Attach.assert_called_once_with(mock_node.return_value)
 
         mock_thread.assert_called_once_with(target=device._rx_stream_handler)
@@ -523,6 +523,7 @@ class TestMyAbstract(unittest.TestCase):
         mock_on_disconnected.assert_not_called()
 
     @mock.patch.object(Device, "_on_message_generic")
+    @mock.patch("astarte.device.device_grpc._decode_msg_hub_event")
     @mock.patch("astarte.device.device_grpc._decode_astarte_message")
     @mock.patch("astarte.device.device_grpc.Thread")
     @mock.patch("astarte.device.device_grpc.Node")
@@ -541,6 +542,7 @@ class TestMyAbstract(unittest.TestCase):
         mock_node,
         mock_thread,
         mock__decode_astarte_message,
+        mock__decode_msg_hub_event,
         mock__on_message_generic,
     ):
         server_address = "server address"
@@ -594,7 +596,7 @@ class TestMyAbstract(unittest.TestCase):
             mock_AstarteUnaryStreamInterceptor.return_value,
         )
         mock_msg_hub_stub.assert_called_once_with(mock_intercept_channel.return_value)
-        mock_node.assert_called_once_with(uuid=node_uuid, interface_jsons=[])
+        mock_node.assert_called_once_with(interfaces_json=[])
         mock_msg_hub_stub.return_value.Attach.assert_called_once_with(mock_node.return_value)
 
         mock_thread.assert_called_once_with(target=device._rx_stream_handler)
@@ -613,12 +615,12 @@ class TestMyAbstract(unittest.TestCase):
         # Manually start of the _rx_stream_handler() method in the current thread
         rx_msg1_decoded = ("interface 1 name", "path 1", mock.MagicMock())
         rx_msg2_decoded = ("interface 2 name", "path 2", mock.MagicMock())
-        mock__decode_astarte_message.side_effect = [rx_msg1_decoded, rx_msg2_decoded]
+        mock__decode_msg_hub_event.side_effect = [rx_msg1_decoded, rx_msg2_decoded]
         device._rx_stream_handler()
 
         calls = [mock.call(rx_message1), mock.call(rx_message2)]
-        mock__decode_astarte_message.assert_has_calls(calls)
-        self.assertEqual(mock__decode_astarte_message.call_count, 2)
+        mock__decode_msg_hub_event.assert_has_calls(calls)
+        self.assertEqual(mock__decode_msg_hub_event.call_count, 2)
 
         calls = [
             mock.call(rx_msg1_decoded[0], rx_msg1_decoded[1], rx_msg1_decoded[2]),
@@ -627,7 +629,8 @@ class TestMyAbstract(unittest.TestCase):
         mock__on_message_generic.assert_has_calls(calls)
         self.assertEqual(mock__on_message_generic.call_count, 2)
 
-    def test_devicegrpc_disconnect(self):
+    @mock.patch("astarte.device.device_grpc.Empty")
+    def test_devicegrpc_disconnect(self, mock_empty):
         server_address = "server address"
         node_uuid = "node uuid"
         device = DeviceGrpc(
@@ -655,11 +658,12 @@ class TestMyAbstract(unittest.TestCase):
 
         device.disconnect()
 
-        mock_msghub_stub.Detach.assert_called_once_with(mock_msghub_node)
+        mock_msghub_stub.Detach.assert_called_once_with(mock_empty.return_value)
         mock_grpc_channel.close.assert_called_once()
         mock_on_disconnected.assert_called_once_with(device, 0)
 
-    def test_devicegrpc_disconnect_threaded(self):
+    @mock.patch("astarte.device.device_grpc.Empty")
+    def test_devicegrpc_disconnect_threaded(self, mock_empty):
         server_address = "server address"
         node_uuid = "node uuid"
         device = DeviceGrpc(
@@ -689,7 +693,7 @@ class TestMyAbstract(unittest.TestCase):
 
         device.disconnect()
 
-        mock_msghub_stub.Detach.assert_called_once_with(mock_msghub_node)
+        mock_msghub_stub.Detach.assert_called_once_with(mock_empty.return_value)
         mock_grpc_channel.close.assert_called_once()
         mock_loop.call_soon_threadsafe.assert_called_once_with(mock_on_disconnected, device, 0)
         mock_on_disconnected.assert_not_called()
