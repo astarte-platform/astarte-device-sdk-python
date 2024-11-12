@@ -84,10 +84,6 @@ jobs:
           repository: astarte-platform/sdk-doc
           ssh-key: ${{ secrets.SDK_DOC_DEPLOY_KEY }}
           path: sdk-doc
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
       - name: Check release branch
         id: check-release-branch
         working-directory: ./astarte-device-sdk-python
