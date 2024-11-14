@@ -26,6 +26,9 @@ env:
 jobs:
   check-examples-grpc:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        msghub-version: ["v0.7.0"]
     concurrency:
       group: check-examples-grpc-${{ github.ref }}
       cancel-in-progress: true
@@ -40,7 +43,7 @@ jobs:
         with:
           repository: astarte-platform/astarte-message-hub
           path: astarte-message-hub
-          ref: v0.6.1
+          ref: ${{ matrix.msghub-version }}
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -92,7 +95,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ./astarte-message-hub/target/release/astarte-message-hub
-          key: astarte-message-hub-v0.6.1
+          key: astarte-message-hub-${{ matrix.msghub-version }}
       - name: Build message hub
         if: steps.cache-astarte-message-hub-restore.outputs.cache-hit != 'true'
         working-directory: ./astarte-message-hub

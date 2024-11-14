@@ -28,7 +28,11 @@ from threading import Thread
 
 # pylint: disable=no-name-in-module
 import grpc
-from astarteplatform.msghub.astarte_message_pb2 import AstarteMessage, AstarteUnset
+from astarteplatform.msghub.astarte_message_pb2 import (
+    AstarteMessage,
+    AstarteUnset,
+    MessageHubEvent,
+)
 from astarteplatform.msghub.astarte_type_pb2 import (
     AstarteBinaryBlobArray,
     AstarteBooleanArray,
@@ -41,8 +45,10 @@ from astarteplatform.msghub.astarte_type_pb2 import (
     AstarteLongIntegerArray,
     AstarteStringArray,
 )
+from astarteplatform.msghub.interface_pb2 import InterfacesJson, InterfacesName
 from astarteplatform.msghub.message_hub_service_pb2_grpc import MessageHubStub
 from astarteplatform.msghub.node_pb2 import Node
+from google.protobuf.empty_pb2 import Empty
 from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import (
     ChannelConnectivity,
@@ -130,9 +136,11 @@ class DeviceGrpc(Device):
             raise DeviceConnectingError("Interfaces cannot be added while device is connecting.")
         interface = Interface(interface_json)
         self._introspection.add_interface(interface)
-        self.__interfaces_bins[interface.name] = json.dumps(interface_json).encode()
+        interface_bin = json.dumps(interface_json).encode()
+        self.__interfaces_bins[interface.name] = interface_bin
         if self.__connection_state is ConnectionState.CONNECTED:
-            self._detach_and_attach_node()
+            interfaces_json = InterfacesJson(interfaces_json=[interface_bin])
+            self.__msghub_stub.AddInterfaces(interfaces_json)
 
     def remove_interface(self, interface_name: str) -> None:
         """
@@ -154,19 +162,8 @@ class DeviceGrpc(Device):
         if interface_name in self.__interfaces_bins:
             del self.__interfaces_bins[interface_name]
         if self.__connection_state is ConnectionState.CONNECTED:
-            self._detach_and_attach_node()
-
-    def _detach_and_attach_node(self):
-        """
-        Detaches the GRPC node and then re-attaches it.
-        """
-        logging.debug("Detaching and re-attaching node with uuid %s.", str(self._node_uuid))
-        self.__msghub_stub.Detach(self.__msghub_node)
-        self.__msghub_node = Node(
-            uuid=self._node_uuid, interface_jsons=list(self.__interfaces_bins.values())
-        )
-        stream = self.__msghub_stub.Attach(self.__msghub_node)
-        self.__stream_queue.put(stream)
+            interfaces_name = InterfacesName(names=[interface_name.encode()])
+            self.__msghub_stub.RemoveInterfaces(interfaces_name)
 
     def connect(self) -> None:
         """
@@ -187,9 +184,7 @@ class DeviceGrpc(Device):
         )
         self.__msghub_stub = MessageHubStub(self.__grpc_channel)
 
-        self.__msghub_node = Node(
-            uuid=self._node_uuid, interface_jsons=list(self.__interfaces_bins.values())
-        )
+        self.__msghub_node = Node(interfaces_json=list(self.__interfaces_bins.values()))
         stream = self.__msghub_stub.Attach(self.__msghub_node)
 
         self.__stream_queue.put(stream)
@@ -246,10 +241,14 @@ class DeviceGrpc(Device):
         """
         while True:
             stream = self.__stream_queue.get()
-            if stream is not None:
-                try:
-                    for astarte_message in stream:
-                        (interface_name, path, payload) = _decode_astarte_message(astarte_message)
+            if stream is None:
+                break
+
+            try:
+                for msg_hub_event in stream:
+                    astarte_message = _decode_msg_hub_event(msg_hub_event)
+                    if astarte_message:
+                        (interface_name, path, payload) = astarte_message
                         logging.debug(
                             "Received message on interface: %s, endpoint %s, content: %s",
                             str(interface_name),
@@ -258,10 +257,8 @@ class DeviceGrpc(Device):
                         )
                         if self._on_data_received:
                             self._on_message_generic(interface_name, path, payload)
-                except _MultiThreadedRendezvous as exc:
-                    logging.error("Status code change in the GRPC core: %s", str(exc.code()))
-            else:
-                break
+            except _MultiThreadedRendezvous as exc:
+                logging.error("Status code change in the GRPC core: %s", str(exc.code()))
 
     def disconnect(self) -> None:
         """
@@ -277,7 +274,7 @@ class DeviceGrpc(Device):
 
         if self.__grpc_channel:
             self.__stream_queue.put(None)
-            self.__msghub_stub.Detach(self.__msghub_node)
+            self.__msghub_stub.Detach(Empty())
             self.__grpc_channel.close()
 
             if self._on_disconnected:
@@ -488,6 +485,36 @@ def _encode_timestamp(timestamp: datetime) -> Timestamp:
     protobuf_timestamp = Timestamp()
     protobuf_timestamp.FromDatetime(timestamp)
     return protobuf_timestamp
+
+
+def _decode_msg_hub_event(
+    msg_hub_event: MessageHubEvent,
+) -> (str, str, object | collections.abc.Mapping | None) | None:
+    """
+    Decode MessageHubEvent object.
+
+    Parameters
+    ----------
+    msg_hub_event : MessageHubEvent
+        The MessageHubEvent to decode.
+
+    Returns
+    -------
+    tuple[str, str, object | collections.abc.Mapping | None] | None
+        A tuple containing:
+        - The interface name corresponding to the payload
+        - The path corresponding to the payload
+        - The decoded payload
+        Or None if the received event was an error.
+    """
+
+    payload = None
+    if msg_hub_event.HasField("error"):
+        logging.error("Error from the message hub: %s", msg_hub_event.error.description)
+    else:
+        payload = _decode_astarte_message(msg_hub_event.message)
+
+    return payload
 
 
 def _decode_astarte_message(
