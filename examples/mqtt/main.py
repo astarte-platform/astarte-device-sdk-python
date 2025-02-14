@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-""" Astarte device example using the MQTT protocol
+"""Astarte device example using the MQTT protocol
 
 Example showing how to send/receive individual/aggregated datastreams and set/unset properties.
 
