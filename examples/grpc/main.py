@@ -16,7 +16,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-""" Individual datastream example
+"""Individual datastream example
 
 Example showing how to send/receive individual datastreams.
 
