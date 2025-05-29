@@ -1,0 +1,19 @@
+{
+    "interface_name": "com.test.DatastreamIndividual",
+    "version_major": 0,
+    "version_minor": 1,
+    "type": "datastream",
+    "ownership": "device",
+    "mappings": [
+        {
+            "endpoint": "/binaryblobarray_endpoint",
+            "type": "binaryblobarray",
+            "explicit_timestamp": true
+        },
+        {
+            "endpoint": "/datetimearray_endpoint",
+            "type": "datetimearray",
+            "explicit_timestamp": true
+        }
+    ]
+}

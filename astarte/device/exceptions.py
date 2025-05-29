@@ -134,3 +134,14 @@ class DeviceDisconnectedError(AstarteError):
 
     def __init__(self, msg):
         self.msg = msg
+
+
+class DeviceGrpcDecodeError(AstarteError):
+    """Exception raised when a received AstarteData has an unrecognised type and can't be decoded.
+
+    Attributes:
+        msg -- A message error carrying further details
+    """
+
+    def __init__(self, msg):
+        self.msg = msg

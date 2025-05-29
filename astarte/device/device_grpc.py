@@ -22,46 +22,51 @@ import collections.abc
 import json
 import logging
 import queue
+import typing
 from collections import namedtuple
 from datetime import datetime, timezone
 from threading import Thread
+from typing import Tuple, Union
 
+# disable lint related to https://github.com/protocolbuffers/protobuf/issues/16115
 # pylint: disable=no-name-in-module
-import grpc
-from astarteplatform.msghub.astarte_message_pb2 import (
-    AstarteMessage,
-    AstarteUnset,
-    MessageHubEvent,
-)
-from astarteplatform.msghub.astarte_type_pb2 import (
+from astarteplatform.msghub.astarte_data_pb2 import (
     AstarteBinaryBlobArray,
     AstarteBooleanArray,
-    AstarteDataType,
-    AstarteDataTypeIndividual,
-    AstarteDataTypeObject,
+    AstarteData,
+    AstarteDatastreamIndividual,
+    AstarteDatastreamObject,
     AstarteDateTimeArray,
     AstarteDoubleArray,
     AstarteIntegerArray,
     AstarteLongIntegerArray,
+    AstartePropertyIndividual,
     AstarteStringArray,
 )
+from astarteplatform.msghub.astarte_message_pb2 import AstarteMessage, MessageHubEvent
 from astarteplatform.msghub.interface_pb2 import InterfacesJson, InterfacesName
 from astarteplatform.msghub.message_hub_service_pb2_grpc import MessageHubStub
 from astarteplatform.msghub.node_pb2 import Node
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.timestamp_pb2 import Timestamp
+
+# pylint: enable=no-name-in-module
 from grpc import (
     ChannelConnectivity,
+    ClientCallDetails,
     UnaryStreamClientInterceptor,
     UnaryUnaryClientInterceptor,
+    aio,
+    insecure_channel,
+    intercept_channel,
 )
 from grpc._channel import _MultiThreadedRendezvous
 
-# pylint: enable=no-name-in-module
 from astarte.device.device import ConnectionState, Device
 from astarte.device.exceptions import (
     DeviceConnectingError,
     DeviceDisconnectedError,
+    DeviceGrpcDecodeError,
     ValidationError,
 )
 from astarte.device.interface import Interface
@@ -111,7 +116,7 @@ class DeviceGrpc(Device):
         self._node_uuid = node_uuid
 
         self.__grpc_channel = None
-        self.__msghub_stub = None
+        self.__msghub_stub: MessageHubStub
         self.__msghub_node = None
         self.__interfaces_bins = {}
         self.__rx_thread_handle = None
@@ -136,7 +141,7 @@ class DeviceGrpc(Device):
             raise DeviceConnectingError("Interfaces cannot be added while device is connecting.")
         interface = Interface(interface_json)
         self._introspection.add_interface(interface)
-        interface_bin = json.dumps(interface_json).encode()
+        interface_bin = json.dumps(interface_json)
         self.__interfaces_bins[interface.name] = interface_bin
         if self.__connection_state is ConnectionState.CONNECTED:
             interfaces_json = InterfacesJson(interfaces_json=[interface_bin])
@@ -162,7 +167,7 @@ class DeviceGrpc(Device):
         if interface_name in self.__interfaces_bins:
             del self.__interfaces_bins[interface_name]
         if self.__connection_state is ConnectionState.CONNECTED:
-            interfaces_name = InterfacesName(names=[interface_name.encode()])
+            interfaces_name = InterfacesName(names=[interface_name])
             self.__msghub_stub.RemoveInterfaces(interfaces_name)
 
     def connect(self) -> None:
@@ -175,11 +180,11 @@ class DeviceGrpc(Device):
 
         self.__connection_state = ConnectionState.CONNECTING
 
-        self.__grpc_channel = grpc.insecure_channel(self._server_addr)
+        self.__grpc_channel = insecure_channel(self._server_addr)
         self.__grpc_channel.subscribe(self._on_connectivity_change)
         unary_unary_interceptor = AstarteUnaryUnaryInterceptor(node_id=self._node_uuid)
         unary__stream_interceptor = AstarteUnaryStreamInterceptor(node_id=self._node_uuid)
-        self.__grpc_channel = grpc.intercept_channel(
+        self.__grpc_channel = intercept_channel(
             self.__grpc_channel, unary_unary_interceptor, unary__stream_interceptor
         )
         self.__msghub_stub = MessageHubStub(self.__grpc_channel)
@@ -365,8 +370,8 @@ class DeviceGrpc(Device):
 def _encode_astarte_message(
     interface: Interface,
     path: str,
-    timestamp: Timestamp,
-    payload: object | collections.abc.Mapping | None,
+    timestamp: Timestamp | None,
+    payload: dict[str, TypeAstarteDataTypes] | TypeAstarteDataTypes | None,
 ) -> AstarteMessage:
     """
     Encode a payload into an AstarteMessage object.
@@ -387,37 +392,46 @@ def _encode_astarte_message(
     AstarteMessage
         The encapsulated payload
     """
-    if payload is None:
+    if interface.is_type_properties():
+        property_individual = None
+
+        if payload is not None:
+            mapping = interface.get_mapping(path)
+            property_individual = _encode_astarte_data_type_individual(mapping, payload)
+
         return AstarteMessage(
             interface_name=interface.name,
             path=path,
-            timestamp=timestamp,
-            astarte_unset=AstarteUnset(),
+            property_individual=AstartePropertyIndividual(data=property_individual),
         )
 
-    astarte_data = None
-    if not interface.is_aggregation_object():
-        mapping = interface.get_mapping(path)
-        astarte_data = AstarteDataType(
-            astarte_individual=_encode_astarte_data_type_individual(mapping, payload)
-        )
-    else:
+    if interface.is_aggregation_object():
         object_data = {}
+
         for endpoint, endpoint_value in payload.items():
             mapping = interface.get_mapping("/".join([path, endpoint]))
             object_data[endpoint] = _encode_astarte_data_type_individual(mapping, endpoint_value)
-        astarte_data = AstarteDataType(
-            astarte_object=AstarteDataTypeObject(object_data=object_data)
+
+        return AstarteMessage(
+            interface_name=interface.name,
+            path=path,
+            datastream_object=AstarteDatastreamObject(data=object_data, timestamp=timestamp),
         )
 
+    # datastream individual
+    mapping = interface.get_mapping(path)
+    astarte_data = _encode_astarte_data_type_individual(mapping, payload)
+
     return AstarteMessage(
-        interface_name=interface.name, path=path, timestamp=timestamp, astarte_data=astarte_data
+        interface_name=interface.name,
+        path=path,
+        datastream_individual=AstarteDatastreamIndividual(timestamp=timestamp, data=astarte_data),
     )
 
 
 def _encode_astarte_data_type_individual(
-    mapping: Mapping, payload: object | collections.abc.Mapping | None
-) -> AstarteDataTypeIndividual:
+    mapping: Mapping, payload: TypeAstarteDataTypes
+) -> AstarteData:
     """
     Encode AstarteDataTypeIndividual object.
 
@@ -430,28 +444,26 @@ def _encode_astarte_data_type_individual(
 
     Returns
     -------
-    AstarteDataTypeIndividual
+    AstarteData
         The encapsulated payload
     """
     LookupEntry = namedtuple("LookupEntry", "data_type data_class data_parser")
     lookup_table = {
-        "boolean": LookupEntry("astarte_boolean", None, None),
-        "booleanarray": LookupEntry("astarte_boolean_array", AstarteBooleanArray, None),
-        "string": LookupEntry("astarte_string", None, None),
-        "stringarray": LookupEntry("astarte_string_array", AstarteStringArray, None),
-        "double": LookupEntry("astarte_double", None, None),
-        "doublearray": LookupEntry("astarte_double_array", AstarteDoubleArray, None),
-        "integer": LookupEntry("astarte_integer", None, None),
-        "integerarray": LookupEntry("astarte_integer_array", AstarteIntegerArray, None),
-        "longinteger": LookupEntry("astarte_long_integer", None, None),
-        "longintegerarray": LookupEntry(
-            "astarte_long_integer_array", AstarteLongIntegerArray, None
-        ),
-        "binaryblob": LookupEntry("astarte_binary_blob", None, None),
-        "binaryblobarray": LookupEntry("astarte_binary_blob_array", AstarteBinaryBlobArray, None),
-        "datetime": LookupEntry("astarte_date_time", None, _encode_timestamp),
+        "boolean": LookupEntry("boolean", None, None),
+        "booleanarray": LookupEntry("boolean_array", AstarteBooleanArray, None),
+        "string": LookupEntry("string", None, None),
+        "stringarray": LookupEntry("string_array", AstarteStringArray, None),
+        "double": LookupEntry("double", None, None),
+        "doublearray": LookupEntry("double_array", AstarteDoubleArray, None),
+        "integer": LookupEntry("integer", None, None),
+        "integerarray": LookupEntry("integer_array", AstarteIntegerArray, None),
+        "longinteger": LookupEntry("long_integer", None, None),
+        "longintegerarray": LookupEntry("long_integer_array", AstarteLongIntegerArray, None),
+        "binaryblob": LookupEntry("binary_blob", None, None),
+        "binaryblobarray": LookupEntry("binary_blob_array", AstarteBinaryBlobArray, None),
+        "datetime": LookupEntry("date_time", None, _encode_timestamp),
         "datetimearray": LookupEntry(
-            "astarte_date_time_array",
+            "date_time_array",
             AstarteDateTimeArray,
             lambda l: [_encode_timestamp(e) for e in l],
         ),
@@ -465,7 +477,7 @@ def _encode_astarte_data_type_individual(
         payload = data_parser(payload)
     if data_class:
         payload = data_class(values=payload)
-    return AstarteDataTypeIndividual(**{data_type: payload})
+    return AstarteData(**{data_type: payload})
 
 
 def _encode_timestamp(timestamp: datetime) -> Timestamp:
@@ -487,9 +499,37 @@ def _encode_timestamp(timestamp: datetime) -> Timestamp:
     return protobuf_timestamp
 
 
+# All the individual_data options that contain arrays.
+TypeProtobufAstarteDataVector: typing.TypeAlias = Union[
+    AstarteBooleanArray,
+    AstarteStringArray,
+    AstarteDoubleArray,
+    AstarteIntegerArray,
+    AstarteLongIntegerArray,
+    AstarteBinaryBlobArray,
+    AstarteDateTimeArray,
+]
+TypeProtobufAstarteDataScalar: typing.TypeAlias = Union[float, bool, int, str, bytes, Timestamp]
+TypeProtobufAstarteDataTypes: typing.TypeAlias = Union[
+    TypeProtobufAstarteDataScalar, TypeProtobufAstarteDataScalar
+]
+
+TypeAstarteDataScalar: typing.TypeAlias = Union[float, bool, int, str, bytes, datetime]
+TypeAstarteDataVector: typing.TypeAlias = Union[
+    list[float], list[bool], list[int], list[str], list[bytes], list[datetime]
+]
+TypeAstarteDataTypes: typing.TypeAlias = Union[TypeAstarteDataScalar, TypeAstarteDataVector]
+
+TypeInputPayload: typing.TypeAlias = Union[
+    dict[str, TypeAstarteDataTypes], TypeAstarteDataTypes, None
+]
+
+TypeConvertedAstarteMessage: typing.TypeAlias = Tuple[str, str, TypeInputPayload]
+
+
 def _decode_msg_hub_event(
     msg_hub_event: MessageHubEvent,
-) -> (str, str, object | collections.abc.Mapping | None) | None:
+) -> TypeConvertedAstarteMessage | None:
     """
     Decode MessageHubEvent object.
 
@@ -519,7 +559,7 @@ def _decode_msg_hub_event(
 
 def _decode_astarte_message(
     astarte_message: AstarteMessage,
-) -> (str, str, object | collections.abc.Mapping | None):
+) -> TypeConvertedAstarteMessage:
     """
     Decode AstarteMessage object.
 
@@ -537,18 +577,21 @@ def _decode_astarte_message(
         - The decoded payload
     """
     payload = None
-    # No need to handle directly astarte_message.astarte_unset as payload is already None
-    if astarte_message.HasField("astarte_data"):
-        astarte_data = astarte_message.astarte_data
-        if astarte_data.HasField("astarte_individual"):
-            payload = _decode_astarte_data_type_individual(astarte_data.astarte_individual)
-        else:
-            payload = _decode_astarte_data_type_object(astarte_data.astarte_object)
+    if astarte_message.HasField("datastream_individual"):
+        payload = _decode_astarte_data_type_individual(astarte_message.datastream_individual.data)
+    elif astarte_message.HasField("datastream_object"):
+        payload = _decode_astarte_data_type_object(astarte_message.datastream_object)
+    elif astarte_message.HasField("property_individual"):
+        if astarte_message.property_individual.HasField("data"):
+            payload = _decode_astarte_data_type_individual(astarte_message.property_individual.data)
+    else:
+        logging.error("Unknown type returning None for astarte_message: %s", astarte_message)
+
     # For now ignore the received 'astarte_message.timestamp'
     return (astarte_message.interface_name, astarte_message.path, payload)
 
 
-def _decode_astarte_data_type_object(astarte_data_type_object: AstarteDataTypeObject):
+def _decode_astarte_data_type_object(astarte_data_type_object: AstarteDatastreamObject):
     """
     Decode AstarteDataTypeObject object.
 
@@ -563,12 +606,14 @@ def _decode_astarte_data_type_object(astarte_data_type_object: AstarteDataTypeOb
         A dictionary containing the decoded astarte_data_type_object
     """
     result = {}
-    for endpoint, astarte_data_type_individual in astarte_data_type_object.object_data.items():
+    for endpoint, astarte_data_type_individual in astarte_data_type_object.data.items():
         result[endpoint] = _decode_astarte_data_type_individual(astarte_data_type_individual)
     return result
 
 
-def _decode_astarte_data_type_individual(astarte_data_type_individual: AstarteDataTypeIndividual):
+def _decode_astarte_data_type_individual(
+    astarte_data_type_individual: AstarteData,
+) -> TypeAstarteDataTypes:
     """
     Decode AstarteDataTypeIndividual object.
 
@@ -581,26 +626,34 @@ def _decode_astarte_data_type_individual(astarte_data_type_individual: AstarteDa
     -------
     obj
         An object containig the decoded astarte_data_type_individual
-    """
-    # All the individual_data options that contain arrays.
-    array_types = [
-        AstarteBooleanArray,
-        AstarteStringArray,
-        AstarteDoubleArray,
-        AstarteIntegerArray,
-        AstarteLongIntegerArray,
-        AstarteBinaryBlobArray,
-        AstarteDateTimeArray,
-    ]
 
-    individual_data_opt = astarte_data_type_individual.WhichOneof("individual_data")
-    individual_data = getattr(astarte_data_type_individual, individual_data_opt)
-    if individual_data_opt == "astarte_date_time":
-        individual_data = individual_data.ToDatetime(timezone.utc)
-    if any(isinstance(individual_data, array_type) for array_type in array_types):
-        individual_data = list(individual_data.values)
-    if individual_data_opt == "astarte_date_time_array":
-        individual_data = [e.ToDatetime(timezone.utc) for e in individual_data]
+    Raises
+    ------
+    DeviceGrpcDecodeError
+        When attempting to decode an AstarteData of an unknown type.
+    """
+
+    individual_data_opt = astarte_data_type_individual.WhichOneof("astarte_data")
+    proto_individual_data: TypeProtobufAstarteDataTypes = getattr(
+        astarte_data_type_individual, individual_data_opt
+    )
+
+    individual_data: TypeAstarteDataTypes
+
+    if isinstance(proto_individual_data, Timestamp):
+        individual_data = proto_individual_data.ToDatetime(timezone.utc)
+    elif isinstance(proto_individual_data, typing.get_args(TypeProtobufAstarteDataVector)):
+        if isinstance(proto_individual_data, AstarteDateTimeArray):
+            individual_data = [e.ToDatetime(timezone.utc) for e in proto_individual_data.values]
+        else:
+            individual_data = list(proto_individual_data.values)
+    elif isinstance(proto_individual_data, typing.get_args(TypeProtobufAstarteDataScalar)):
+        individual_data = proto_individual_data
+    else:
+        error_str = f"Unexpected astarte data individual type: {proto_individual_data}"
+        logging.error(error_str)
+        raise DeviceGrpcDecodeError(error_str)
+
     return individual_data
 
 
@@ -616,7 +669,7 @@ class AstarteClientCallDetails(
             "compression",
         ),
     ),
-    grpc.ClientCallDetails,
+    ClientCallDetails,
 ):
     """
     Astarte implementation for gRPC client call details.
@@ -688,8 +741,8 @@ class AstarteUnaryStreamInterceptor(UnaryStreamClientInterceptor):
 
 
 def add_node_id_in_metadata(
-    node_id: str, client_call_details: grpc._interceptor._ClientCallDetails
-):
+    node_id: str, client_call_details: aio._interceptor.ClientCallDetails
+) -> AstarteClientCallDetails:
     """
     Add an Astarte message hub ID to che grpc client call details as a metadata fields.
 
