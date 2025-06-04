@@ -37,7 +37,7 @@ dependencies = [
 #    "astarte-message-hub-proto==0.7.0",
     "astarte-message-hub-proto @ git+https://github.com/astarte-platform/astarte-message-hub-proto.git@87e9b3937cd563576de4bcb801a91c700bf196bb#subdirectory=python"
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
   {name = "Simone Orru", email = "simone.orru@secomind.com"},
   {name = "Dario Freddi"},
