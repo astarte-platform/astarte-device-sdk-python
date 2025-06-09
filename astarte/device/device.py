@@ -22,11 +22,13 @@ import asyncio
 import collections.abc
 import json
 import logging
+import typing
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import Tuple, Union
 
 from astarte.device.exceptions import (
     InterfaceFileDecodeError,
@@ -36,6 +38,17 @@ from astarte.device.exceptions import (
 )
 from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
+
+TypeAstarteDataScalar: typing.TypeAlias = Union[float, bool, int, str, bytes, datetime]
+TypeAstarteDataVector: typing.TypeAlias = Union[
+    list[float], list[bool], list[int], list[str], list[bytes], list[datetime]
+]
+TypeAstarteData: typing.TypeAlias = Union[TypeAstarteDataScalar, TypeAstarteDataVector]
+
+TypeAstarteObject: typing.TypeAlias = dict[str, TypeAstarteData]
+TypeInputPayload: typing.TypeAlias = Union[TypeAstarteObject, TypeAstarteData, None]
+
+TypeConvertedAstarteMessage: typing.TypeAlias = Tuple[str, str, TypeInputPayload]
 
 
 class ConnectionState(Enum):
@@ -199,11 +212,11 @@ class Device(ABC):
             The device connection status.
         """
 
-    def send(
+    def send_individual(
         self,
         interface_name: str,
         interface_path: str,
-        payload: object,
+        payload: TypeAstarteData,
         timestamp: datetime | None = None,
     ) -> None:
         """
@@ -215,7 +228,7 @@ class Device(ABC):
             The name of an the Interface to send data to.
         interface_path : str
             The path on the Interface to send data to.
-        payload : object
+        payload : TypeAstarteData
             The value to be sent. The type should be compatible to the one specified in the
             interface path.
         timestamp : datetime, optional
@@ -236,16 +249,14 @@ class Device(ABC):
             )
         if interface.is_server_owned():
             raise ValidationError(f"The interface {interface.name} is not owned by the device.")
-        if interface.is_aggregation_object():
+        if not interface.is_datastream_individual():
             raise ValidationError(
-                f"Interface {interface_name} is an aggregate interface. You should use "
-                f"send_aggregate."
+                f"Interface {interface_name} is not an indivdual datastream. You should use "
+                f"send_object or set_property."
             )
-
         if payload is None:
             raise ValidationError("Payload should be different from None")
-        if isinstance(payload, collections.abc.Mapping):
-            raise ValidationError("Payload for individual interfaces should not be a dictionary")
+
         interface.validate_payload_and_timestamp(interface_path, payload, timestamp)
 
         self._send_generic(
@@ -255,11 +266,11 @@ class Device(ABC):
             timestamp,
         )
 
-    def send_aggregate(
+    def send_object(
         self,
         interface_name: str,
         interface_path: str,
-        payload: collections.abc.Mapping,
+        payload: TypeAstarteObject,
         timestamp: datetime | None = None,
     ) -> None:
         """
@@ -271,7 +282,7 @@ class Device(ABC):
             The name of the Interface to send data to.
         interface_path: str
             The endpoint to send the data to
-        payload : dict
+        payload : TypeAstarteObject
             A dictionary containing the path:value map for the aggregate.
         timestamp : datetime, optional
             If the Datastream has explicit_timestamp, you can specify a datetime object which
@@ -291,15 +302,15 @@ class Device(ABC):
             )
         if interface.is_server_owned():
             raise ValidationError(f"The interface {interface.name} is not owned by the device.")
-        if not interface.is_aggregation_object():
+        if not interface.is_datastream_object():
             raise ValidationError(
-                f"Interface {interface_name} is not an aggregate interface. You should use send."
+                f"Interface {interface_name} is not an object datastream. You should use send_individual or set_property."
             )
-
         if payload is None:
             raise ValidationError("Payload should be different from None")
-        if not isinstance(payload, collections.abc.Mapping):
+        if not isinstance(payload, dict):
             raise ValidationError("Payload for aggregate interfaces should be a dictionary")
+
         interface.validate_payload_and_timestamp(interface_path, payload, timestamp)
 
         self._send_generic(
@@ -307,6 +318,58 @@ class Device(ABC):
             interface_path,
             payload,
             timestamp,
+        )
+
+    def set_property(
+        self,
+        interface_name: str,
+        interface_path: str,
+        payload: TypeAstarteData,
+    ) -> None:
+        """
+        Sets an individual property on an interface.
+
+        Parameters
+        ----------
+        interface_name : str
+            The name of an the Interface to send data to.
+        interface_path : str
+            The path on the Interface to set the property on.
+        payload : TypeAstarteData
+            The value to be set. The type should be compatible to the one specified in the
+            interface path.
+
+        Raises
+        ------
+        InterfaceNotFoundError
+            If the specified interface is not declared in the introspection.
+        ValidationError
+            If the interface or payload validation was unsuccessful.
+        """
+        interface = self._introspection.get_interface(interface_name)
+        if not interface:
+            raise InterfaceNotFoundError(
+                f"Interface {interface_name} not declared in introspection"
+            )
+        if interface.is_server_owned():
+            raise ValidationError(f"The interface {interface.name} is not owned by the device.")
+        if not interface.is_property_individual():
+            raise ValidationError(
+                f"Interface {interface_name} is not a property. You should use "
+                "send_individual or send_object."
+            )
+        # no need to check for object because a property interface can't be an object
+        # this is enforced in the Interface constructor
+        if payload is None:
+            raise ValidationError("Payload should be different from None")
+
+        interface.validate_payload(interface_path, payload)
+
+        self._send_generic(
+            interface,
+            interface_path,
+            payload,
+            None,
         )
 
     def unset_property(self, interface_name: str, interface_path: str) -> None:
@@ -335,10 +398,13 @@ class Device(ABC):
             )
         if interface.is_server_owned():
             raise ValidationError(f"The interface {interface.name} is not owned by the device.")
-        if not interface.is_type_properties():
+        if not interface.is_property_individual():
             raise ValidationError(
-                f"Interface {interface_name} is a datastream interface. You can only unset a "
-                f"property."
+                f"Interface {interface_name} is not a property. You can only unset a " f"property."
+            )
+        if not interface.is_property_endpoint_resettable(interface_path):
+            raise ValidationError(
+                f"Path {interface_path} on interface {interface_name} can't be unset"
             )
 
         self._send_generic(

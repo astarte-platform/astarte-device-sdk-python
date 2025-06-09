@@ -12,7 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.0] - 2025-06-25
 ### Added
-- Support for `astarte-message-hub` version `0.7.0`.
+- Support for `astarte-message-hub-proto` version `0.8.0`.
+- Renamed send APIs:
+  - Property interface: `set_property`/`unset_property`.
+  - Individual datastream: `send_individual`.
+  - Object datastream: `send_object`.
 
 ### Changed
 - The get `get_started.md` guide has been updated to include the latest Astarte installation

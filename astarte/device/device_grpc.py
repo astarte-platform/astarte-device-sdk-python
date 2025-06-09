@@ -26,7 +26,7 @@ import typing
 from collections import namedtuple
 from datetime import datetime, timezone
 from threading import Thread
-from typing import Tuple, Union
+from typing import Union
 
 # disable lint related to https://github.com/protocolbuffers/protobuf/issues/16115
 # pylint: disable=no-name-in-module
@@ -62,7 +62,12 @@ from grpc import (
 )
 from grpc._channel import _MultiThreadedRendezvous
 
-from astarte.device.device import ConnectionState, Device
+from astarte.device.device import (
+    ConnectionState,
+    Device,
+    TypeAstarteData,
+    TypeConvertedAstarteMessage,
+)
 from astarte.device.exceptions import (
     DeviceConnectingError,
     DeviceDisconnectedError,
@@ -71,6 +76,21 @@ from astarte.device.exceptions import (
 )
 from astarte.device.interface import Interface
 from astarte.device.mapping import Mapping
+
+# All the individual_data options that contain arrays.
+TypeProtobufAstarteDataVector: typing.TypeAlias = Union[
+    AstarteBooleanArray,
+    AstarteStringArray,
+    AstarteDoubleArray,
+    AstarteIntegerArray,
+    AstarteLongIntegerArray,
+    AstarteBinaryBlobArray,
+    AstarteDateTimeArray,
+]
+TypeProtobufAstarteDataScalar: typing.TypeAlias = Union[float, bool, int, str, bytes, Timestamp]
+TypeProtobufAstarteDataTypes: typing.TypeAlias = Union[
+    TypeProtobufAstarteDataScalar, TypeProtobufAstarteDataScalar
+]
 
 
 class DeviceGrpc(Device):
@@ -371,7 +391,7 @@ def _encode_astarte_message(
     interface: Interface,
     path: str,
     timestamp: Timestamp | None,
-    payload: dict[str, TypeAstarteDataTypes] | TypeAstarteDataTypes | None,
+    payload: dict[str, TypeAstarteData] | TypeAstarteData | None,
 ) -> AstarteMessage:
     """
     Encode a payload into an AstarteMessage object.
@@ -392,7 +412,7 @@ def _encode_astarte_message(
     AstarteMessage
         The encapsulated payload
     """
-    if interface.is_type_properties():
+    if interface.is_property_individual():
         property_individual = None
 
         if payload is not None:
@@ -405,7 +425,7 @@ def _encode_astarte_message(
             property_individual=AstartePropertyIndividual(data=property_individual),
         )
 
-    if interface.is_aggregation_object():
+    if interface.is_datastream_object():
         object_data = {}
 
         for endpoint, endpoint_value in payload.items():
@@ -429,9 +449,7 @@ def _encode_astarte_message(
     )
 
 
-def _encode_astarte_data_type_individual(
-    mapping: Mapping, payload: TypeAstarteDataTypes
-) -> AstarteData:
+def _encode_astarte_data_type_individual(mapping: Mapping, payload: TypeAstarteData) -> AstarteData:
     """
     Encode AstarteDataTypeIndividual object.
 
@@ -497,34 +515,6 @@ def _encode_timestamp(timestamp: datetime) -> Timestamp:
     protobuf_timestamp = Timestamp()
     protobuf_timestamp.FromDatetime(timestamp)
     return protobuf_timestamp
-
-
-# All the individual_data options that contain arrays.
-TypeProtobufAstarteDataVector: typing.TypeAlias = Union[
-    AstarteBooleanArray,
-    AstarteStringArray,
-    AstarteDoubleArray,
-    AstarteIntegerArray,
-    AstarteLongIntegerArray,
-    AstarteBinaryBlobArray,
-    AstarteDateTimeArray,
-]
-TypeProtobufAstarteDataScalar: typing.TypeAlias = Union[float, bool, int, str, bytes, Timestamp]
-TypeProtobufAstarteDataTypes: typing.TypeAlias = Union[
-    TypeProtobufAstarteDataScalar, TypeProtobufAstarteDataScalar
-]
-
-TypeAstarteDataScalar: typing.TypeAlias = Union[float, bool, int, str, bytes, datetime]
-TypeAstarteDataVector: typing.TypeAlias = Union[
-    list[float], list[bool], list[int], list[str], list[bytes], list[datetime]
-]
-TypeAstarteDataTypes: typing.TypeAlias = Union[TypeAstarteDataScalar, TypeAstarteDataVector]
-
-TypeInputPayload: typing.TypeAlias = Union[
-    dict[str, TypeAstarteDataTypes], TypeAstarteDataTypes, None
-]
-
-TypeConvertedAstarteMessage: typing.TypeAlias = Tuple[str, str, TypeInputPayload]
 
 
 def _decode_msg_hub_event(
@@ -613,7 +603,7 @@ def _decode_astarte_data_type_object(astarte_data_type_object: AstarteDatastream
 
 def _decode_astarte_data_type_individual(
     astarte_data_type_individual: AstarteData,
-) -> TypeAstarteDataTypes:
+) -> TypeAstarteData:
     """
     Decode AstarteDataTypeIndividual object.
 
@@ -638,7 +628,7 @@ def _decode_astarte_data_type_individual(
         astarte_data_type_individual, individual_data_opt
     )
 
-    individual_data: TypeAstarteDataTypes
+    individual_data: TypeAstarteData
 
     if isinstance(proto_individual_data, Timestamp):
         individual_data = proto_individual_data.ToDatetime(timezone.utc)

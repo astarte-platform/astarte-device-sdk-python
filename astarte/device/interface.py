@@ -150,7 +150,17 @@ class Interface:
                     "reliability fields."
                 )
 
-    def is_aggregation_object(self) -> bool:
+    def is_datastream_individual(self) -> bool:
+        """
+        Check if the current Interface is a datastream with aggregation individual
+        Returns
+        -------
+        bool
+            True if aggregation: individual and type: datastream
+        """
+        return self.aggregation == "individual" and self.type == "datastream"
+
+    def is_datastream_object(self) -> bool:
         """
         Check if the current Interface is a datastream with aggregation object
         Returns
@@ -170,7 +180,7 @@ class Interface:
         """
         return self.ownership == SERVER
 
-    def is_type_properties(self):
+    def is_property_individual(self):
         """
         Check the Interface type
         Returns
@@ -193,7 +203,7 @@ class Interface:
         bool
             True if type is properties, endpoint is valid and resettable
         """
-        if self.is_type_properties():
+        if self.is_property_individual():
             mapping = self.get_mapping(endpoint)
             if mapping:
                 return mapping.allow_unset
@@ -239,10 +249,10 @@ class Interface:
         InterfaceNotFoundError
             If the interface is not declared in the introspection.
         """
-        if self.is_type_properties():
+        if self.is_property_individual():
             return 2
 
-        if not self.is_aggregation_object():
+        if self.is_datastream_individual():
             mapping = self.get_mapping(endpoint)
             if not mapping:
                 raise InterfaceNotFoundError(f"Path {endpoint} not declared in {self.name}")
@@ -269,7 +279,7 @@ class Interface:
         ValidationError
             When validation has failed.
         """
-        if not self.is_aggregation_object():
+        if not self.is_datastream_object():
             if not self.get_mapping(path):
                 raise ValidationError(f"Path {path} not in the {self.name} interface.")
         else:
@@ -297,8 +307,8 @@ class Interface:
         """
 
         # Validate the payload for the individual mapping
-        if not self.is_aggregation_object():
-            mapping: Mapping = self.get_mapping(path)
+        if not self.is_datastream_object():
+            mapping: Mapping | None = self.get_mapping(path)
             if mapping is None:
                 raise ValidationError(f"Mapping not found for path {path}.")
             mapping.validate_payload(payload)
@@ -308,7 +318,7 @@ class Interface:
         if not isinstance(payload, dict):
             raise ValidationError(f"Payload not a dict for aggregated interface {self.name}.")
         for k, v in payload.items():
-            mapping: Mapping = self.get_mapping(f"{path}/{k}")
+            mapping: Mapping | None = self.get_mapping(f"{path}/{k}")
             if mapping is None:
                 raise ValidationError(f"Mapping not found for path {path}/{k}.")
             mapping.validate_payload(v)
@@ -337,7 +347,7 @@ class Interface:
         """
 
         # Validate the payload for the individual mapping
-        if not self.is_aggregation_object():
+        if not self.is_datastream_object():
             mapping = self.get_mapping(path)
             if mapping is None:
                 raise ValidationError(f"Path {path} not in the {self.name} interface.")

@@ -45,7 +45,7 @@ def test_aggregate_from_device_to_server(device: Device, test_cfg: TestCfg):
         color="cyan",
         flush=True,
     )
-    device.send_aggregate(test_cfg.interface_device_aggr, "/sensor_id", test_cfg.mock_data)
+    device.send_object(test_cfg.interface_device_aggr, "/sensor_id", test_cfg.mock_data)
 
     time.sleep(1)
 

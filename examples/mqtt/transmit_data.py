@@ -27,13 +27,13 @@ def stream_individuals(device: DeviceMqtt):
     """
 
     # Send the binary blob endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/binaryblob_endpoint",
         b"binblob",
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/binaryblobarray_endpoint",
         [b"bin", b"blob"],
@@ -41,13 +41,13 @@ def stream_individuals(device: DeviceMqtt):
     )
 
     # Send the boolean endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/boolean_endpoint",
         False,
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/booleanarray_endpoint",
         [False, True],
@@ -55,13 +55,13 @@ def stream_individuals(device: DeviceMqtt):
     )
 
     # Send the datetime endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/datetime_endpoint",
         datetime.now(tz=timezone.utc),
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/datetimearray_endpoint",
         [datetime.now(tz=timezone.utc)],
@@ -69,13 +69,13 @@ def stream_individuals(device: DeviceMqtt):
     )
 
     # Send the double endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/double_endpoint",
         21.3,
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/doublearray_endpoint",
         [1123.0, 12.232],
@@ -83,13 +83,13 @@ def stream_individuals(device: DeviceMqtt):
     )
 
     # Send the integer endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/integer_endpoint",
         11,
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/integerarray_endpoint",
         [452, 0],
@@ -97,13 +97,13 @@ def stream_individuals(device: DeviceMqtt):
     )
 
     # Send the long integer endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/longinteger_endpoint",
         2**34,
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/longintegerarray_endpoint",
         [2**34, 2**35 + 11],
@@ -111,13 +111,13 @@ def stream_individuals(device: DeviceMqtt):
     )
 
     # Send the string endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/string_endpoint",
         "Hello world!",
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/stringarray_endpoint",
         ["Hello,", " world!"],
@@ -152,7 +152,7 @@ def stream_aggregates(device: DeviceMqtt):
         "string_endpoint": "Hello world",
         "stringarray_endpoint": ["Hello", "world", "!"],
     }
-    device.send_aggregate(
+    device.send_object(
         "org.astarte-platform.python.examples.DeviceAggregate",
         "/sensor11",
         aggregated_data,
@@ -164,12 +164,12 @@ def set_properties(device: DeviceMqtt):
     Set some hardcoded properties from a device to Astarte.
     """
 
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/binaryblob_endpoint",
         bytes([0x53, 0x47, 0x56, 0x73, 0x62, 0x47, 0x38, 0x3D]),
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/binaryblobarray_endpoint",
         [
@@ -177,62 +177,62 @@ def set_properties(device: DeviceMqtt):
             bytes([0x64, 0x32, 0x39, 0x79, 0x62]),
         ],
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/boolean_endpoint",
         True,
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/booleanarray_endpoint",
         [False, True, False],
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/datetime_endpoint",
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/datetimearray_endpoint",
         [datetime.now(tz=timezone.utc), datetime.now(tz=timezone.utc)],
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/double_endpoint",
         21.4,
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/doublearray_endpoint",
         [11.3259, 43.453, 33.0],
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/integer_endpoint",
         21,
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/integerarray_endpoint",
         [64, 0],
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/longinteger_endpoint",
         564684845165,
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/longintegerarray_endpoint",
         [12, 2222222, 2],
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/string_endpoint",
         "Hello world",
     )
-    device.send(
+    device.set_property(
         "org.astarte-platform.python.examples.DeviceProperty",
         "/s33/stringarray_endpoint",
         ["Hello", "world", "!"],

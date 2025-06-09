@@ -214,7 +214,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = True
-        mock_interface.is_type_properties.return_value = True
+        mock_interface.is_property_individual.return_value = True
         mock_get_interface.return_value = mock_interface
 
         device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
@@ -248,7 +248,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_property_individual.return_value = False
         mock_get_interface.return_value = mock_interface
 
         device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
@@ -686,9 +686,9 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = False
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_individual.return_value = True
+        mock_interface.is_property_individual.return_value = False
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
@@ -699,15 +699,16 @@ class UnitTests(unittest.TestCase):
         interface_path = "interface path"
         payload = 12
         timestamp = datetime.now()
-        device.send(interface_name, interface_path, payload, timestamp)
+        device.send_individual(interface_name, interface_path, payload, timestamp)
 
         mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_datastream_individual.assert_called_once()
+        mock_interface.is_property_individual.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_called_once_with(
             interface_path, payload, timestamp
         )
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
-        mock_interface.is_type_properties.assert_called_once_with()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_called_once_with(interface_path)
         mock_mqtt_publish.assert_called_once_with(
@@ -727,9 +728,9 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = False
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_individual.return_value = True
+        mock_interface.is_property_individual.return_value = False
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
@@ -742,16 +743,15 @@ class UnitTests(unittest.TestCase):
         timestamp = datetime.now()
         self.assertRaises(
             DeviceDisconnectedError,
-            lambda: device.send(interface_name, interface_path, payload, timestamp),
+            lambda: device.send_individual(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_individual.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_called_once_with(
             interface_path, payload, timestamp
         )
         mock_bson_dumps.assert_not_called()
-        mock_interface.is_type_properties.assert_not_called()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_not_called()
         mock_mqtt_publish.assert_not_called()
@@ -768,8 +768,8 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_individual.return_value = True
+        mock_interface.is_property_individual.return_value = False
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
@@ -780,16 +780,15 @@ class UnitTests(unittest.TestCase):
         interface_path = "interface path"
         payload = 0
         timestamp = datetime.now()
-        device.send(interface_name, interface_path, payload, timestamp)
+        device.send_individual(interface_name, interface_path, payload, timestamp)
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_called_once_with(
             interface_path, payload, timestamp
         )
         mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
-        mock_interface.is_type_properties.assert_called_once_with()
+        mock_interface.is_property_individual.assert_called_once()
         mock_db_store.assert_not_called()
         mock_interface.get_reliability.assert_called_once_with(interface_path)
         mock_mqtt_publish.assert_called_once_with(
@@ -810,8 +809,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
-        mock_interface.is_type_properties.return_value = True
+        mock_interface.is_property_individual.return_value = True
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
@@ -821,17 +819,13 @@ class UnitTests(unittest.TestCase):
         interface_name = "interface name"
         interface_path = "interface path"
         payload = 12
-        timestamp = datetime.now()
-        device.send(interface_name, interface_path, payload, timestamp)
+        device.set_property(interface_name, interface_path, payload)
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.validate_payload_and_timestamp.assert_called_once_with(
-            interface_path, payload, timestamp
-        )
-        mock_bson_dumps.assert_called_once_with({"v": payload, "t": timestamp})
-        mock_interface.is_type_properties.assert_called_once_with()
+        self.assertEqual(mock_interface.is_property_individual.call_count, 2)
+        mock_interface.validate_payload.assert_called_once_with(interface_path, payload)
+        mock_bson_dumps.assert_called_once_with({"v": payload})
         mock_db_store.assert_called_once_with(
             interface_name, mock_get_interface.return_value.version_major, interface_path, payload
         )
@@ -854,8 +848,8 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_object.return_value = True
+        mock_interface.is_property_individual.return_value = False
         mock_get_interface.return_value = mock_interface
 
         mock_bson_dumps.return_value = bytes("bson content", "utf-8")
@@ -866,11 +860,11 @@ class UnitTests(unittest.TestCase):
         interface_path = "interface path"
         payload = {"something": 12}
         timestamp = datetime.now()
-        device.send_aggregate(interface_name, interface_path, payload, timestamp)
+        device.send_object(interface_name, interface_path, payload, timestamp)
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_object.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_called_once_with(
             interface_path, payload, timestamp
         )
@@ -895,7 +889,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = True
+        mock_interface.is_property_individual.return_value = True
         mock_get_interface.return_value = mock_interface
 
         device._DeviceMqtt__connection_state = ConnectionState.CONNECTED
@@ -905,7 +899,7 @@ class UnitTests(unittest.TestCase):
         device.unset_property(interface_name, interface_path)
 
         mock_get_interface.assert_called_once_with(interface_name)
-        self.assertEqual(mock_interface.is_type_properties.call_count, 2)
+        self.assertEqual(mock_interface.is_property_individual.call_count, 2)
         mock_interface.is_server_owned.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
@@ -932,7 +926,7 @@ class UnitTests(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = True
+        mock_interface.is_property_individual.return_value = True
         mock_interface.get_mapping.return_value = None
         mock_get_interface.return_value = mock_interface
 
@@ -946,7 +940,7 @@ class UnitTests(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_type_properties.assert_called_once()
+        mock_interface.is_property_individual.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_not_called()
@@ -1354,7 +1348,7 @@ class UnitTests(unittest.TestCase):
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
-        mock_get_interface.return_value.is_type_properties.return_value = True
+        mock_get_interface.return_value.is_property_individual.return_value = True
 
         on_data_received_mock = mock.MagicMock()
         device.set_events_callbacks(on_data_received=on_data_received_mock)
@@ -1370,7 +1364,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.validate_payload.assert_called_once_with(
             "/endpoint/path", "payload_value"
         )
-        mock_get_interface.return_value.is_type_properties.assert_called_once()
+        mock_get_interface.return_value.is_property_individual.assert_called_once()
         mock_db_store.assert_called_once_with(
             mock_get_interface.return_value.name,
             mock_get_interface.return_value.version_major,
@@ -1392,7 +1386,7 @@ class UnitTests(unittest.TestCase):
         mock_message = mock.MagicMock()
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
-        mock_get_interface.return_value.is_type_properties.return_value = False
+        mock_get_interface.return_value.is_property_individual.return_value = False
 
         mock_loop = mock.MagicMock()
         on_data_received_mock = mock.MagicMock()
@@ -1409,7 +1403,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.validate_payload.assert_called_once_with(
             "/endpoint/path", "payload_value"
         )
-        mock_get_interface.return_value.is_type_properties.assert_called_once()
+        mock_get_interface.return_value.is_property_individual.assert_called_once()
         mock_db_store.assert_not_called()
         mock_loop.call_soon_threadsafe.assert_called_once_with(
             on_data_received_mock, device, "interface_name", "/endpoint/path", "payload_value"
@@ -1489,7 +1483,7 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.is_property_endpoint_resettable.assert_not_called()
         mock_get_interface.return_value.validate_path.assert_not_called()
         mock_get_interface.return_value.validate_payload.assert_not_called()
-        mock_get_interface.return_value.is_type_properties.assert_not_called()
+        mock_get_interface.return_value.is_property_individual.assert_not_called()
         on_data_received_mock.assert_not_called()
 
     # The function __purge_server_properties is complex and gets called following a specific event

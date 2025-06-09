@@ -41,7 +41,7 @@ def test_properties_from_device_to_server(device: Device, test_cfg: TestCfg):
     """
     cprint("\nSet device owned properties.", color="cyan", flush=True)
     for key, value in test_cfg.mock_data.items():
-        device.send(test_cfg.interface_device_prop, "/sensor_id/" + key, value)
+        device.set_property(test_cfg.interface_device_prop, "/sensor_id/" + key, value)
         time.sleep(0.005)
 
     time.sleep(1)
