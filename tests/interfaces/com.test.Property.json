@@ -1,0 +1,16 @@
+{
+    "interface_name": "com.test.Property",
+    "version_major": 0,
+    "version_minor": 1,
+    "type": "properties",
+    "ownership": "device",
+    "description": "Test properties interface.",
+    "doc": "Test interface used to test properties.",
+    "mappings": [
+        {
+            "endpoint": "/%{sensor_id}/booleanarray_endpoint",
+            "type": "booleanarray",
+            "allow_unset": true
+        }
+    ]
+}

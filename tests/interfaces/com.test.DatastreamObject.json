@@ -1,0 +1,22 @@
+{
+    "interface_name": "com.test.DatastreamObject",
+    "version_major": 0,
+    "version_minor": 1,
+    "type": "datastream",
+    "aggregation": "object",
+    "ownership": "device",
+    "description": "Test object interface.",
+    "doc": "Test interface used to test properties.",
+    "mappings": [
+        {
+            "endpoint": "/%{sensor_id}/datetime_endpoint",
+            "type": "datetime",
+            "explicit_timestamp": true
+        },
+        {
+            "endpoint": "/%{sensor_id}/doublearray_endpoint",
+            "type": "doublearray",
+            "explicit_timestamp": true
+        }
+    ]
+}
