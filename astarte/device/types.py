@@ -1,6 +1,6 @@
 # This file is part of Astarte.
 #
-# Copyright 2024 SECO Mind Srl
+# Copyright 2025 SECO Mind Srl
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +16,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-REALM = "dev"
-PAIRING_URL = "https://api.eu1.astarte.cloud/pairing"
-DEVICE_ID = "YPaEbDNiRLCYx4wkvktwsg"
-CREDENTIALS_SECRET = "mWbYjaNBckeXohDXphYlNVrthNgGE18bNUwp9TQLszo="
-STREAM_INDIVIDUAL_DATA = true
-STREAM_AGGREGATED_DATA = true
-SET_PROPERTIES = true
-UNSET_PROPERTIES = true
-# This wait time is the time the device will wait for data from Astarte at the end of all
-# transmissions.
-WAIT_FOR_INCOMING_S = 30
+from datetime import datetime
+from typing import Tuple, Union
+
+TypeAstarteDataScalar = Union[float, bool, int, str, bytes, datetime]
+TypeAstarteDataVector = Union[
+    list[float], list[bool], list[int], list[str], list[bytes], list[datetime]
+]
+TypeAstarteData = Union[TypeAstarteDataScalar, TypeAstarteDataVector]
+
+TypeAstarteObject = dict[str, TypeAstarteData]
+TypeInputPayload = Union[TypeAstarteObject, TypeAstarteData, None]
+
+TypeConvertedAstarteMessage = Tuple[str, str, TypeInputPayload]
