@@ -23,16 +23,16 @@ import argparse
 import asyncio
 import importlib.util
 import os
-import pickle
-import sqlite3
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Lock, Thread
+from threading import Thread
 
 import requests
 from termcolor import cprint
+
+from astarte.device.interface import InterfaceOwnership
 
 # Assuming this script is called from the root folder of this project.
 prj_path = Path(os.getcwd())
@@ -58,8 +58,15 @@ http_requests = importlib.util.module_from_spec(spec)
 sys.modules["http_requests"] = http_requests
 spec.loader.exec_module(http_requests)
 
+utils_path = Path.joinpath(Path.cwd(), "e2etest", "common", "utils.py")
+spec = importlib.util.spec_from_file_location("utils", utils_path)
+utils = importlib.util.module_from_spec(spec)
+sys.modules["utils"] = utils
+spec.loader.exec_module(utils)
+
 from config import TestCfg
 from http_requests import get_server_interface
+from utils import peek_database
 
 
 def on_connected_cbk(_):
@@ -258,23 +265,6 @@ def test_add_and_remove_interface_while_connected(device: DeviceMqtt, test_cfg: 
     assert json_res["data"]["booleanarray_endpoint"]["value"] == [False, False]
 
 
-def peek_database(persistency_dir: Path, device_id: str, interface_name: str):
-    """
-    Take a peek in the device database.
-    """
-    database_path = persistency_dir.joinpath(device_id, "caching", "astarte.db")
-    properties = (
-        sqlite3.connect(database_path)
-        .cursor()
-        .execute("SELECT * FROM properties WHERE interface=?", (interface_name,))
-        .fetchall()
-    )
-    parsed_properties = []
-    for interface, major, path, value in properties:
-        parsed_properties += [(interface, major, path, pickle.loads(value))]
-    return parsed_properties
-
-
 def test_add_and_remove_property_interface_while_connected(
     persistency_dir: Path, device: DeviceMqtt, test_cfg: TestCfg
 ):
@@ -307,6 +297,7 @@ def test_add_and_remove_property_interface_while_connected(
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
             "/s12/booleanarray_endpoint",
+            InterfaceOwnership.DEVICE,
             [True, False],
         )
     ]
@@ -378,6 +369,7 @@ def test_add_and_remove_property_interface_while_connected(
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
             "/s12/booleanarray_endpoint",
+            InterfaceOwnership.DEVICE,
             [False, False],
         )
     ]

@@ -18,10 +18,10 @@
 
 from __future__ import annotations
 
-import collections.abc
 import logging
 import os
 import ssl
+import typing
 import zlib
 from datetime import datetime
 from pathlib import Path
@@ -31,8 +31,17 @@ import bson
 import paho.mqtt.client as mqtt
 
 from astarte.device import crypto, pairing_handler
-from astarte.device.database import AstarteDatabase, AstarteDatabaseSQLite
-from astarte.device.device import ConnectionState, Device
+from astarte.device.database import (
+    AstarteDatabase,
+    AstarteDatabaseSQLite,
+    StoredProperty,
+)
+from astarte.device.device import (
+    ConnectionState,
+    Device,
+    TypeAstarteData,
+    TypeInputPayload,
+)
 from astarte.device.exceptions import (
     APIError,
     DeviceConnectingError,
@@ -329,11 +338,99 @@ class DeviceMqtt(Device):
         """
         return self.__connection_state is ConnectionState.CONNECTED
 
+    def get_property(self, interface_name: str, path: str) -> TypeAstarteData | None:
+        """
+        Load a property from the database.
+
+        Parameters
+        ----------
+        interface_name : str
+            View documentation of base Device class.
+        path : str
+            View documentation of base Device class.
+
+        Returns
+        -------
+        Optional[TypeAstarteData]
+            View documentation of base Device class.
+
+        Raises
+        ------
+        ValueError
+            When the passed interface_name is not the valid name of an interface stored in
+            the device introspection or the path does not match with one of the interface's
+            mappings
+        """
+        interface: Interface | None = self._introspection.get_interface(interface_name)
+        if interface is None:
+            raise ValueError("The passed interface name is not stored in the device")
+        if interface.get_mapping(path) is None:
+            raise ValueError("The passed path does not match any of the interface endpoints")
+
+        property_data = self.__prop_database.load_prop(
+            interface.name, interface.version_major, path
+        )
+
+        return None if property_data is None else property_data.value
+
+    def get_interface_props(self, interface_name: str) -> list[StoredProperty]:
+        """
+        Load all the properties of an interface stored in the database.
+
+        Parameters
+        ----------
+        interface_name : str
+            View documentation of base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            View documentation of base Device class.
+
+        Raises
+        ------
+        ValueError
+            When the passed interface_name is not the valid name of an interface stored in
+            the device introspection
+        """
+        interface: Interface | None = self._introspection.get_interface(interface_name)
+        if interface is None:
+            raise ValueError("The passed interface name is not stored in the device")
+
+        return self.__prop_database.load_interface_props(interface.name)
+
+    def get_all_props(self) -> list[StoredProperty]:
+        """
+        Returns
+        -------
+        list[StoredProperty]
+            View documentation of base Device class.
+        """
+        return self.__prop_database.load_all_props()
+
+    def get_device_props(self) -> list[StoredProperty]:
+        """
+        Returns
+        -------
+        list[StoredProperty]
+            View documentation of base Device class.
+        """
+        return self.__prop_database.load_device_props()
+
+    def get_server_props(self) -> list[StoredProperty]:
+        """
+        Returns
+        -------
+        list[StoredProperty]
+            View documentation of base Device class.
+        """
+        return self.__prop_database.load_server_props()
+
     def _send_generic(
         self,
         interface: Interface,
         path: str,
-        payload: object | collections.abc.Mapping | None,
+        payload: TypeInputPayload,
         timestamp: datetime | None,
     ) -> None:
         """
@@ -374,11 +471,16 @@ class DeviceMqtt(Device):
             raise ValidationError(f"Path {path} not in the {interface.name} interface.")
 
         if interface.is_property_individual():
+            individual_payload: TypeAstarteData | None = typing.cast(
+                typing.Union[TypeAstarteData, None], payload
+            )
+
             self.__prop_database.store_prop(
                 interface.name,
                 interface.version_major,
                 path,
-                payload,
+                interface.ownership,
+                individual_payload,
             )
 
         self.__mqtt_client.publish(
@@ -475,7 +577,8 @@ class DeviceMqtt(Device):
         ):
             self.__mqtt_client.loop_stop()
             # If the certificate must be regenerated, old mqtt client is no longer valid as it is
-            # bound to the wrong TLS params and paho does not allow to replace them a second time
+            # bound to the wrong TLS params and paho does not allow to replace
+            # them a second time
             self.__setup_mqtt_client()
             self.connect()
 
@@ -514,7 +617,9 @@ class DeviceMqtt(Device):
             payload_object = bson.loads(msg.payload)
             if "v" not in payload_object:
                 logging.warning(
-                    "Received unexpected BSON Object on topic %s, %s", msg.topic, payload_object
+                    "Received unexpected BSON Object on topic %s, %s",
+                    msg.topic,
+                    payload_object,
                 )
                 return
             data_payload = payload_object["v"]
@@ -530,7 +635,7 @@ class DeviceMqtt(Device):
         self,
         interface: Interface,
         path: str,
-        payload: object | collections.abc.Mapping | None,
+        payload: TypeAstarteData | None,
     ) -> None:
         """
         Store the property in the properties database.
@@ -544,8 +649,13 @@ class DeviceMqtt(Device):
         payload: object | collections.abc.Mapping | None
             Payload to store.
         """
-        if interface.is_property_individual():
-            self.__prop_database.store_prop(interface.name, interface.version_major, path, payload)
+        self.__prop_database.store_prop(
+            interface.name,
+            interface.version_major,
+            path,
+            interface.ownership,
+            payload,
+        )
 
     def __setup_subscriptions(self) -> None:
         """
@@ -588,13 +698,13 @@ class DeviceMqtt(Device):
         It also sends the purge properties message to Astarte.
         """
         interfaces_list = []
-        for interface_name, _, interface_path, value in self.__prop_database.load_all_props():
-            interface = self._introspection.get_interface(interface_name)
+        for prop in self.__prop_database.load_all_props():
+            interface = self._introspection.get_interface(prop.interface)
             if not interface:
-                self.__prop_database.delete_prop(interface_name, interface_path)
+                self.__prop_database.delete_prop(prop.interface, prop.path)
             elif not interface.is_server_owned():
-                self._send_generic(interface, interface_path, value, timestamp=None)
-                interfaces_list += [interface_name + interface_path]
+                self._send_generic(interface, prop.path, prop.value, timestamp=None)
+                interfaces_list += [interface.name + prop.path]
         interfaces_str = ";".join(interfaces_list)
         payload = bytearray(len(interfaces_str).to_bytes(4, byteorder="little"))
         payload.extend(zlib.compress(interfaces_str.encode("utf-8")))
@@ -623,19 +733,25 @@ class DeviceMqtt(Device):
             for full_path in [p.split("/") for p in decompressed_payload.split(";")]:
                 interface_name = full_path[0]
                 if not self._introspection.get_interface(interface_name):
-                    logging.debug("Purge list entry %s missing from introspection.", interface_name)
+                    logging.debug(
+                        "Purge list entry %s missing from introspection.",
+                        interface_name,
+                    )
                     continue
                 allowed_properties.append((interface_name, "/" + "/".join(full_path[1:])))
 
         # Delete all the properties not in the received list.
-        for interface_name, _, interface_path, _ in self.__prop_database.load_all_props():
-            interface = self._introspection.get_interface(interface_name)
+        for prop in self.__prop_database.load_all_props():
+            interface = self._introspection.get_interface(prop.interface)
             if interface is None:
-                logging.debug("Interface %s in database is not in introspection.", interface_name)
-                self.__prop_database.delete_prop(interface_name, interface_path)
+                logging.debug(
+                    "Interface %s in database is not in introspection.",
+                    prop.interface,
+                )
+                self.__prop_database.delete_prop(prop.interface, prop.path)
             elif (
                 interface.is_server_owned()
-                and (interface_name, interface_path) not in allowed_properties
+                and (interface.name, prop.path) not in allowed_properties
             ):
-                logging.debug("Removing the property at: %s/%s.", interface_name, interface_path)
-                self.__prop_database.delete_prop(interface_name, interface_path)
+                logging.debug("Removing the property at: %s/%s.", interface.name, prop.path)
+                self.__prop_database.delete_prop(interface.name, prop.path)
