@@ -32,6 +32,9 @@ from threading import Lock, Thread
 
 from termcolor import cprint
 
+from astarte.device.database import RecordOwnership
+from astarte.device.interface import InterfaceOwnership
+
 # Assuming this script is called from the root folder of this project.
 prj_path = Path(os.getcwd())
 if str(prj_path) not in sys.path:
@@ -51,6 +54,12 @@ http_requests = importlib.util.module_from_spec(spec)
 sys.modules["http_requests"] = http_requests
 spec.loader.exec_module(http_requests)
 
+utils_path = Path.joinpath(Path.cwd(), "e2etest", "common", "utils.py")
+spec = importlib.util.spec_from_file_location("utils", utils_path)
+utils = importlib.util.module_from_spec(spec)
+sys.modules["utils"] = utils
+spec.loader.exec_module(utils)
+
 from config import TestCfg
 from http_requests import (
     delete_server_interface,
@@ -59,6 +68,7 @@ from http_requests import (
     post_server_interface,
     prepare_transmit_data,
 )
+from utils import peek_database
 
 rx_data_lock = Lock()
 rx_data = {}
@@ -121,20 +131,6 @@ def unset_some_properties(device: DeviceMqtt, test_cfg: TestCfg):
         time.sleep(0.005)
 
 
-def peek_database(persistency_dir: Path, device_id: str):
-    """
-    Take a peek in the device database.
-    """
-    database_path = persistency_dir.joinpath(device_id, "caching", "astarte.db")
-    properties = (
-        sqlite3.connect(database_path).cursor().execute("SELECT * FROM properties").fetchall()
-    )
-    parsed_properties = []
-    for interface, major, path, value in properties:
-        parsed_properties += [(interface, major, path, pickle.loads(value))]
-    return parsed_properties
-
-
 def shuffle_database(persistency_dir: Path, test_cfg: TestCfg):
     """
     Add and remove some properties from the database to create some differences with the
@@ -152,12 +148,26 @@ def shuffle_database(persistency_dir: Path, test_cfg: TestCfg):
         (test_cfg.interface_server_prop, "/sensor_id/longinteger_endpoint"),
     )
     cursor.execute(
-        "INSERT OR REPLACE INTO properties (interface, major, path, value) VALUES " "(?, ?, ?, ?)",
-        (test_cfg.interface_device_prop, 0, "/sensor_id/integer_endpoint", pickle.dumps(66)),
+        "INSERT OR REPLACE INTO properties (interface, major, path, ownership, value) VALUES "
+        "(?, ?, ?, ?, ?)",
+        (
+            test_cfg.interface_device_prop,
+            0,
+            "/sensor_id/integer_endpoint",
+            RecordOwnership.DEVICE.value,
+            pickle.dumps(66),
+        ),
     )
     cursor.execute(
-        "INSERT OR REPLACE INTO properties (interface, major, path, value) VALUES " "(?, ?, ?, ?)",
-        (test_cfg.interface_server_prop, 0, "/sensor_id/boolean_endpoint", pickle.dumps(True)),
+        "INSERT OR REPLACE INTO properties (interface, major, path, ownership, value) VALUES "
+        "(?, ?, ?, ?, ?)",
+        (
+            test_cfg.interface_server_prop,
+            0,
+            "/sensor_id/boolean_endpoint",
+            RecordOwnership.SERVER.value,
+            pickle.dumps(True),
+        ),
     )
     connection.commit()
 
@@ -220,10 +230,22 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
 
     actual_db = peek_database(persistency_dir, test_cfg.device_id)
     expect_db = [
-        (test_cfg.interface_device_prop, 0, f"/sensor_id/{k}", v)
+        (
+            test_cfg.interface_device_prop,
+            0,
+            f"/sensor_id/{k}",
+            InterfaceOwnership.DEVICE,
+            v,
+        )
         for k, v in test_cfg.mock_data.items()
     ] + [
-        (test_cfg.interface_server_prop, 0, f"/sensor_id/{k}", v)
+        (
+            test_cfg.interface_server_prop,
+            0,
+            f"/sensor_id/{k}",
+            InterfaceOwnership.SERVER,
+            v,
+        )
         for k, v in test_cfg.mock_data.items()
     ]
     if actual_db != expect_db:
@@ -238,11 +260,23 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
 
     actual_db = peek_database(persistency_dir, test_cfg.device_id)
     expect_db = [
-        (test_cfg.interface_device_prop, 0, f"/sensor_id/{k}", v)
+        (
+            test_cfg.interface_device_prop,
+            0,
+            f"/sensor_id/{k}",
+            InterfaceOwnership.DEVICE,
+            v,
+        )
         for k, v in test_cfg.mock_data.items()
         if k in ["datetime_endpoint", "booleanarray_endpoint"]
     ] + [
-        (test_cfg.interface_server_prop, 0, f"/sensor_id/{k}", v)
+        (
+            test_cfg.interface_server_prop,
+            0,
+            f"/sensor_id/{k}",
+            InterfaceOwnership.SERVER,
+            v,
+        )
         for k, v in test_cfg.mock_data.items()
         if k in ["longinteger_endpoint", "stringarray_endpoint"]
     ]
@@ -274,24 +308,28 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
             "/sensor_id/booleanarray_endpoint",
+            InterfaceOwnership.DEVICE,
             [True, False, True, False],
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
             "/sensor_id/stringarray_endpoint",
+            InterfaceOwnership.SERVER,
             ["hello", " world"],
         ),
         (
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
             "/sensor_id/integer_endpoint",
+            InterfaceOwnership.DEVICE,
             66,
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
             "/sensor_id/boolean_endpoint",
+            InterfaceOwnership.SERVER,
             True,
         ),
     ]
@@ -317,24 +355,28 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
             "/sensor_id/booleanarray_endpoint",
+            InterfaceOwnership.DEVICE,
             [True, False, True, False],
         ),
         (
             "org.astarte-platform.python.e2etest.DeviceProperty",
             0,
             "/sensor_id/integer_endpoint",
+            InterfaceOwnership.DEVICE,
             66,
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
             "/sensor_id/longinteger_endpoint",
+            InterfaceOwnership.SERVER,
             45543543534,
         ),
         (
             "org.astarte-platform.python.e2etest.ServerProperty",
             0,
             "/sensor_id/stringarray_endpoint",
+            InterfaceOwnership.SERVER,
             ["hello", " world"],
         ),
     ]
@@ -372,7 +414,10 @@ if __name__ == "__main__":
     call_back_thread.start()
 
     try:
-        main(call_back_loop, TestCfg(device_n=args.device_n, mock_data_n=args.mock_data_n))
+        main(
+            call_back_loop,
+            TestCfg(device_n=args.device_n, mock_data_n=args.mock_data_n),
+        )
     except Exception as e:
         call_back_loop.stop()
         call_back_thread.join(timeout=1)
