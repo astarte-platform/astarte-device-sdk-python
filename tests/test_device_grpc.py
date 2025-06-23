@@ -20,20 +20,31 @@
 # pylint: disable=no-self-use, too-many-arguments, no-name-in-module, too-many-locals
 # pylint: disable=missing-class-docstring, too-many-statements
 
+import json
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import Thread
 from unittest import mock
 
-from astarteplatform.msghub.astarte_type_pb2 import (
+from astarteplatform.msghub.astarte_data_pb2 import (
     AstarteBinaryBlobArray,
     AstarteBooleanArray,
+    AstarteData,
+    AstarteDatastreamIndividual,
+    AstarteDatastreamObject,
     AstarteDateTimeArray,
     AstarteDoubleArray,
     AstarteIntegerArray,
     AstarteLongIntegerArray,
+    AstartePropertyIndividual,
     AstarteStringArray,
 )
+from astarteplatform.msghub.astarte_message_pb2 import AstarteMessage, MessageHubEvent
+from astarteplatform.msghub.interface_pb2 import InterfacesJson, InterfacesName
+from astarteplatform.msghub.message_hub_service_pb2_grpc import MessageHubStub
+from astarteplatform.msghub.node_pb2 import Node
+from google.protobuf.empty_pb2 import Empty
 from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ChannelConnectivity
 from grpc._channel import _MultiThreadedRendezvous
@@ -53,7 +64,10 @@ from astarte.device.device_grpc import (
     _encode_astarte_message,
     _encode_timestamp,
 )
+from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
+
+_INTERFACES_DIR = Path(__file__).parent.joinpath("interfaces").absolute()
 
 
 class TestMyAbstract(unittest.TestCase):
@@ -86,7 +100,7 @@ class TestMyAbstract(unittest.TestCase):
         mock_add_interface.assert_called_once_with(mock_interface.return_value)
         mock_json_dumps.assert_called_once_with(interface_json)
         assert device._DeviceGrpc__interfaces_bins == {
-            mock_interface.return_value.name: mock_json_dumps.return_value.encode.return_value
+            mock_interface.return_value.name: mock_json_dumps.return_value
         }
         mock_interface_json.assert_not_called()
 
@@ -142,12 +156,10 @@ class TestMyAbstract(unittest.TestCase):
         mock_add_interface.assert_called_once_with(mock_interface.return_value)
         mock_json_dumps.assert_called_once_with(interface_json)
         assert device._DeviceGrpc__interfaces_bins == {
-            mock_interface.return_value.name: mock_json_dumps.return_value.encode.return_value
+            mock_interface.return_value.name: mock_json_dumps.return_value
         }
 
-        mock_interfaces_json.assert_called_once_with(
-            interfaces_json=[mock_json_dumps.return_value.encode.return_value]
-        )
+        mock_interfaces_json.assert_called_once_with(interfaces_json=[mock_json_dumps.return_value])
         mock_device_stub.AddInterfaces.assert_called_once_with(mock_interfaces_json.return_value)
 
     @mock.patch.object(Introspection, "remove_interface")
@@ -242,14 +254,14 @@ class TestMyAbstract(unittest.TestCase):
             "<other-interface-name2>": other_interface_2,
         }
 
-        mock_interfaces_name.assert_called_once_with(names=[interface_name.encode()])
+        mock_interfaces_name.assert_called_once_with(names=[interface_name])
         mock_device_stub.RemoveInterfaces.assert_called_once_with(mock_interfaces_name.return_value)
 
     @mock.patch("astarte.device.device_grpc.Thread")
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
-    @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
-    @mock.patch("astarte.device.device_grpc.grpc.intercept_channel")
+    @mock.patch("astarte.device.device_grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.intercept_channel")
     @mock.patch("astarte.device.device_grpc.AstarteUnaryStreamInterceptor")
     @mock.patch("astarte.device.device_grpc.AstarteUnaryUnaryInterceptor")
     def test_devicegrpc_connect(
@@ -295,7 +307,7 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.Thread")
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
-    @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.insecure_channel")
     def test_devicegrpc_connect_already_connected(
         self,
         mock_insecure_channel,
@@ -327,8 +339,8 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.Thread")
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
-    @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
-    @mock.patch("astarte.device.device_grpc.grpc.intercept_channel")
+    @mock.patch("astarte.device.device_grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.intercept_channel")
     @mock.patch("astarte.device.device_grpc.AstarteUnaryStreamInterceptor")
     @mock.patch("astarte.device.device_grpc.AstarteUnaryUnaryInterceptor")
     def test_devicegrpc__on_connectivity_change(
@@ -429,8 +441,8 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.Thread")
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
-    @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
-    @mock.patch("astarte.device.device_grpc.grpc.intercept_channel")
+    @mock.patch("astarte.device.device_grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.intercept_channel")
     @mock.patch("astarte.device.device_grpc.AstarteUnaryStreamInterceptor")
     @mock.patch("astarte.device.device_grpc.AstarteUnaryUnaryInterceptor")
     def test_devicegrpc__on_connectivity_change_threaded(
@@ -528,8 +540,8 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.Thread")
     @mock.patch("astarte.device.device_grpc.Node")
     @mock.patch("astarte.device.device_grpc.MessageHubStub")
-    @mock.patch("astarte.device.device_grpc.grpc.insecure_channel")
-    @mock.patch("astarte.device.device_grpc.grpc.intercept_channel")
+    @mock.patch("astarte.device.device_grpc.insecure_channel")
+    @mock.patch("astarte.device.device_grpc.intercept_channel")
     @mock.patch("astarte.device.device_grpc.AstarteUnaryStreamInterceptor")
     @mock.patch("astarte.device.device_grpc.AstarteUnaryUnaryInterceptor")
     def test_devicegrpc__rx_stream_handler(
@@ -838,7 +850,8 @@ class TestMyAbstract(unittest.TestCase):
         device._DeviceGrpc__msghub_stub = mock_msghub_stub
 
         self.assertRaises(
-            ValidationError, lambda: device._send_generic(mock_interface, "path", None, timestamp)
+            ValidationError,
+            lambda: device._send_generic(mock_interface, "path", None, timestamp),
         )
 
         mock_interface.is_server_owned.assert_called_once()
@@ -866,7 +879,8 @@ class TestMyAbstract(unittest.TestCase):
         device._DeviceGrpc__msghub_stub = mock_msghub_stub
 
         self.assertRaises(
-            ValidationError, lambda: device._send_generic(mock_interface, "path", None, timestamp)
+            ValidationError,
+            lambda: device._send_generic(mock_interface, "path", None, timestamp),
         )
 
         mock_interface.is_server_owned.assert_called_once()
@@ -905,114 +919,112 @@ class TestMyAbstract(unittest.TestCase):
         mock__encode_astarte_message.assert_not_called()
         mock_msghub_stub.Send.assert_not_called()
 
-    @mock.patch("astarte.device.device_grpc.AstarteUnset")
-    @mock.patch("astarte.device.device_grpc.AstarteMessage")
-    def test_encode_astarte_message_empty_message(self, mock_astarte_message, mock_astarte_unset):
-        mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_path = "path"
-        mock_timestamp = mock.MagicMock()
-        encoded_message = _encode_astarte_message(mock_interface, mock_path, mock_timestamp, None)
-
-        mock_astarte_unset.assert_called_once()
-        mock_astarte_message.assert_called_once_with(
-            interface_name="interface name",
-            path="path",
-            timestamp=mock_timestamp,
-            astarte_unset=mock_astarte_unset.return_value,
+    def test_encode_astarte_message_empty_message(self):
+        interface = Interface(
+            json.load(
+                open(
+                    _INTERFACES_DIR.joinpath("com.test.Property.json"),
+                    "r",
+                    encoding="utf-8",
+                )
+            )
         )
-        self.assertEqual(encoded_message, mock_astarte_message.return_value)
+        path = "/path/booleanarray_endpoint"
+        expected = AstarteMessage(
+            interface_name=interface.name,
+            path=path,
+            property_individual=AstartePropertyIndividual(data=None),
+        )
+        encoded_message = _encode_astarte_message(interface, path, None, None)
 
-    @mock.patch("astarte.device.device_grpc.AstarteDataType")
-    @mock.patch("astarte.device.device_grpc._encode_astarte_data_type_individual")
-    @mock.patch("astarte.device.device_grpc.AstarteMessage")
+        self.assertEqual(encoded_message, expected)
+
+    def test_encode_astarte_message_individual_property(self):
+        interface = Interface(
+            json.load(
+                open(
+                    _INTERFACES_DIR.joinpath("com.test.Property.json"),
+                    "r",
+                    encoding="utf-8",
+                )
+            )
+        )
+        path = "/path/booleanarray_endpoint"
+        data = [True, True, True, True, True]
+        expected = AstarteMessage(
+            interface_name=interface.name,
+            path=path,
+            property_individual=AstartePropertyIndividual(
+                data=AstarteData(boolean_array=AstarteBooleanArray(values=data))
+            ),
+        )
+        encoded_message = _encode_astarte_message(interface, path, None, data)
+
+        self.assertEqual(encoded_message, expected)
+
     def test_encode_astarte_message_individual_payload(
         self,
-        mock_astarte_message,
-        mock__encode_astarte_data_type_individual,
-        mock_astarte_data_type,
     ):
-        mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = False
-        mock_path = "path"
-        mock_timestamp = mock.MagicMock()
-        mock_payload = mock.MagicMock()
+        interface = Interface(
+            json.load(
+                open(
+                    _INTERFACES_DIR.joinpath("com.test.DatastreamIndividual.json"),
+                    "r",
+                    encoding="utf-8",
+                )
+            )
+        )
+        path = "/binaryblobarray_endpoint"
+        timestamp = from_datetime(datetime(2020, 2, 20, tzinfo=timezone.utc))
+        payload = [bytes([50, 255, 50]), bytes([50, 255, 255])]
+        expected = AstarteMessage(
+            interface_name=interface.name,
+            path=path,
+            datastream_individual=AstarteDatastreamIndividual(
+                data=AstarteData(binary_blob_array=AstarteBinaryBlobArray(values=payload)),
+                timestamp=timestamp,
+            ),
+        )
+        encoded_message = _encode_astarte_message(interface, path, timestamp, payload)
 
-        encoded_message = _encode_astarte_message(
-            mock_interface, mock_path, mock_timestamp, mock_payload
-        )
+        self.assertEqual(encoded_message, expected)
 
-        mock_interface.is_aggregation_object.assert_called_once()
-        mock_interface.get_mapping.assert_called_once_with(mock_path)
-        mock__encode_astarte_data_type_individual.assert_called_once_with(
-            mock_interface.get_mapping.return_value, mock_payload
-        )
-        mock_astarte_data_type.assert_called_once_with(
-            astarte_individual=mock__encode_astarte_data_type_individual.return_value
-        )
-        mock_astarte_message.assert_called_once_with(
-            interface_name=mock_interface.name,
-            path=mock_path,
-            timestamp=mock_timestamp,
-            astarte_data=mock_astarte_data_type.return_value,
-        )
-        self.assertEqual(encoded_message, mock_astarte_message.return_value)
-
-    @mock.patch("astarte.device.device_grpc.AstarteDataTypeObject")
-    @mock.patch("astarte.device.device_grpc.AstarteDataType")
-    @mock.patch("astarte.device.device_grpc._encode_astarte_data_type_individual")
-    @mock.patch("astarte.device.device_grpc.AstarteMessage")
     def test_encode_astarte_message_object_payload(
         self,
-        mock_astarte_message,
-        mock__encode_astarte_data_type_individual,
-        mock_astarte_data_type,
-        mock_astarte_data_type_object,
     ):
-        mock_interface = mock.MagicMock()
-        mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = True
-        mock_path = "path"
-        mock_timestamp = mock.MagicMock()
-        mock_payload = {"endpoint1": mock.MagicMock(), "endpoint2": mock.MagicMock()}
-        mock_mapping1 = mock.MagicMock()
-        mock_mapping2 = mock.MagicMock()
-        mock_interface.get_mapping.side_effect = [mock_mapping1, mock_mapping2]
-        mock_astarte_data_type1 = mock.MagicMock()
-        mock_astarte_data_type2 = mock.MagicMock()
-        mock__encode_astarte_data_type_individual.side_effect = [
-            mock_astarte_data_type1,
-            mock_astarte_data_type2,
-        ]
+        interface = Interface(
+            json.load(
+                open(
+                    _INTERFACES_DIR.joinpath("com.test.DatastreamObject.json"),
+                    "r",
+                    encoding="utf-8",
+                )
+            )
+        )
+        path = "/path"
+        expected_datetime = datetime(2000, 2, 4, tzinfo=timezone.utc)
+        expected_double_array = [3.14, 2.17]
+        timestamp = from_datetime(datetime(2022, 2, 2, tzinfo=timezone.utc))
+        payload = {
+            "datetime_endpoint": expected_datetime,
+            "doublearray_endpoint": expected_double_array,
+        }
+        expected = {
+            "datetime_endpoint": AstarteData(date_time=from_datetime(expected_datetime)),
+            "doublearray_endpoint": AstarteData(
+                double_array=AstarteDoubleArray(values=expected_double_array)
+            ),
+        }
 
-        encoded_message = _encode_astarte_message(
-            mock_interface, mock_path, mock_timestamp, mock_payload
+        encoded_message = _encode_astarte_message(interface, path, timestamp, payload)
+
+        expected_message = AstarteMessage(
+            interface_name=interface.name,
+            path=path,
+            datastream_object=AstarteDatastreamObject(data=expected, timestamp=timestamp),
         )
 
-        mock_interface.is_aggregation_object.assert_called_once()
-        calls = [mock.call("path/endpoint1"), mock.call("path/endpoint2")]
-        mock_interface.get_mapping.assert_has_calls(calls)
-        self.assertEqual(mock_interface.get_mapping.call_count, 2)
-        calls = [
-            mock.call(mock_mapping1, mock_payload["endpoint1"]),
-            mock.call(mock_mapping2, mock_payload["endpoint2"]),
-        ]
-        mock__encode_astarte_data_type_individual.assert_has_calls(calls)
-        self.assertEqual(mock__encode_astarte_data_type_individual.call_count, 2)
-        mock_astarte_data_type_object.assert_called_once_with(
-            object_data={"endpoint1": mock_astarte_data_type1, "endpoint2": mock_astarte_data_type2}
-        )
-        mock_astarte_data_type.assert_called_once_with(
-            astarte_object=mock_astarte_data_type_object.return_value
-        )
-        mock_astarte_message.assert_called_once_with(
-            interface_name=mock_interface.name,
-            path=mock_path,
-            timestamp=mock_timestamp,
-            astarte_data=mock_astarte_data_type.return_value,
-        )
-        self.assertEqual(encoded_message, mock_astarte_message.return_value)
+        self.assertEqual(encoded_message, expected_message)
 
     @mock.patch("astarte.device.device_grpc.AstarteDateTimeArray")
     @mock.patch("astarte.device.device_grpc.AstarteBinaryBlobArray")
@@ -1022,7 +1034,7 @@ class TestMyAbstract(unittest.TestCase):
     @mock.patch("astarte.device.device_grpc.AstarteStringArray")
     @mock.patch("astarte.device.device_grpc.AstarteBooleanArray")
     @mock.patch("astarte.device.device_grpc._encode_timestamp")
-    @mock.patch("astarte.device.device_grpc.AstarteDataTypeIndividual")
+    @mock.patch("astarte.device.device_grpc.AstarteData")
     def test_encode_astarte_data_type(
         self,
         mock_astarte_data_type_individual,
@@ -1041,37 +1053,37 @@ class TestMyAbstract(unittest.TestCase):
         # Simpler non-array types
         mock_mapping.type = "boolean"
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
-        mock_astarte_data_type_individual.assert_called_once_with(astarte_boolean=mock_payload)
+        mock_astarte_data_type_individual.assert_called_once_with(boolean=mock_payload)
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
         mock_astarte_data_type_individual.reset_mock()
         mock_mapping.type = "string"
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
-        mock_astarte_data_type_individual.assert_called_once_with(astarte_string=mock_payload)
+        mock_astarte_data_type_individual.assert_called_once_with(string=mock_payload)
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
         mock_astarte_data_type_individual.reset_mock()
         mock_mapping.type = "double"
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
-        mock_astarte_data_type_individual.assert_called_once_with(astarte_double=mock_payload)
+        mock_astarte_data_type_individual.assert_called_once_with(double=mock_payload)
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
         mock_astarte_data_type_individual.reset_mock()
         mock_mapping.type = "integer"
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
-        mock_astarte_data_type_individual.assert_called_once_with(astarte_integer=mock_payload)
+        mock_astarte_data_type_individual.assert_called_once_with(integer=mock_payload)
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
         mock_astarte_data_type_individual.reset_mock()
         mock_mapping.type = "longinteger"
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
-        mock_astarte_data_type_individual.assert_called_once_with(astarte_long_integer=mock_payload)
+        mock_astarte_data_type_individual.assert_called_once_with(long_integer=mock_payload)
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
         mock_astarte_data_type_individual.reset_mock()
         mock_mapping.type = "binaryblob"
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
-        mock_astarte_data_type_individual.assert_called_once_with(astarte_binary_blob=mock_payload)
+        mock_astarte_data_type_individual.assert_called_once_with(binary_blob=mock_payload)
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
         # More complex datetime
@@ -1080,7 +1092,7 @@ class TestMyAbstract(unittest.TestCase):
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
         mock__encode_timestamp.assert_called_once_with(mock_payload)
         mock_astarte_data_type_individual.assert_called_once_with(
-            astarte_date_time=mock__encode_timestamp.return_value
+            date_time=mock__encode_timestamp.return_value
         )
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
@@ -1090,7 +1102,7 @@ class TestMyAbstract(unittest.TestCase):
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
         mock_astarte_boolean_array.assert_called_once_with(values=mock_payload)
         mock_astarte_data_type_individual.assert_called_once_with(
-            astarte_boolean_array=mock_astarte_boolean_array.return_value
+            boolean_array=mock_astarte_boolean_array.return_value
         )
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
@@ -1099,7 +1111,7 @@ class TestMyAbstract(unittest.TestCase):
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
         mock_astarte_string_array.assert_called_once_with(values=mock_payload)
         mock_astarte_data_type_individual.assert_called_once_with(
-            astarte_string_array=mock_astarte_string_array.return_value
+            string_array=mock_astarte_string_array.return_value
         )
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
@@ -1108,7 +1120,7 @@ class TestMyAbstract(unittest.TestCase):
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
         mock_astarte_double_array.assert_called_once_with(values=mock_payload)
         mock_astarte_data_type_individual.assert_called_once_with(
-            astarte_double_array=mock_astarte_double_array.return_value
+            double_array=mock_astarte_double_array.return_value
         )
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
@@ -1117,7 +1129,7 @@ class TestMyAbstract(unittest.TestCase):
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
         mock_astarte_integer_array.assert_called_once_with(values=mock_payload)
         mock_astarte_data_type_individual.assert_called_once_with(
-            astarte_integer_array=mock_astarte_integer_array.return_value
+            integer_array=mock_astarte_integer_array.return_value
         )
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
@@ -1126,7 +1138,7 @@ class TestMyAbstract(unittest.TestCase):
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
         mock_astarte_longinteger_array.assert_called_once_with(values=mock_payload)
         mock_astarte_data_type_individual.assert_called_once_with(
-            astarte_long_integer_array=mock_astarte_longinteger_array.return_value
+            long_integer_array=mock_astarte_longinteger_array.return_value
         )
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
@@ -1135,7 +1147,7 @@ class TestMyAbstract(unittest.TestCase):
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
         mock_astarte_binaryblob_array.assert_called_once_with(values=mock_payload)
         mock_astarte_data_type_individual.assert_called_once_with(
-            astarte_binary_blob_array=mock_astarte_binaryblob_array.return_value
+            binary_blob_array=mock_astarte_binaryblob_array.return_value
         )
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
@@ -1145,7 +1157,10 @@ class TestMyAbstract(unittest.TestCase):
         mock_payload = [mock.MagicMock(), mock.MagicMock()]
         mock_encoded_payload1 = mock.MagicMock()
         mock_encoded_payload2 = mock.MagicMock()
-        mock__encode_timestamp.side_effect = [mock_encoded_payload1, mock_encoded_payload2]
+        mock__encode_timestamp.side_effect = [
+            mock_encoded_payload1,
+            mock_encoded_payload2,
+        ]
         mock_mapping.type = "datetimearray"
         encoded_data_type = _encode_astarte_data_type_individual(mock_mapping, mock_payload)
         calls = [mock.call(mock_payload[0]), mock.call(mock_payload[1])]
@@ -1155,7 +1170,7 @@ class TestMyAbstract(unittest.TestCase):
             values=[mock_encoded_payload1, mock_encoded_payload2]
         )
         mock_astarte_data_type_individual.assert_called_once_with(
-            astarte_date_time_array=mock_astarte_datetime_array.return_value
+            date_time_array=mock_astarte_datetime_array.return_value
         )
         self.assertEqual(encoded_data_type, mock_astarte_data_type_individual.return_value)
 
@@ -1167,227 +1182,235 @@ class TestMyAbstract(unittest.TestCase):
         mock_grpc_timestamp.return_value.FromDatetime.assert_called_once_with(mock_timestamp)
         self.assertEqual(encoded_timestamp, mock_grpc_timestamp.return_value)
 
-    @mock.patch("astarte.device.device_grpc._decode_astarte_data_type_individual")
-    def test_decode_astarte_message_individual(self, mock__decode_astarte_data_type_individual):
-        mock_astarte_message = mock.MagicMock()
-        mock_astarte_message.HasField.return_value = True
-        mock_astarte_message.astarte_data.HasField.return_value = True
-        encoded_message = _decode_astarte_message(mock_astarte_message)
-
-        mock_astarte_message.HasField.assert_called_once_with("astarte_data")
-        mock_astarte_message.astarte_data.HasField.assert_called_once_with("astarte_individual")
-        mock__decode_astarte_data_type_individual.assert_called_once_with(
-            mock_astarte_message.astarte_data.astarte_individual
+    def test_decode_astarte_message_individual(
+        self,
+    ):
+        int_name = "test.test"
+        path = "/test"
+        expected = [False, True]
+        data = AstarteDatastreamIndividual(
+            data=AstarteData(boolean_array=AstarteBooleanArray(values=expected))
         )
+        mock_astarte_message = AstarteMessage(
+            interface_name=int_name, path=path, datastream_individual=data
+        )
+
+        decoded_message = _decode_astarte_message(mock_astarte_message)
+
         self.assertEqual(
-            encoded_message,
+            decoded_message,
             (
-                mock_astarte_message.interface_name,
-                mock_astarte_message.path,
-                mock__decode_astarte_data_type_individual.return_value,
+                int_name,
+                path,
+                expected,
             ),
         )
 
-    @mock.patch("astarte.device.device_grpc._decode_astarte_data_type_object")
-    def test_decode_astarte_message_object(self, mock__decode_astarte_data_type_object):
-        mock_astarte_message = mock.MagicMock()
-        mock_astarte_message.HasField.return_value = True
-        mock_astarte_message.astarte_data.HasField.return_value = False
-        encoded_message = _decode_astarte_message(mock_astarte_message)
-
-        mock_astarte_message.HasField.assert_called_once_with("astarte_data")
-        mock_astarte_message.astarte_data.HasField.assert_called_once_with("astarte_individual")
-        mock__decode_astarte_data_type_object.assert_called_once_with(
-            mock_astarte_message.astarte_data.astarte_object
+    def test_decode_astarte_message_object(self):
+        int_name = "test.test"
+        path = "/test"
+        expected_a = [3.14, 6.28, 2.71]
+        expected_b = [bytes([255, 0, 255]), bytes([0, 255, 255])]
+        expected_c = "string"
+        data = {
+            "a": AstarteData(double_array=AstarteDoubleArray(values=expected_a)),
+            "b": AstarteData(binary_blob_array=AstarteBinaryBlobArray(values=expected_b)),
+            "c": AstarteData(string=expected_c),
+        }
+        expected = {"a": expected_a, "b": expected_b, "c": expected_c}
+        mock_astarte_message = AstarteMessage(
+            interface_name=int_name,
+            path=path,
+            datastream_object=AstarteDatastreamObject(data=data),
         )
+
+        decoded_message = _decode_astarte_message(mock_astarte_message)
+
         self.assertEqual(
-            encoded_message,
-            (
-                mock_astarte_message.interface_name,
-                mock_astarte_message.path,
-                mock__decode_astarte_data_type_object.return_value,
-            ),
+            decoded_message,
+            (int_name, path, expected),
         )
 
     def test_decode_astarte_message_unset(self):
-        mock_astarte_message = mock.MagicMock()
-        mock_astarte_message.HasField.return_value = False
+        int_name = "test.test"
+        path = "/test"
+
+        mock_astarte_message = AstarteMessage(
+            interface_name=int_name,
+            path=path,
+            property_individual=AstartePropertyIndividual(),
+        )
         decoded_message = _decode_astarte_message(mock_astarte_message)
 
-        mock_astarte_message.HasField.assert_called_once_with("astarte_data")
-        mock_astarte_message.astarte_data.HasField.assert_not_called()
         self.assertEqual(
-            decoded_message, (mock_astarte_message.interface_name, mock_astarte_message.path, None)
+            decoded_message,
+            (int_name, path, None),
         )
 
-    @mock.patch("astarte.device.device_grpc._decode_astarte_data_type_individual")
-    def test_decode_astarte_data_type_object(self, mock__decode_astarte_data_type_individual):
+    def test_decode_astarte_data_type_object(self):
+        expected_1 = 3.14
+        expected_2 = ["str", "str2"]
+        input = {
+            "endpoint 1": AstarteData(double=expected_1),
+            "endpoint 2": AstarteData(string_array=AstarteStringArray(values=expected_2)),
+        }
+        expected = {"endpoint 1": expected_1, "endpoint 2": expected_2}
+
         mock_data_type = mock.MagicMock()
-        mock_object_data1 = ("endpoint 1", mock.MagicMock())
-        mock_object_data2 = ("endpoint 2", mock.MagicMock())
-        mock_data_type.object_data.items.return_value = [mock_object_data1, mock_object_data2]
-        mock_decoded_data1 = mock.MagicMock()
-        mock_decoded_data2 = mock.MagicMock()
-        mock__decode_astarte_data_type_individual.side_effect = [
-            mock_decoded_data1,
-            mock_decoded_data2,
-        ]
+        mock_data_type.data.items.return_value = input.items()
         decoded_message = _decode_astarte_data_type_object(mock_data_type)
 
-        mock_data_type.object_data.items.assert_called_once()
-        calls = [mock.call(mock_object_data1[1]), mock.call(mock_object_data2[1])]
-        mock__decode_astarte_data_type_individual.assert_has_calls(calls)
-        self.assertEqual(mock__decode_astarte_data_type_individual.call_count, 2)
+        mock_data_type.data.items.assert_called_once()
         self.assertEqual(
-            decoded_message, {"endpoint 1": mock_decoded_data1, "endpoint 2": mock_decoded_data2}
+            decoded_message,
+            expected,
         )
 
     def test_decode_astarte_data_type_individual_boolean(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_boolean"
-        mock_data_type.astarte_boolean = mock.MagicMock(spec=bool)
+        mock_data_type.WhichOneof.return_value = "boolean"
+        mock_data_type.boolean = False
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
-        self.assertEqual(decoded_message, mock_data_type.astarte_boolean)
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
+        self.assertEqual(decoded_message, mock_data_type.boolean)
 
     def test_decode_astarte_data_type_individual_string(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_string"
-        mock_data_type.astarte_string = mock.MagicMock(spec=str)
+        mock_data_type.WhichOneof.return_value = "string"
+        mock_data_type.string = ""
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
-        self.assertEqual(decoded_message, mock_data_type.astarte_string)
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
+        self.assertEqual(decoded_message, mock_data_type.string)
 
     def test_decode_astarte_data_type_individual_double(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_double"
-        mock_data_type.astarte_double = mock.MagicMock(spec=float)
+        mock_data_type.WhichOneof.return_value = "double"
+        mock_data_type.double = float(0.0)
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
-        self.assertEqual(decoded_message, mock_data_type.astarte_double)
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
+        self.assertEqual(decoded_message, mock_data_type.double)
 
     def test_decode_astarte_data_type_individual_integer(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_integer"
-        mock_data_type.astarte_integer = mock.MagicMock(spec=int)
+        mock_data_type.WhichOneof.return_value = "integer"
+        mock_data_type.integer = int(0)
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
-        self.assertEqual(decoded_message, mock_data_type.astarte_integer)
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
+        self.assertEqual(decoded_message, mock_data_type.integer)
 
     def test_decode_astarte_data_type_individual_longinteger(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_long_integer"
-        mock_data_type.astarte_long_integer = mock.MagicMock(spec=int)
+        mock_data_type.WhichOneof.return_value = "long_integer"
+        mock_data_type.long_integer = int(0)
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
-        self.assertEqual(decoded_message, mock_data_type.astarte_long_integer)
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
+        self.assertEqual(decoded_message, mock_data_type.long_integer)
 
     def test_decode_astarte_data_type_individual_binaryblob(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_binary_blob"
-        mock_data_type.astarte_binary_blob = mock.MagicMock(spec=bytes)
+        mock_data_type.WhichOneof.return_value = "binary_blob"
+        mock_data_type.binary_blob = bytes([0, 0])
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
-        self.assertEqual(decoded_message, mock_data_type.astarte_binary_blob)
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
+        self.assertEqual(decoded_message, mock_data_type.binary_blob)
 
     def test_decode_astarte_data_type_individual_datetime(self):
+        expected = datetime(2000, 1, 1, tzinfo=timezone.utc)
+
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_date_time"
-        mock_data_type.astarte_date_time.ToDatetime.return_value = mock.MagicMock(spec=datetime)
+        mock_data_type.WhichOneof.return_value = "date_time"
+        mock_data_type.date_time = from_datetime(expected)
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
-        mock_data_type.astarte_date_time.ToDatetime.assert_called_once_with(timezone.utc)
-        self.assertEqual(decoded_message, mock_data_type.astarte_date_time.ToDatetime.return_value)
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
+        self.assertEqual(decoded_message, expected)
 
     def test_decode_astarte_data_type_individual_booleanarray(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_boolean_array"
-        individual_data = mock.MagicMock(spec=AstarteBooleanArray)
-        individual_data.values = [mock.MagicMock(), mock.MagicMock()]
-        mock_data_type.astarte_boolean_array = individual_data
+        mock_data_type.WhichOneof.return_value = "boolean_array"
+        individual_data = AstarteBooleanArray(values=[False, False])
+        mock_data_type.boolean_array = individual_data
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
         self.assertEqual(decoded_message, individual_data.values)
 
     def test_decode_astarte_data_type_individual_stringarray(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_string_array"
-        individual_data = mock.MagicMock(spec=AstarteStringArray)
-        individual_data.values = [mock.MagicMock(), mock.MagicMock()]
-        mock_data_type.astarte_string_array = individual_data
+        mock_data_type.WhichOneof.return_value = "string_array"
+        individual_data = AstarteStringArray(values=["t", "t"])
+        mock_data_type.string_array = individual_data
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
         self.assertEqual(decoded_message, individual_data.values)
 
     def test_decode_astarte_data_type_individual_doublearray(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_double_array"
-        individual_data = mock.MagicMock(spec=AstarteDoubleArray)
-        individual_data.values = [mock.MagicMock(), mock.MagicMock()]
-        mock_data_type.astarte_double_array = individual_data
+        mock_data_type.WhichOneof.return_value = "double_array"
+        individual_data = AstarteDoubleArray(values=[3.14, 0.0])
+        mock_data_type.double_array = individual_data
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
         self.assertEqual(decoded_message, individual_data.values)
 
     def test_decode_astarte_data_type_individual_integerarray(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_integer_array"
-        individual_data = mock.MagicMock(spec=AstarteIntegerArray)
-        individual_data.values = [mock.MagicMock(), mock.MagicMock()]
-        mock_data_type.astarte_integer_array = individual_data
+        mock_data_type.WhichOneof.return_value = "integer_array"
+        individual_data = AstarteIntegerArray(values=[14, 3])
+        mock_data_type.integer_array = individual_data
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
         self.assertEqual(decoded_message, individual_data.values)
 
     def test_decode_astarte_data_type_individual_longintegerarray(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_long_integer_array"
-        individual_data = mock.MagicMock(spec=AstarteLongIntegerArray)
-        individual_data.values = [mock.MagicMock(), mock.MagicMock()]
-        mock_data_type.astarte_long_integer_array = individual_data
+        mock_data_type.WhichOneof.return_value = "long_integer_array"
+        individual_data = AstarteLongIntegerArray(values=[56456456, 2**34])
+        mock_data_type.long_integer_array = individual_data
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
         self.assertEqual(decoded_message, individual_data.values)
 
     def test_decode_astarte_data_type_individual_binaryblobarray(self):
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_binary_blob_array"
-        individual_data = mock.MagicMock(spec=AstarteBinaryBlobArray)
-        individual_data.values = [mock.MagicMock(), mock.MagicMock()]
-        mock_data_type.astarte_binary_blob_array = individual_data
+        mock_data_type.WhichOneof.return_value = "binary_blob_array"
+        individual_data = AstarteBinaryBlobArray(values=[bytes([0, 0, 1]), bytes([1, 55, 1])])
+        mock_data_type.binary_blob_array = individual_data
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
         self.assertEqual(decoded_message, individual_data.values)
 
     def test_decode_astarte_data_type_individual_datetimearray(self):
+        expected = [
+            datetime(2222, 2, 2, tzinfo=timezone.utc),
+            datetime(1055, 5, 2, tzinfo=timezone.utc),
+        ]
+
         mock_data_type = mock.MagicMock()
-        mock_data_type.WhichOneof.return_value = "astarte_date_time_array"
-        mock_data_type.astarte_date_time.ToDatetime.return_value = mock.MagicMock(spec=datetime)
-        individual_data = mock.MagicMock(spec=AstarteDateTimeArray)
-        individual_data.values = [mock.MagicMock(), mock.MagicMock()]
-        mock_data_type.astarte_date_time_array = individual_data
+        mock_data_type.WhichOneof.return_value = "date_time_array"
+        individual_data = AstarteDateTimeArray(values=[from_datetime(e) for e in expected])
+        mock_data_type.date_time_array = individual_data
         decoded_message = _decode_astarte_data_type_individual(mock_data_type)
 
-        mock_data_type.WhichOneof.assert_called_once_with("individual_data")
-        individual_data.values[0].ToDatetime.assert_called_once_with(timezone.utc)
-        individual_data.values[1].ToDatetime.assert_called_once_with(timezone.utc)
+        mock_data_type.WhichOneof.assert_called_once_with("astarte_data")
         self.assertEqual(
             decoded_message,
-            [
-                individual_data.values[0].ToDatetime.return_value,
-                individual_data.values[1].ToDatetime.return_value,
-            ],
+            expected,
         )
+
+
+def from_datetime(input: datetime) -> Timestamp:
+    out = Timestamp()
+    out.FromDatetime(input)
+    return out

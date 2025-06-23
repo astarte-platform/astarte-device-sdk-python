@@ -28,8 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12"]
-        msghub-version: ["v0.7.0"]
+        python-version: ["3.13"]
+        msghub-version: ["cebb0bbf49aa97be5dbf7c3f5580e0b832230645"]
     concurrency:
       group: e2e-test-grpc-${{ matrix.python-version }}-${{ github.ref }}
       cancel-in-progress: true

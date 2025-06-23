@@ -29,6 +29,7 @@ from .exceptions import (
     DeviceAlreadyRegisteredError,
     DeviceConnectingError,
     DeviceDisconnectedError,
+    DeviceGrpcDecodeError,
     InterfaceFileDecodeError,
     InterfaceFileNotFoundError,
     InterfaceNotFoundError,

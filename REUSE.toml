@@ -23,3 +23,9 @@ path = "e2etest/interfaces/**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "SECO Mind Srl"
 SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "tests/interfaces/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "SECO Mind Srl"
+SPDX-License-Identifier = "CC0-1.0"
