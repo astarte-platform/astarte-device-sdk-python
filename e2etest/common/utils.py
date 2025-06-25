@@ -24,7 +24,7 @@ import sqlite3
 from pathlib import Path
 from typing import Union
 
-from astarte.device.database import RecordOwnership
+from astarte.device.database import RecordOwnership, StoredProperty
 
 
 def peek_database(persistency_dir: Path, device_id: str, interface_name: Union[str, None] = None):
@@ -60,3 +60,17 @@ def peek_database(persistency_dir: Path, device_id: str, interface_name: Union[s
             )
         ]
     return parsed_properties
+
+
+def property_to_tuple(property: StoredProperty) -> tuple:
+    return (
+        property.interface,
+        property.major,
+        property.path,
+        property.ownership,
+        property.value,
+    )
+
+
+def properties_to_tuples(properties: list[StoredProperty]) -> list[tuple]:
+    return [property_to_tuple(p) for p in properties]

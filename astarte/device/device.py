@@ -433,7 +433,7 @@ class Device(ABC):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             A list containing the propeties of the specified interface stored in the database.
         """
 
@@ -444,7 +444,7 @@ class Device(ABC):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             A list containing all the propeties stored in the database.
         """
 
@@ -455,7 +455,7 @@ class Device(ABC):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             A list containing the device propeties stored in the database.
         """
 
@@ -466,7 +466,7 @@ class Device(ABC):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             A list containing the server propeties stored in the database.
         """
 

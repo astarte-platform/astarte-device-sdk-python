@@ -350,7 +350,7 @@ class DeviceGrpc(Device):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             Read the documentation of the base Device class.
 
         Raises
@@ -365,7 +365,7 @@ class DeviceGrpc(Device):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             Read the documentation of the base Device class.
 
         Raises
@@ -380,7 +380,7 @@ class DeviceGrpc(Device):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             Read the documentation of the base Device class.
 
         Raises
@@ -395,7 +395,7 @@ class DeviceGrpc(Device):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             Read the documentation of the base Device class.
 
         Raises

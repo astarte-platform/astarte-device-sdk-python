@@ -21,6 +21,7 @@
 # pylint: disable=missing-return-type-doc,no-value-for-parameter,protected-access,
 # pylint: disable=too-many-public-methods,no-self-use
 
+import pickle
 import typing
 import unittest
 from pathlib import Path
@@ -343,6 +344,120 @@ class UnitTests(unittest.TestCase):
                 mock_db_query_result[2][1],
                 database.RecordOwnership(mock_db_query_result[2][3]).to_ownership(),
                 deserialization_result[2],
+            ),
+        ]
+
+        result_array = [_property_to_tuple(r) for r in result]
+        expected_result_array = [_property_to_tuple(r) for r in expected_result]
+
+        self.assertEqual(result_array, expected_result_array)
+
+    @mock.patch("astarte.device.database.sqlite3.connect")
+    def test_load_server_properties(self, mock_sqlite3_connect):
+        mock_database_name = mock.MagicMock()
+
+        mock_cursor = mock_sqlite3_connect.return_value.cursor.return_value
+        mock_db_query_result = [
+            (
+                mock.MagicMock(),
+                mock.MagicMock(),
+                mock.MagicMock(),
+                "S",
+                pickle.dumps("test"),
+            ),
+            (
+                mock.MagicMock(),
+                mock.MagicMock(),
+                mock.MagicMock(),
+                "S",
+                pickle.dumps(101),
+            ),
+        ]
+        mock_cursor.execute.return_value.fetchall.return_value = mock_db_query_result
+
+        db = database.AstarteDatabaseSQLite(mock_database_name)
+        mock_sqlite3_connect.reset_mock()
+
+        result = db.load_server_props()
+
+        mock_sqlite3_connect.assert_called_once_with(mock_database_name)
+        mock_sqlite3_connect.return_value.cursor.assert_called_once_with()
+        mock_cursor.execute.assert_called_once_with(
+            "SELECT interface, major, path, ownership, value FROM properties WHERE ownership = ?",
+            (database.RecordOwnership.from_ownership(InterfaceOwnership.SERVER),),
+        )
+        mock_cursor.execute.return_value.fetchall.assert_called_once_with()
+        expected_result = [
+            database.StoredProperty(
+                mock_db_query_result[0][0],
+                mock_db_query_result[0][2],
+                mock_db_query_result[0][1],
+                database.RecordOwnership(mock_db_query_result[0][3]).to_ownership(),
+                pickle.loads(mock_db_query_result[0][4]),
+            ),
+            database.StoredProperty(
+                mock_db_query_result[1][0],
+                mock_db_query_result[1][2],
+                mock_db_query_result[1][1],
+                database.RecordOwnership(mock_db_query_result[1][3]).to_ownership(),
+                pickle.loads(mock_db_query_result[1][4]),
+            ),
+        ]
+
+        result_array = [_property_to_tuple(r) for r in result]
+        expected_result_array = [_property_to_tuple(r) for r in expected_result]
+
+        self.assertEqual(result_array, expected_result_array)
+
+    @mock.patch("astarte.device.database.sqlite3.connect")
+    def test_load_device_properties(self, mock_sqlite3_connect):
+        mock_database_name = mock.MagicMock()
+
+        mock_cursor = mock_sqlite3_connect.return_value.cursor.return_value
+        mock_db_query_result = [
+            (
+                mock.MagicMock(),
+                mock.MagicMock(),
+                mock.MagicMock(),
+                "D",
+                pickle.dumps(1.3),
+            ),
+            (
+                mock.MagicMock(),
+                mock.MagicMock(),
+                mock.MagicMock(),
+                "D",
+                pickle.dumps(True),
+            ),
+        ]
+        mock_cursor.execute.return_value.fetchall.return_value = mock_db_query_result
+
+        db = database.AstarteDatabaseSQLite(mock_database_name)
+        mock_sqlite3_connect.reset_mock()
+
+        result = db.load_device_props()
+
+        mock_sqlite3_connect.assert_called_once_with(mock_database_name)
+        mock_sqlite3_connect.return_value.cursor.assert_called_once_with()
+        mock_cursor.execute.assert_called_once_with(
+            "SELECT interface, major, path, ownership, value FROM properties WHERE ownership = ?",
+            (database.RecordOwnership.from_ownership(InterfaceOwnership.DEVICE),),
+        )
+        mock_cursor.execute.return_value.fetchall.assert_called_once_with()
+        expected_result = [
+            database.StoredProperty(
+                mock_db_query_result[0][0],
+                mock_db_query_result[0][2],
+                mock_db_query_result[0][1],
+                database.RecordOwnership(mock_db_query_result[0][3]).to_ownership(),
+                pickle.loads(mock_db_query_result[0][4]),
+            ),
+            database.StoredProperty(
+                mock_db_query_result[1][0],
+                mock_db_query_result[1][2],
+                mock_db_query_result[1][1],
+                database.RecordOwnership(mock_db_query_result[1][3]).to_ownership(),
+                pickle.loads(mock_db_query_result[1][4]),
             ),
         ]
 

@@ -339,13 +339,39 @@ class DeviceMqtt(Device):
         return self.__connection_state is ConnectionState.CONNECTED
 
     def get_property(self, interface_name: str, path: str) -> TypeAstarteData | None:
+        """
+        Load a property from the database.
+
+        Parameters
+        ----------
+        interface_name : str
+            View documentation of base Device class.
+        path : str
+            View documentation of base Device class.
+
+        Returns
+        -------
+        Optional[TypeAstarteData]
+            View documentation of base Device class.
+
+        Raises
+        ------
+        ValueError
+            When the passed interface_name is not the valid name of an interface stored in
+            the device introspection or the path does not match with one of the interface's
+            mappings
+        """
         interface: Interface | None = self._introspection.get_interface(interface_name)
         if interface is None:
             raise ValueError("The passed interface name is not stored in the device")
         if interface.get_mapping(path) is None:
             raise ValueError("The passed path does not match any of the interface endpoints")
 
-        self.__prop_database.load_prop(interface.name, interface.version_major, path)
+        property_data = self.__prop_database.load_prop(
+            interface.name, interface.version_major, path
+        )
+
+        return None if property_data is None else property_data.value
 
     def get_interface_props(self, interface_name: str) -> list[StoredProperty]:
         """
@@ -358,7 +384,7 @@ class DeviceMqtt(Device):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             View documentation of base Device class.
 
         Raises
@@ -377,7 +403,7 @@ class DeviceMqtt(Device):
         """
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             View documentation of base Device class.
         """
         return self.__prop_database.load_all_props()
@@ -386,7 +412,7 @@ class DeviceMqtt(Device):
         """
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             View documentation of base Device class.
         """
         return self.__prop_database.load_device_props()
@@ -395,7 +421,7 @@ class DeviceMqtt(Device):
         """
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             View documentation of base Device class.
         """
         return self.__prop_database.load_server_props()

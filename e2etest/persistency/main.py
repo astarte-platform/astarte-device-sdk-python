@@ -68,7 +68,7 @@ from http_requests import (
     post_server_interface,
     prepare_transmit_data,
 )
-from utils import peek_database
+from utils import peek_database, properties_to_tuples
 
 rx_data_lock = Lock()
 rx_data = {}
@@ -229,7 +229,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     time.sleep(1)
 
     actual_db = peek_database(persistency_dir, test_cfg.device_id)
-    expect_db = [
+    expect_db_device = [
         (
             test_cfg.interface_device_prop,
             0,
@@ -238,7 +238,8 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
             v,
         )
         for k, v in test_cfg.mock_data.items()
-    ] + [
+    ]
+    expect_db_server = [
         (
             test_cfg.interface_server_prop,
             0,
@@ -248,18 +249,23 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         )
         for k, v in test_cfg.mock_data.items()
     ]
+    expect_db = expect_db_device + expect_db_server
     if actual_db != expect_db:
         print(f"Expectec database: {expect_db}", flush=True)
         print(f"Actual database: {actual_db}", flush=True)
     assert actual_db == expect_db
     assert all(data == test_cfg.mock_data for data in peek_astarte(test_cfg).values())
+    actual_property_device = properties_to_tuples(device.get_device_props())
+    assert expect_db_device == actual_property_device
+    actual_property_server = properties_to_tuples(device.get_server_props())
+    assert expect_db_server == actual_property_server
 
     # Unset some properties to check properties are removed from the database correctly
     unset_some_properties(device, test_cfg)
     time.sleep(1)
 
     actual_db = peek_database(persistency_dir, test_cfg.device_id)
-    expect_db = [
+    expect_db_device = [
         (
             test_cfg.interface_device_prop,
             0,
@@ -269,7 +275,8 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         )
         for k, v in test_cfg.mock_data.items()
         if k in ["datetime_endpoint", "booleanarray_endpoint"]
-    ] + [
+    ]
+    expect_db_server = [
         (
             test_cfg.interface_server_prop,
             0,
@@ -280,6 +287,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         for k, v in test_cfg.mock_data.items()
         if k in ["longinteger_endpoint", "stringarray_endpoint"]
     ]
+    expect_db = expect_db_device + expect_db_server
     if actual_db != expect_db:
         print(f"Expectec database: {expect_db}", flush=True)
         print(f"Actual database: {actual_db}", flush=True)
@@ -295,6 +303,15 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         },
     }
     assert all(v == expect_astarte[k] for k, v in peek_astarte(test_cfg).items())
+    actual_property_device = properties_to_tuples(device.get_device_props())
+    assert expect_db_device == actual_property_device
+    actual_property_server = properties_to_tuples(device.get_server_props())
+    assert expect_db_server == actual_property_server
+
+    property = device.get_property(
+        test_cfg.interface_server_prop, "/sensor_id/longinteger_endpoint"
+    )
+    assert property == test_cfg.mock_data["longinteger_endpoint"]
 
     # Disconnect the device from Astarte
     device.disconnect()
@@ -303,36 +320,49 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     # Remove/Add some set server/device properties from the database manually
     shuffle_database(persistency_dir, test_cfg)
 
+    device_property_boleanarray = [True, False, True, False]
     expect_db = [
         (
-            "org.astarte-platform.python.e2etest.DeviceProperty",
+            test_cfg.interface_device_prop,
             0,
             "/sensor_id/booleanarray_endpoint",
             InterfaceOwnership.DEVICE,
-            [True, False, True, False],
+            device_property_boleanarray,
         ),
         (
-            "org.astarte-platform.python.e2etest.ServerProperty",
+            test_cfg.interface_server_prop,
             0,
             "/sensor_id/stringarray_endpoint",
             InterfaceOwnership.SERVER,
             ["hello", " world"],
         ),
         (
-            "org.astarte-platform.python.e2etest.DeviceProperty",
+            test_cfg.interface_device_prop,
             0,
             "/sensor_id/integer_endpoint",
             InterfaceOwnership.DEVICE,
             66,
         ),
         (
-            "org.astarte-platform.python.e2etest.ServerProperty",
+            test_cfg.interface_server_prop,
             0,
             "/sensor_id/boolean_endpoint",
             InterfaceOwnership.SERVER,
             True,
         ),
     ]
+
+    property = device.get_property(
+        test_cfg.interface_device_prop,
+        "/sensor_id/booleanarray_endpoint",
+    )
+    assert property == device_property_boleanarray
+    none_property = device.get_property(
+        test_cfg.interface_server_prop,
+        "/sensor_id/longinteger_endpoint",
+    )
+    assert none_property is None
+
     assert peek_database(persistency_dir, test_cfg.device_id) == expect_db
     expect_astarte = {
         test_cfg.interface_device_prop: {
@@ -392,6 +422,17 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         },
     }
     assert all(v == expect_astarte[k] for k, v in peek_astarte(test_cfg).items())
+
+    property = device.get_property(
+        test_cfg.interface_device_prop,
+        "/sensor_id/booleanarray_endpoint",
+    )
+    assert property == device_property_boleanarray
+    none_property = device.get_property(
+        test_cfg.interface_device_prop,
+        "/sensor_id/boolean_endpoint",
+    )
+    assert none_property is None
 
 
 def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:

@@ -184,7 +184,7 @@ class AstarteDatabase(ABC):
 
         Returns
         -------
-        PropertyData | None
+        StoredProperty | None
             The property value if the property is present and the provided interface major
             version matches the interface version stored in the database. None otherwise.
         """
@@ -231,7 +231,7 @@ class AstarteDatabase(ABC):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             A list containing the propeties of the specified interface stored in the database.
         """
 
@@ -242,7 +242,7 @@ class AstarteDatabase(ABC):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             A list containing the device propeties stored in the database.
         """
 
@@ -253,7 +253,7 @@ class AstarteDatabase(ABC):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             A list containing the server propeties stored in the database.
         """
 
@@ -264,7 +264,7 @@ class AstarteDatabase(ABC):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             A list containing all the propeties stored in the database.
         """
 
@@ -356,7 +356,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         TypeAstarteData | None
             See documentation in AstarteDatabase.
         """
-        ownership, value, stored_major = (
+        query_result = (
             sqlite3.connect(self.__database_path)
             .cursor()
             .execute(
@@ -365,6 +365,11 @@ class AstarteDatabaseSQLite(AstarteDatabase):
             )
             .fetchone()
         )
+
+        if query_result is None:
+            return None
+
+        ownership, value, stored_major = query_result
 
         if value is None:
             return None
@@ -427,7 +432,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             See documentation in AstarteDatabase.
         """
         properties = (
@@ -445,7 +450,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         """
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             See documentation in AstarteDatabase.
         """
         properties = (
@@ -463,7 +468,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         """
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             See documentation in AstarteDatabase.
         """
         properties = (
@@ -483,7 +488,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
 
         Returns
         -------
-        list[PropertyData]
+        list[StoredProperty]
             See documentation in AstarteDatabase.
         """
         properties = (
@@ -498,7 +503,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
 def _to_property_data_list(properties: list[Any]) -> list[StoredProperty]:
     """
     Maps the list of properties returned by the sqlite metho to a list of
-    PropertyData.
+    StoredProperty.
 
     Parameters
     ----------
@@ -507,7 +512,7 @@ def _to_property_data_list(properties: list[Any]) -> list[StoredProperty]:
 
     Returns
     -------
-    list[PropertyData]
+    list[StoredProperty]
         Mapped list of properties.
 
     Raises
