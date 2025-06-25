@@ -406,7 +406,10 @@ class UnitTests(unittest.TestCase):
 
         self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
 
-        calls = [mock.call({"mapping": "number 1"}, True), mock.call({"mapping": "number 2"}, True)]
+        calls = [
+            mock.call({"mapping": "number 1"}, True),
+            mock.call({"mapping": "number 2"}, True),
+        ]
         mock_mapping.assert_has_calls(calls)
         self.assertEqual(mock_mapping.call_count, 2)
 
@@ -435,7 +438,10 @@ class UnitTests(unittest.TestCase):
 
         self.assertRaises(InterfaceFileDecodeError, lambda: Interface(basic_interface_dict))
 
-        calls = [mock.call({"mapping": "number 1"}, True), mock.call({"mapping": "number 2"}, True)]
+        calls = [
+            mock.call({"mapping": "number 1"}, True),
+            mock.call({"mapping": "number 2"}, True),
+        ]
         mock_mapping.assert_has_calls(calls)
         self.assertEqual(mock_mapping.call_count, 2)
 
@@ -614,7 +620,11 @@ class UnitTests(unittest.TestCase):
                     "endpoint": "/test/endpoint/one",
                     "type": "integer",
                 },
-                {"endpoint": "/test/endpoint/two", "type": "boolean", "allow_unset": True},
+                {
+                    "endpoint": "/test/endpoint/two",
+                    "type": "boolean",
+                    "allow_unset": True,
+                },
             ],
         }
         interface_individual = Interface(minimal_interface_dict)
@@ -695,7 +705,8 @@ class UnitTests(unittest.TestCase):
         }
         interface_individual = Interface(minimal_interface_dict)
         self.assertRaises(
-            ValidationError, lambda: interface_individual.validate_path("/test/endnt/one", 11)
+            ValidationError,
+            lambda: interface_individual.validate_path("/test/endnt/one", 11),
         )
 
     def test_interface_validate_path_aggregate(self):
@@ -743,7 +754,8 @@ class UnitTests(unittest.TestCase):
         interface_individual = Interface(minimal_interface_dict)
         payload = {"endpoint/one": "payload 1", "endnt/two": "payload_2"}
         self.assertRaises(
-            ValidationError, lambda: interface_individual.validate_path("/test", payload)
+            ValidationError,
+            lambda: interface_individual.validate_path("/test", payload),
         )
 
     @mock.patch.object(Mapping, "validate_payload")
@@ -956,7 +968,9 @@ class UnitTests(unittest.TestCase):
         mock_validate_payload.assert_has_calls(calls)
         self.assertEqual(mock_validate_payload.call_count, 2)
 
-    def test_interface_validate_payload_aggregate_missing_one_endpoint_from_payload(self):
+    def test_interface_validate_payload_aggregate_missing_one_endpoint_from_payload(
+        self,
+    ):
         minimal_interface_dict = {
             "interface_name": "com.astarte.Test",
             "version_major": 0,
@@ -1404,10 +1418,25 @@ class UnitTests(unittest.TestCase):
         interface_simple_endpoint = Interface(self.interface_minimal_dict)
         self.assertEqual(interface_simple_endpoint.get_reliability("/test/int"), 0)
 
-    def test_interface_get_reliability_aggregate(self):
-        self.interface_minimal_dict["aggregation"] = "object"
+    def test_interface_get_reliability_property(self):
+        self.interface_minimal_dict["aggregation"] = "individual"
+        self.interface_minimal_dict["type"] = "properties"
         interface_simple_endpoint = Interface(self.interface_minimal_dict)
         self.assertEqual(interface_simple_endpoint.get_reliability("/test/int"), 2)
+
+    def test_interface_get_reliability_aggregate_datastream(self):
+        self.interface_minimal_dict["aggregation"] = "object"
+        self.interface_minimal_dict["type"] = "datastream"
+        self.interface_minimal_dict["mappings"][0]["reliability"] = "guaranteed"
+        interface_simple_endpoint = Interface(self.interface_minimal_dict)
+        self.assertEqual(interface_simple_endpoint.get_reliability("/test/int"), 1)
+
+    def test_interface_get_reliability_individual_datastream(self):
+        self.interface_minimal_dict["aggregation"] = "individual"
+        self.interface_minimal_dict["type"] = "datastream"
+        self.interface_minimal_dict["mappings"][0]["reliability"] = "guaranteed"
+        interface_simple_endpoint = Interface(self.interface_minimal_dict)
+        self.assertEqual(interface_simple_endpoint.get_reliability("/test/int"), 1)
 
     def test_interface_get_reliability_non_existent_path(self):
         interface_simple_endpoint = Interface(self.interface_minimal_dict)
