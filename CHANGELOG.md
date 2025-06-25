@@ -10,9 +10,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0] - Unreleased
+## [0.14.0] - 2025-06-25
 ### Added
 - Support for `astarte-message-hub` version `0.7.0`.
+
+### Changed
+- The get `get_started.md` guide has been updated to include the latest Astarte installation
+  methods.
+
+### Fixed
+- The `get_reliability` method of the `Interface` class now returns the correct reliability for
+  objects. Previously aggregated objects were erroneously transmitted using the "unique"
+  reliability.
 
 ### Removed
 - Drop support `astarte-message-hub` version `0.6.x` and prior.
