@@ -239,12 +239,17 @@ class Interface:
         InterfaceNotFoundError
             If the interface is not declared in the introspection.
         """
+        if self.is_type_properties():
+            return 2
+
         if not self.is_aggregation_object():
             mapping = self.get_mapping(endpoint)
             if not mapping:
                 raise InterfaceNotFoundError(f"Path {endpoint} not declared in {self.name}")
             return mapping.reliability
-        return 2
+
+        mapping = self.mappings[0]
+        return mapping.reliability
 
     def validate_path(self, path: str, payload):
         """
