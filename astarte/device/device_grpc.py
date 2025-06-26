@@ -349,7 +349,7 @@ class DeviceGrpc(Device):
             return None
 
         grpc_property: Property = self.__msghub_stub.GetProperty(
-            PropertyIdentifier(interface_name, path)
+            PropertyIdentifier(interface_name=interface_name, path=path)
         )
         astarte_data = _decode_astarte_data_type_individual(grpc_property.data)
 
@@ -374,7 +374,7 @@ class DeviceGrpc(Device):
             return []
 
         grpc_properties: StoredProperties = self.__msghub_stub.GetProperties(
-            InterfaceName(interface_name)
+            InterfaceName(name=interface_name)
         )
 
         return _decode_stored_properties(grpc_properties)
@@ -397,7 +397,7 @@ class DeviceGrpc(Device):
             return []
 
         grpc_properties: StoredProperties = self.__msghub_stub.GetAllProperties(
-            PropertyFilter(None)
+            PropertyFilter(ownership=None)
         )
 
         return _decode_stored_properties(grpc_properties)
@@ -416,7 +416,7 @@ class DeviceGrpc(Device):
             return []
 
         grpc_properties: StoredProperties = self.__msghub_stub.GetAllProperties(
-            PropertyFilter(Ownership.DEVICE)
+            PropertyFilter(ownership=Ownership.DEVICE)
         )
 
         return _decode_stored_properties(grpc_properties)
@@ -435,7 +435,7 @@ class DeviceGrpc(Device):
             return []
 
         grpc_properties: StoredProperties = self.__msghub_stub.GetAllProperties(
-            PropertyFilter(Ownership.SERVER)
+            PropertyFilter(ownership=Ownership.SERVER)
         )
 
         return _decode_stored_properties(grpc_properties)
@@ -597,7 +597,9 @@ def _from_grpc_ownership(own: Ownership) -> InterfaceOwnership:
     raise ValueError("Unknown interface ownership type received from grpc endpoint")
 
 
-def _decode_stored_properties(grpc_properties: StoredProperties) -> list[PropertyData]:
+def _decode_stored_properties(
+    grpc_properties: StoredProperties,
+) -> list[StoredProperty]:
     """
     Decode stored properties.
 
@@ -608,11 +610,11 @@ def _decode_stored_properties(grpc_properties: StoredProperties) -> list[Propert
 
     Returns
     -------
-    list[PropertyData]
+    list[StoredProperty]
         list of internal representation of stored properties
     """
     return [
-        PropertyData(
+        StoredProperty(
             p.interface_name,
             p.path,
             p.version_major,
