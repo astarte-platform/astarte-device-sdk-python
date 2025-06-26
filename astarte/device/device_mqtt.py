@@ -31,7 +31,11 @@ import bson
 import paho.mqtt.client as mqtt
 
 from astarte.device import crypto, pairing_handler
-from astarte.device.database import AstarteDatabase, AstarteDatabaseSQLite, PropertyData
+from astarte.device.database import (
+    AstarteDatabase,
+    AstarteDatabaseSQLite,
+    StoredProperty,
+)
 from astarte.device.device import (
     ConnectionState,
     Device,
@@ -343,7 +347,7 @@ class DeviceMqtt(Device):
 
         self.__prop_database.load_prop(interface.name, interface.version_major, path)
 
-    def get_interface_props(self, interface_name: str) -> list[PropertyData]:
+    def get_interface_props(self, interface_name: str) -> list[StoredProperty]:
         """
         Load all the properties of an interface stored in the database.
 
@@ -369,7 +373,7 @@ class DeviceMqtt(Device):
 
         return self.__prop_database.load_interface_props(interface.name)
 
-    def get_all_props(self) -> list[PropertyData]:
+    def get_all_props(self) -> list[StoredProperty]:
         """
         Returns
         -------
@@ -378,7 +382,7 @@ class DeviceMqtt(Device):
         """
         return self.__prop_database.load_all_props()
 
-    def get_device_props(self) -> list[PropertyData]:
+    def get_device_props(self) -> list[StoredProperty]:
         """
         Returns
         -------
@@ -387,7 +391,7 @@ class DeviceMqtt(Device):
         """
         return self.__prop_database.load_device_props()
 
-    def get_server_props(self) -> list[PropertyData]:
+    def get_server_props(self) -> list[StoredProperty]:
         """
         Returns
         -------

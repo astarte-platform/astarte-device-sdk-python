@@ -95,7 +95,7 @@ class UnitTests(unittest.TestCase):
                 mock_interface,
                 mock_version,
                 mock_path,
-                database.RecordOwnership.from_ownership(mock_ownership).value,
+                database.RecordOwnership.from_ownership(mock_ownership),
                 mock_pickle_dumps.return_value,
             ),
         )
@@ -163,7 +163,7 @@ class UnitTests(unittest.TestCase):
         mock_cursor.execute.return_value.fetchone.assert_called_once_with()
         mock_pickle_loads.assert_called_once_with(mock_db_value)
         self.assertEqual(
-            _property_to_tuple(typing.cast(database.PropertyData, result)),
+            _property_to_tuple(typing.cast(database.StoredProperty, result)),
             (
                 mock_interface,
                 mock_path,
@@ -323,21 +323,21 @@ class UnitTests(unittest.TestCase):
         mock_pickle_loads.assert_has_calls(calls)
         self.assertEqual(mock_pickle_loads.call_count, 3)
         expected_result = [
-            database.PropertyData(
+            database.StoredProperty(
                 mock_db_query_result[0][0],
                 mock_db_query_result[0][2],
                 mock_db_query_result[0][1],
                 database.RecordOwnership(mock_db_query_result[0][3]).to_ownership(),
                 deserialization_result[0],
             ),
-            database.PropertyData(
+            database.StoredProperty(
                 mock_db_query_result[1][0],
                 mock_db_query_result[1][2],
                 mock_db_query_result[1][1],
                 database.RecordOwnership(mock_db_query_result[1][3]).to_ownership(),
                 deserialization_result[1],
             ),
-            database.PropertyData(
+            database.StoredProperty(
                 mock_db_query_result[2][0],
                 mock_db_query_result[2][2],
                 mock_db_query_result[2][1],
@@ -352,7 +352,7 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(result_array, expected_result_array)
 
 
-def _property_to_tuple(property: database.PropertyData) -> tuple:
+def _property_to_tuple(property: database.StoredProperty) -> tuple:
     return (
         property.interface,
         property.path,

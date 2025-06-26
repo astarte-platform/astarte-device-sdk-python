@@ -154,7 +154,7 @@ def shuffle_database(persistency_dir: Path, test_cfg: TestCfg):
             test_cfg.interface_device_prop,
             0,
             "/sensor_id/integer_endpoint",
-            RecordOwnership.DEVICE.value,
+            RecordOwnership.from_ownership(InterfaceOwnership.DEVICE),
             pickle.dumps(66),
         ),
     )
@@ -165,7 +165,7 @@ def shuffle_database(persistency_dir: Path, test_cfg: TestCfg):
             test_cfg.interface_server_prop,
             0,
             "/sensor_id/boolean_endpoint",
-            RecordOwnership.SERVER.value,
+            RecordOwnership.from_ownership(InterfaceOwnership.SERVER),
             pickle.dumps(True),
         ),
     )

@@ -62,7 +62,7 @@ from grpc import (
 )
 from grpc._channel import _MultiThreadedRendezvous
 
-from astarte.device.database import PropertyData
+from astarte.device.database import StoredProperty
 from astarte.device.device import ConnectionState, Device, TypeAstarteData
 from astarte.device.exceptions import (
     DeviceConnectingError,
@@ -339,7 +339,7 @@ class DeviceGrpc(Device):
         """
         raise NotImplementedError()
 
-    def get_interface_props(self, interface_name: str) -> list[PropertyData]:
+    def get_interface_props(self, interface_name: str) -> list[StoredProperty]:
         """
         Read the documentation of the base Device class.
 
@@ -359,7 +359,7 @@ class DeviceGrpc(Device):
         """
         raise NotImplementedError()
 
-    def get_all_props(self) -> list[PropertyData]:
+    def get_all_props(self) -> list[StoredProperty]:
         """
         Read the documentation of the base Device class.
 
@@ -374,7 +374,7 @@ class DeviceGrpc(Device):
         """
         raise NotImplementedError()
 
-    def get_device_props(self) -> list[PropertyData]:
+    def get_device_props(self) -> list[StoredProperty]:
         """
         Read the documentation of the base Device class.
 
@@ -389,7 +389,7 @@ class DeviceGrpc(Device):
         """
         raise NotImplementedError()
 
-    def get_server_props(self) -> list[PropertyData]:
+    def get_server_props(self) -> list[StoredProperty]:
         """
         Read the documentation of the base Device class.
 

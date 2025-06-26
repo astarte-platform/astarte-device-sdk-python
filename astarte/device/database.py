@@ -24,39 +24,60 @@ from __future__ import annotations
 import pickle
 import sqlite3
 from abc import ABC, abstractmethod
-from enum import Enum
 from pathlib import Path
 from typing import Any
+
+from grpc import logging
 
 from astarte.device.interface import InterfaceOwnership
 from astarte.device.types import TypeAstarteData
 
 
-class RecordOwnership(Enum):
+class RecordOwnership:
     """
     Represents ownership values as stored in the database.
     Provides methods to convert them from InterfaceOwnership.
     """
 
-    DEVICE = "D"
-    SERVER = "S"
+    ownership_mapping: dict[InterfaceOwnership, str] = {
+        InterfaceOwnership.DEVICE: "D",
+        InterfaceOwnership.SERVER: "S",
+    }
+    id_mapping: dict[str, InterfaceOwnership] = {v: k for k, v in ownership_mapping.items()}
+
+    def __init__(
+        self,
+        char_identifier: str,
+    ) -> None:
+        """
+        Construct a RecordOwnership from a str identifier
+
+        Raises
+        ------
+        ValueError
+            If the passed identifier is not in the set ('D', 'S')
+        """
+        if char_identifier not in RecordOwnership.id_mapping:
+            raise ValueError(f"Can't initialize RecordOwnership with: {char_identifier}")
+
+        self.value = char_identifier
 
     @staticmethod
-    def from_ownership(own: InterfaceOwnership) -> RecordOwnership:
+    def from_ownership(ownership: InterfaceOwnership) -> str:
         """
-        Convert an interface ownership type to an ownership value as stored in the db.
+        Convert an interface ownership type to an ownership str as stored in the db.
 
         Parameters
         ----------
-        own : InterfaceOwnership
+        ownership : InterfaceOwnership
             The ownership of the interface as stored in the Interface object.
 
         Returns
         -------
-        RecordOwnership
+        str
             Database ownership representation
         """
-        return RecordOwnership[own.name]
+        return RecordOwnership.ownership_mapping[ownership]
 
     @staticmethod
     def to_sqlite_set() -> str:
@@ -68,7 +89,11 @@ class RecordOwnership(Enum):
         str
             Representation of all the possible values of this enum as a sqlite set string.
         """
-        return "(" + ",".join(["'" + e.value + "'" for e in RecordOwnership]) + ")"
+        return (
+            "("
+            + ",".join(["'" + e + "'" for e in RecordOwnership.ownership_mapping.values()])
+            + ")"
+        )
 
     def to_ownership(self) -> InterfaceOwnership:
         """
@@ -79,13 +104,13 @@ class RecordOwnership(Enum):
         InterfaceOwnership
             Interface ownership representation
         """
-        return InterfaceOwnership[self.name]
+        return RecordOwnership.id_mapping[self.value]
 
 
 record_ownership_value_set: str = RecordOwnership.to_sqlite_set()
 
 
-class PropertyData:
+class StoredProperty:
     """
     Allows access to data of a stored property, returned by the PropertyAccess class
     """
@@ -143,7 +168,7 @@ class AstarteDatabase(ABC):
         """
 
     @abstractmethod
-    def load_prop(self, interface: str, major: int, path: str) -> PropertyData | None:
+    def load_prop(self, interface: str, major: int, path: str) -> StoredProperty | None:
         """
         Load a property from the database. If a property is found but the major version does not
         match, the property in the database will be deleted and None will be returned.
@@ -195,7 +220,7 @@ class AstarteDatabase(ABC):
         """
 
     @abstractmethod
-    def load_interface_props(self, interface: str) -> list[PropertyData]:
+    def load_interface_props(self, interface: str) -> list[StoredProperty]:
         """
         Load all the properties of an interface stored in the database.
 
@@ -211,7 +236,7 @@ class AstarteDatabase(ABC):
         """
 
     @abstractmethod
-    def load_device_props(self) -> list[PropertyData]:
+    def load_device_props(self) -> list[StoredProperty]:
         """
         Load all the device properties stored in the database.
 
@@ -222,7 +247,7 @@ class AstarteDatabase(ABC):
         """
 
     @abstractmethod
-    def load_server_props(self) -> list[PropertyData]:
+    def load_server_props(self) -> list[StoredProperty]:
         """
         Load all the server properties stored in the database.
 
@@ -233,7 +258,7 @@ class AstarteDatabase(ABC):
         """
 
     @abstractmethod
-    def load_all_props(self) -> list[PropertyData]:
+    def load_all_props(self) -> list[StoredProperty]:
         """
         Load all the properties stored in the database.
 
@@ -306,13 +331,13 @@ class AstarteDatabaseSQLite(AstarteDatabase):
                     interface,
                     major,
                     path,
-                    RecordOwnership.from_ownership(ownership).value,
+                    RecordOwnership.from_ownership(ownership),
                     pickle.dumps(value),
                 ),
             )
             connection.commit()
 
-    def load_prop(self, interface: str, major: int, path: str) -> PropertyData | None:
+    def load_prop(self, interface: str, major: int, path: str) -> StoredProperty | None:
         """
         Load a property from the database. If a property is found but the major version does not
         match, the property in the database will be deleted and None will be returned.
@@ -349,7 +374,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
             self.delete_prop(interface, path)
             return None
 
-        return PropertyData(interface, path, major, ownership, pickle.loads(value))
+        return StoredProperty(interface, path, major, ownership, pickle.loads(value))
 
     def delete_prop(self, interface: str, path: str):
         """
@@ -393,7 +418,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         connection.cursor().execute("DELETE * FROM properties")
         connection.commit()
 
-    def load_interface_props(self, interface: str) -> list[PropertyData]:
+    def load_interface_props(self, interface: str) -> list[StoredProperty]:
         """
         Parameters
         ----------
@@ -416,7 +441,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         )
         return _to_property_data_list(properties)
 
-    def load_device_props(self) -> list[PropertyData]:
+    def load_device_props(self) -> list[StoredProperty]:
         """
         Returns
         -------
@@ -428,13 +453,13 @@ class AstarteDatabaseSQLite(AstarteDatabase):
             .cursor()
             .execute(
                 "SELECT interface, major, path, ownership, value FROM properties WHERE ownership = ?",
-                (RecordOwnership.DEVICE.value,),
+                (RecordOwnership.from_ownership(InterfaceOwnership.DEVICE),),
             )
             .fetchall()
         )
         return _to_property_data_list(properties)
 
-    def load_server_props(self) -> list[PropertyData]:
+    def load_server_props(self) -> list[StoredProperty]:
         """
         Returns
         -------
@@ -446,13 +471,13 @@ class AstarteDatabaseSQLite(AstarteDatabase):
             .cursor()
             .execute(
                 "SELECT interface, major, path, ownership, value FROM properties WHERE ownership = ?",
-                (RecordOwnership.SERVER.value,),
+                (RecordOwnership.from_ownership(InterfaceOwnership.SERVER),),
             )
             .fetchall()
         )
         return _to_property_data_list(properties)
 
-    def load_all_props(self) -> list[PropertyData]:
+    def load_all_props(self) -> list[StoredProperty]:
         """
         Load all the properties stored in the database.
 
@@ -470,7 +495,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         return _to_property_data_list(properties)
 
 
-def _to_property_data_list(properties: list[Any]) -> list[PropertyData]:
+def _to_property_data_list(properties: list[Any]) -> list[StoredProperty]:
     """
     Maps the list of properties returned by the sqlite metho to a list of
     PropertyData.
@@ -484,15 +509,26 @@ def _to_property_data_list(properties: list[Any]) -> list[PropertyData]:
     -------
     list[PropertyData]
         Mapped list of properties.
+
+    Raises
+    ------
+    ValueError
+        The ownership stored in the record is not valid. A possible corrupted database state.
     """
     parsed_properties = []
     for interface, major, path, ownership, value in properties:
+        try:
+            interface_ownership = RecordOwnership(ownership).to_ownership()
+        except ValueError as e:
+            logging.error(f"Incorrect value stored in the database: {ownership}")
+            raise e
+
         parsed_properties += [
-            PropertyData(
+            StoredProperty(
                 interface,
                 path,
                 major,
-                RecordOwnership(ownership).to_ownership(),
+                interface_ownership,
                 pickle.loads(value),
             )
         ]

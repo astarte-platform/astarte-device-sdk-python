@@ -31,7 +31,7 @@ import paho
 from paho.mqtt.client import Client
 
 from astarte.device import DeviceMqtt
-from astarte.device.database import AstarteDatabaseSQLite, PropertyData
+from astarte.device.database import AstarteDatabaseSQLite, StoredProperty
 from astarte.device.device import ConnectionState
 from astarte.device.exceptions import (
     APIError,
@@ -1121,21 +1121,21 @@ class UnitTests(unittest.TestCase):
         interface_6.name = "<interface 6 name>"
         interface_6.is_server_owned.return_value = True
         load_all_props_ret = [
-            PropertyData(
+            StoredProperty(
                 interface_5.name,
                 "<endpoint 1>",
                 0,
                 InterfaceOwnership.DEVICE,
                 mock.MagicMock(),
             ),
-            PropertyData(
+            StoredProperty(
                 interface_6.name,
                 "<endpoint 2>",
                 0,
                 InterfaceOwnership.DEVICE,
                 mock.MagicMock(),
             ),
-            PropertyData(
+            StoredProperty(
                 "<interface 7 name>",
                 "<endpoint 3>",
                 0,
@@ -1595,21 +1595,21 @@ class UnitTests(unittest.TestCase):
         interface_3.name = "<interface 3 name>"
         interface_3.is_server_owned.return_value = True
         load_all_props_ret = [
-            PropertyData(
+            StoredProperty(
                 interface_1.name,
                 "<endpoint 1>",
                 0,
                 InterfaceOwnership.DEVICE,
                 mock.MagicMock(),
             ),
-            PropertyData(
+            StoredProperty(
                 interface_2.name,
                 "<endpoint 2>",
                 0,
                 InterfaceOwnership.DEVICE,
                 mock.MagicMock(),
             ),
-            PropertyData(
+            StoredProperty(
                 interface_3.name,
                 "<endpoint 3>",
                 0,
@@ -1663,21 +1663,21 @@ class UnitTests(unittest.TestCase):
         interface_3.name = "<interface 3>"
         interface_3.is_server_owned.return_value = True
         load_all_props_ret = [
-            PropertyData(
+            StoredProperty(
                 interface_1.name,
                 "/endpoint/path1",
                 0,
                 InterfaceOwnership.DEVICE,
                 mock.MagicMock(),
             ),
-            PropertyData(
+            StoredProperty(
                 interface_2.name,
                 "/endpoint/path2",
                 0,
                 InterfaceOwnership.DEVICE,
                 mock.MagicMock(),
             ),
-            PropertyData(
+            StoredProperty(
                 interface_3.name,
                 "/endpoint/path3",
                 0,
@@ -1736,21 +1736,21 @@ class UnitTests(unittest.TestCase):
         interface_3.name = "<interface 3 name>"
         interface_3.is_server_owned.return_value = True
         load_all_props_ret = [
-            PropertyData(
+            StoredProperty(
                 interface_1.name,
                 "<endpoint 1>",
                 0,
                 InterfaceOwnership.DEVICE,
                 mock.MagicMock(),
             ),
-            PropertyData(
+            StoredProperty(
                 interface_2.name,
                 "<endpoint 2>",
                 0,
                 InterfaceOwnership.DEVICE,
                 mock.MagicMock(),
             ),
-            PropertyData(
+            StoredProperty(
                 interface_3.name,
                 "<endpoint 3>",
                 0,

@@ -27,7 +27,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
-from astarte.device.database import PropertyData
+from astarte.device.database import StoredProperty
 from astarte.device.exceptions import (
     InterfaceFileDecodeError,
     InterfaceFileNotFoundError,
@@ -422,7 +422,7 @@ class Device(ABC):
         """
 
     @abstractmethod
-    def get_interface_props(self, interface_name: str) -> list[PropertyData]:
+    def get_interface_props(self, interface_name: str) -> list[StoredProperty]:
         """
         Load all the properties of an interface stored in the database.
 
@@ -438,7 +438,7 @@ class Device(ABC):
         """
 
     @abstractmethod
-    def get_all_props(self) -> list[PropertyData]:
+    def get_all_props(self) -> list[StoredProperty]:
         """
         Load all the properties stored in the database.
 
@@ -449,7 +449,7 @@ class Device(ABC):
         """
 
     @abstractmethod
-    def get_device_props(self) -> list[PropertyData]:
+    def get_device_props(self) -> list[StoredProperty]:
         """
         Load all the device properties stored in the database.
 
@@ -460,7 +460,7 @@ class Device(ABC):
         """
 
     @abstractmethod
-    def get_server_props(self) -> list[PropertyData]:
+    def get_server_props(self) -> list[StoredProperty]:
         """
         Load all the server properties stored in the database.
 
