@@ -41,9 +41,20 @@ from astarteplatform.msghub.astarte_data_pb2 import (
     AstarteStringArray,
 )
 from astarteplatform.msghub.astarte_message_pb2 import AstarteMessage, MessageHubEvent
-from astarteplatform.msghub.interface_pb2 import InterfacesJson, InterfacesName
+from astarteplatform.msghub.interface_pb2 import (
+    InterfaceName,
+    InterfacesJson,
+    InterfacesName,
+    Ownership,
+)
 from astarteplatform.msghub.message_hub_service_pb2_grpc import MessageHubStub
 from astarteplatform.msghub.node_pb2 import Node
+from astarteplatform.msghub.property_pb2 import (
+    Property,
+    PropertyFilter,
+    PropertyIdentifier,
+    StoredProperties,
+)
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import ChannelConnectivity
@@ -60,9 +71,11 @@ from astarte.device.device_grpc import (
     _decode_astarte_data_type_individual,
     _decode_astarte_data_type_object,
     _decode_astarte_message,
+    _decode_stored_properties,
     _encode_astarte_data_type_individual,
     _encode_astarte_message,
     _encode_timestamp,
+    _from_grpc_ownership,
 )
 from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
@@ -1408,6 +1421,229 @@ class TestMyAbstract(unittest.TestCase):
             decoded_message,
             expected,
         )
+
+    def test_decode_stored_properties_empty(self):
+        grpc_properties = StoredProperties(properties=[])
+
+        decoded = _decode_stored_properties(grpc_properties)
+
+        assert len(decoded) == 0
+
+    def test_decode_stored_properties(self):
+        grpc_properties = StoredProperties(
+            properties=[
+                Property(
+                    interface_name="com.test.name",
+                    path="/test",
+                    version_major=0,
+                    ownership=Ownership.DEVICE,
+                    data=AstarteData(double=1.2),
+                )
+            ]
+        )
+
+        decoded = _decode_stored_properties(grpc_properties)
+
+        assert len(decoded) == len(grpc_properties.properties)
+        self.assertEqual(grpc_properties.properties[0].interface_name, decoded[0].interface)
+        self.assertEqual(grpc_properties.properties[0].path, decoded[0].path)
+        self.assertEqual(grpc_properties.properties[0].version_major, decoded[0].major)
+        self.assertEqual(
+            _from_grpc_ownership(grpc_properties.properties[0].ownership),
+            decoded[0].ownership,
+        )
+        self.assertEqual(
+            _decode_astarte_data_type_individual(grpc_properties.properties[0].data),
+            decoded[0].value,
+        )
+
+    def test_devicegrpc_get_property(self):
+        server_address = "server address"
+        node_uuid = "node uuid"
+        device = DeviceGrpc(
+            server_address,
+            node_uuid,
+        )
+        device._DeviceGrpc__connection_state = ConnectionState.CONNECTED
+        mock_device_stub = mock.MagicMock()
+        device._DeviceGrpc__msghub_stub = mock_device_stub
+
+        interface_name = "com.test.Test"
+        path = "/test"
+
+        mock_device_stub.GetProperty.return_value = Property(
+            interface_name=interface_name,
+            path=path,
+            version_major=0,
+            ownership=Ownership.DEVICE,
+            data=AstarteData(double=1.2),
+        )
+
+        prop = device.get_property(interface_name, path)
+
+        mock_device_stub.GetProperty.assert_called_once_with(
+            PropertyIdentifier(interface_name=interface_name, path=path)
+        )
+
+        assert prop is not None
+
+    def test_devicegrpc_get_properties_interface(self):
+        server_address = "server address"
+        node_uuid = "node uuid"
+        device = DeviceGrpc(
+            server_address,
+            node_uuid,
+        )
+        device._DeviceGrpc__connection_state = ConnectionState.CONNECTED
+
+        interface_name = "com.test.Test"
+
+        mock_device_stub = mock.MagicMock()
+        device._DeviceGrpc__msghub_stub = mock_device_stub
+
+        mock_device_stub.GetProperties.return_value = StoredProperties(
+            properties=[
+                Property(
+                    interface_name=interface_name,
+                    path="/test1",
+                    version_major=0,
+                    ownership=Ownership.DEVICE,
+                    data=AstarteData(double=1.2),
+                ),
+                Property(
+                    interface_name=interface_name,
+                    path="/test2",
+                    version_major=0,
+                    ownership=Ownership.DEVICE,
+                    data=AstarteData(
+                        boolean_array=AstarteBooleanArray(values=[True, True, False, True])
+                    ),
+                ),
+            ]
+        )
+
+        prop = device.get_interface_props(interface_name)
+
+        mock_device_stub.GetProperties.assert_called_once_with(InterfaceName(name=interface_name))
+
+        assert len(prop) == len(mock_device_stub.GetProperties.return_value.properties)
+
+    def test_devicegrpc_get_properties(self):
+        server_address = "server address"
+        node_uuid = "node uuid"
+        device = DeviceGrpc(
+            server_address,
+            node_uuid,
+        )
+        device._DeviceGrpc__connection_state = ConnectionState.CONNECTED
+
+        mock_device_stub = mock.MagicMock()
+        device._DeviceGrpc__msghub_stub = mock_device_stub
+
+        mock_device_stub.GetAllProperties.return_value = StoredProperties(
+            properties=[
+                Property(
+                    interface_name="com.test.Test",
+                    path="/test1",
+                    version_major=0,
+                    ownership=Ownership.DEVICE,
+                    data=AstarteData(double=1.2),
+                ),
+                Property(
+                    interface_name="com.test.Test2",
+                    path="/test2",
+                    version_major=0,
+                    ownership=Ownership.SERVER,
+                    data=AstarteData(
+                        boolean_array=AstarteBooleanArray(values=[True, True, False, True])
+                    ),
+                ),
+            ]
+        )
+
+        prop = device.get_all_props()
+
+        mock_device_stub.GetAllProperties.assert_called_once_with(PropertyFilter(ownership=None))
+
+        assert len(prop) == len(mock_device_stub.GetAllProperties.return_value.properties)
+
+    def test_devicegrpc_get_properties_device(self):
+        server_address = "server address"
+        node_uuid = "node uuid"
+        device = DeviceGrpc(
+            server_address,
+            node_uuid,
+        )
+        device._DeviceGrpc__connection_state = ConnectionState.CONNECTED
+        mock_device_stub = mock.MagicMock()
+        device._DeviceGrpc__msghub_stub = mock_device_stub
+
+        mock_device_stub.GetAllProperties.return_value = StoredProperties(
+            properties=[
+                Property(
+                    interface_name="com.test.Test",
+                    path="/test1",
+                    version_major=0,
+                    ownership=Ownership.DEVICE,
+                    data=AstarteData(double=1.2),
+                ),
+                Property(
+                    interface_name="com.test.Test2DEV",
+                    path="/test2/array",
+                    version_major=0,
+                    ownership=Ownership.DEVICE,
+                    data=AstarteData(
+                        boolean_array=AstarteBooleanArray(values=[True, True, False, True])
+                    ),
+                ),
+            ]
+        )
+
+        prop = device.get_device_props()
+
+        mock_device_stub.GetAllProperties.assert_called_once_with(
+            PropertyFilter(ownership=Ownership.DEVICE)
+        )
+
+        assert len(prop) == len(mock_device_stub.GetAllProperties.return_value.properties)
+
+    def test_devicegrpc_get_properties_server(self):
+        server_address = "server address"
+        node_uuid = "node uuid"
+        device = DeviceGrpc(
+            server_address,
+            node_uuid,
+        )
+        device._DeviceGrpc__connection_state = ConnectionState.CONNECTED
+        mock_device_stub = mock.MagicMock()
+        device._DeviceGrpc__msghub_stub = mock_device_stub
+
+        mock_device_stub.GetAllProperties.return_value = StoredProperties(
+            properties=[
+                Property(
+                    interface_name="com.test.TestSERV",
+                    path="/test1",
+                    version_major=0,
+                    ownership=Ownership.SERVER,
+                    data=AstarteData(boolean=False),
+                ),
+                Property(
+                    interface_name="com.test.Test2SERV",
+                    path="/test2/array",
+                    version_major=0,
+                    ownership=Ownership.SERVER,
+                    data=AstarteData(integer_array=AstarteIntegerArray(values=[1, 2, 3])),
+                ),
+            ]
+        )
+
+        prop = device.get_server_props()
+
+        mock_device_stub.GetAllProperties.assert_called_once_with(
+            PropertyFilter(ownership=Ownership.SERVER)
+        )
+
+        assert len(prop) == len(mock_device_stub.GetAllProperties.return_value.properties)
 
 
 def from_datetime(input: datetime) -> Timestamp:

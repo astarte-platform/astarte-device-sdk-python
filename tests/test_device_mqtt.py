@@ -31,7 +31,7 @@ import paho
 from paho.mqtt.client import Client
 
 from astarte.device import DeviceMqtt
-from astarte.device.database import AstarteDatabaseSQLite
+from astarte.device.database import AstarteDatabaseSQLite, StoredProperty
 from astarte.device.device import ConnectionState
 from astarte.device.exceptions import (
     APIError,
@@ -41,6 +41,7 @@ from astarte.device.exceptions import (
     PersistencyDirectoryNotFoundError,
     ValidationError,
 )
+from astarte.device.interface import InterfaceOwnership
 from astarte.device.introspection import Introspection
 
 
@@ -50,7 +51,10 @@ class UnitTests(unittest.TestCase):
 
     @mock.patch.object(AstarteDatabaseSQLite, "__init__", return_value=None)
     @mock.patch("astarte.device.device_mqtt.os.mkdir")
-    @mock.patch("astarte.device.device_mqtt.os.path.isdir", side_effect=[True, False, False, False])
+    @mock.patch(
+        "astarte.device.device_mqtt.os.path.isdir",
+        side_effect=[True, False, False, False],
+    )
     def test_initialization_ok(self, isdir_mock, mkdir_mock, mock_db):
         DeviceMqtt(
             "device_id",
@@ -124,7 +128,11 @@ class UnitTests(unittest.TestCase):
     @mock.patch("astarte.device.device_mqtt.Interface")
     @mock.patch.object(Introspection, "add_interface")
     def test_add_interface_from_json_while_connected(
-        self, mock_add_interface, mock_interface, mock_subscribe, mock__send_introspection
+        self,
+        mock_add_interface,
+        mock_interface,
+        mock_subscribe,
+        mock__send_introspection,
     ):
         device = self.helper_initialize_device()
 
@@ -147,7 +155,11 @@ class UnitTests(unittest.TestCase):
     @mock.patch("astarte.device.device_mqtt.Interface")
     @mock.patch.object(Introspection, "add_interface")
     def test_add_interface_from_json_while_connected_client_owned_interface(
-        self, mock_add_interface, mock_interface, mock_subscribe, mock__send_introspection
+        self,
+        mock_add_interface,
+        mock_interface,
+        mock_subscribe,
+        mock__send_introspection,
     ):
         device = self.helper_initialize_device()
 
@@ -169,7 +181,11 @@ class UnitTests(unittest.TestCase):
     @mock.patch("astarte.device.device_mqtt.Interface")
     @mock.patch.object(Introspection, "add_interface")
     def test_add_interface_from_json_while_connecting_raises(
-        self, mock_add_interface, mock_interface, mock_subscribe, mock__send_introspection
+        self,
+        mock_add_interface,
+        mock_interface,
+        mock_subscribe,
+        mock__send_introspection,
     ):
         device = self.helper_initialize_device()
 
@@ -177,7 +193,8 @@ class UnitTests(unittest.TestCase):
 
         interface_json = {"json content": 42}
         self.assertRaises(
-            DeviceConnectingError, lambda: device.add_interface_from_json(interface_json)
+            DeviceConnectingError,
+            lambda: device.add_interface_from_json(interface_json),
         )
 
         mock_add_interface.assert_not_called()
@@ -584,7 +601,11 @@ class UnitTests(unittest.TestCase):
         )
         mock_tls_insecure_set.assert_called_once_with(ignore_ssl_errors)
         mock_obtain_transport_information.assert_called_once_with(
-            "device_id", "realm_name", "credential_secret", "pairing_base_url", ignore_ssl_errors
+            "device_id",
+            "realm_name",
+            "credential_secret",
+            "pairing_base_url",
+            ignore_ssl_errors,
         )
         mock_urlparse.assert_called_once_with("some_url")
         mock_connect_async.assert_called_once_with("mocked hostname", "mocked port")
@@ -808,6 +829,7 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
+        mock_interface.ownership = InterfaceOwnership.DEVICE
         mock_interface.is_server_owned.return_value = False
         mock_interface.is_property_individual.return_value = True
         mock_get_interface.return_value = mock_interface
@@ -827,7 +849,11 @@ class UnitTests(unittest.TestCase):
         mock_interface.validate_payload.assert_called_once_with(interface_path, payload)
         mock_bson_dumps.assert_called_once_with({"v": payload})
         mock_db_store.assert_called_once_with(
-            interface_name, mock_get_interface.return_value.version_major, interface_path, payload
+            interface_name,
+            mock_get_interface.return_value.version_major,
+            interface_path,
+            mock_interface.ownership,
+            payload,
         )
         mock_interface.get_reliability.assert_called_once_with(interface_path)
         mock_mqtt_publish.assert_called_once_with(
@@ -888,6 +914,7 @@ class UnitTests(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
+        mock_interface.ownership = InterfaceOwnership.DEVICE
         mock_interface.is_server_owned.return_value = False
         mock_interface.is_property_individual.return_value = True
         mock_get_interface.return_value = mock_interface
@@ -904,7 +931,11 @@ class UnitTests(unittest.TestCase):
         mock_interface.validate_payload_and_timestamp.assert_not_called()
         mock_bson_dumps.assert_not_called()
         mock_db_store.assert_called_once_with(
-            interface_name, mock_get_interface.return_value.version_major, interface_path, None
+            interface_name,
+            mock_get_interface.return_value.version_major,
+            interface_path,
+            mock_interface.ownership,
+            None,
         )
         mock_interface.get_mapping.assert_called_once_with(interface_path)
         mock_interface.get_reliability.assert_called_once_with(interface_path)
@@ -935,7 +966,8 @@ class UnitTests(unittest.TestCase):
         interface_name = "interface name"
         interface_path = "interface path"
         self.assertRaises(
-            ValidationError, lambda: device.unset_property(interface_name, interface_path)
+            ValidationError,
+            lambda: device.unset_property(interface_name, interface_path),
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
@@ -991,7 +1023,10 @@ class UnitTests(unittest.TestCase):
         on_connected_mock = mock.MagicMock()
         device.set_events_callbacks(on_connected=on_connected_mock)
         device._DeviceMqtt__on_connect(
-            None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
+            None,
+            None,
+            flags={"session present": False},
+            rc=paho.mqtt.client.MQTT_ERR_SUCCESS,
         )
 
         # Checks for __setup_subscriptions
@@ -1016,7 +1051,12 @@ class UnitTests(unittest.TestCase):
                 "<interface 4 name>:<interface 4 vers major>:<interface 4 vers minor>",
                 2,
             ),
-            mock.call("realm_name/device_id/control/emptyCache", payload=b"1", retain=False, qos=2),
+            mock.call(
+                "realm_name/device_id/control/emptyCache",
+                payload=b"1",
+                retain=False,
+                qos=2,
+            ),
             mock.call(
                 "realm_name/device_id/control/producer/properties",
                 payload=bytearray(b"\x00\x00\x00\x00x\x9c\x03\x00\x00\x00\x00\x01"),
@@ -1081,9 +1121,27 @@ class UnitTests(unittest.TestCase):
         interface_6.name = "<interface 6 name>"
         interface_6.is_server_owned.return_value = True
         load_all_props_ret = [
-            (interface_5.name, "", "<endpoint 1>", mock.MagicMock()),
-            (interface_6.name, "", "<endpoint 2>", mock.MagicMock()),
-            ("<interface 7 name>", "", "<endpoint 3>", mock.MagicMock()),
+            StoredProperty(
+                interface_5.name,
+                "<endpoint 1>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
+            StoredProperty(
+                interface_6.name,
+                "<endpoint 2>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
+            StoredProperty(
+                "<interface 7 name>",
+                "<endpoint 3>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
         ]
         mock_load_all_props.side_effect = lambda: (
             (yield load_all_props_ret[0]),
@@ -1095,7 +1153,10 @@ class UnitTests(unittest.TestCase):
         on_connected_mock = mock.MagicMock()
         device.set_events_callbacks(on_connected=on_connected_mock)
         device._DeviceMqtt__on_connect(
-            None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
+            None,
+            None,
+            flags={"session present": False},
+            rc=paho.mqtt.client.MQTT_ERR_SUCCESS,
         )
 
         # Checks for __setup_subscriptions
@@ -1122,9 +1183,14 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(mock_get_interface.call_count, 3)
         interface_5.is_server_owned.assert_called_once()
         interface_6.is_server_owned.assert_called_once()
-        mock_delete_prop.assert_called_once_with(load_all_props_ret[2][0], load_all_props_ret[2][2])
+        mock_delete_prop.assert_called_once_with(
+            load_all_props_ret[2].interface, load_all_props_ret[2].path
+        )
         mock_send_generic.assert_called_once_with(
-            interface_5, load_all_props_ret[0][2], load_all_props_ret[0][3], timestamp=None
+            interface_5,
+            load_all_props_ret[0].path,
+            load_all_props_ret[0].value,
+            timestamp=None,
         )
         calls = [
             mock.call(
@@ -1133,7 +1199,12 @@ class UnitTests(unittest.TestCase):
                 "<interface 4 name>:<interface 4 vers major>:<interface 4 vers minor>",
                 2,
             ),
-            mock.call("realm_name/device_id/control/emptyCache", payload=b"1", retain=False, qos=2),
+            mock.call(
+                "realm_name/device_id/control/emptyCache",
+                payload=b"1",
+                retain=False,
+                qos=2,
+            ),
             mock.call(
                 "realm_name/device_id/control/producer/properties",
                 payload=bytearray(
@@ -1165,7 +1236,10 @@ class UnitTests(unittest.TestCase):
         on_connected_mock = mock.MagicMock()
         device.set_events_callbacks(on_connected=on_connected_mock)
         device._DeviceMqtt__on_connect(
-            None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_NO_CONN
+            None,
+            None,
+            flags={"session present": False},
+            rc=paho.mqtt.client.MQTT_ERR_NO_CONN,
         )
 
         # Checks for __setup_subscriptions
@@ -1223,7 +1297,10 @@ class UnitTests(unittest.TestCase):
         mock_loop = mock.MagicMock()
         device.set_events_callbacks(on_connected=on_connected_mock, loop=mock_loop)
         device._DeviceMqtt__on_connect(
-            None, None, flags={"session present": False}, rc=paho.mqtt.client.MQTT_ERR_SUCCESS
+            None,
+            None,
+            flags={"session present": False},
+            rc=paho.mqtt.client.MQTT_ERR_SUCCESS,
         )
 
         # Checks for __setup_subscriptions
@@ -1248,7 +1325,12 @@ class UnitTests(unittest.TestCase):
                 "<interface 4 name>:<interface 4 vers major>:<interface 4 vers minor>",
                 2,
             ),
-            mock.call("realm_name/device_id/control/emptyCache", payload=b"1", retain=False, qos=2),
+            mock.call(
+                "realm_name/device_id/control/emptyCache",
+                payload=b"1",
+                retain=False,
+                qos=2,
+            ),
             mock.call(
                 "realm_name/device_id/control/producer/properties",
                 payload=bytearray(b"\x00\x00\x00\x00x\x9c\x03\x00\x00\x00\x00\x01"),
@@ -1349,6 +1431,7 @@ class UnitTests(unittest.TestCase):
         mock_message.topic = "realm_name/device_id/interface_name/endpoint/path"
 
         mock_get_interface.return_value.is_property_individual.return_value = True
+        mock_get_interface.return_value.ownership = InterfaceOwnership.DEVICE
 
         on_data_received_mock = mock.MagicMock()
         device.set_events_callbacks(on_data_received=on_data_received_mock)
@@ -1369,6 +1452,7 @@ class UnitTests(unittest.TestCase):
             mock_get_interface.return_value.name,
             mock_get_interface.return_value.version_major,
             "/endpoint/path",
+            mock_get_interface.return_value.ownership,
             "payload_value",
         )
         on_data_received_mock.assert_called_once_with(
@@ -1406,7 +1490,11 @@ class UnitTests(unittest.TestCase):
         mock_get_interface.return_value.is_property_individual.assert_called_once()
         mock_db_store.assert_not_called()
         mock_loop.call_soon_threadsafe.assert_called_once_with(
-            on_data_received_mock, device, "interface_name", "/endpoint/path", "payload_value"
+            on_data_received_mock,
+            device,
+            "interface_name",
+            "/endpoint/path",
+            "payload_value",
         )
         on_data_received_mock.assert_not_called()
 
@@ -1507,9 +1595,27 @@ class UnitTests(unittest.TestCase):
         interface_3.name = "<interface 3 name>"
         interface_3.is_server_owned.return_value = True
         load_all_props_ret = [
-            (interface_1.name, "", "<endpoint 1>", mock.MagicMock()),
-            (interface_2.name, "", "<endpoint 2>", mock.MagicMock()),
-            (interface_3.name, "", "<endpoint 3>", mock.MagicMock()),
+            StoredProperty(
+                interface_1.name,
+                "<endpoint 1>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
+            StoredProperty(
+                interface_2.name,
+                "<endpoint 2>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
+            StoredProperty(
+                interface_3.name,
+                "<endpoint 3>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
         ]
         mock_load_all_props.side_effect = lambda: (
             (yield load_all_props_ret[0]),
@@ -1557,16 +1663,40 @@ class UnitTests(unittest.TestCase):
         interface_3.name = "<interface 3>"
         interface_3.is_server_owned.return_value = True
         load_all_props_ret = [
-            (interface_1.name, "", "/endpoint/path1", mock.MagicMock()),
-            (interface_2.name, "", "/endpoint/path2", mock.MagicMock()),
-            (interface_3.name, "", "/endpoint/path3", mock.MagicMock()),
+            StoredProperty(
+                interface_1.name,
+                "/endpoint/path1",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
+            StoredProperty(
+                interface_2.name,
+                "/endpoint/path2",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
+            StoredProperty(
+                interface_3.name,
+                "/endpoint/path3",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
         ]
         mock_load_all_props.side_effect = lambda: (
             (yield load_all_props_ret[0]),
             (yield load_all_props_ret[1]),
             (yield load_all_props_ret[2]),
         )
-        mock_get_interface.side_effect = [interface_2, None, interface_1, interface_2, interface_3]
+        mock_get_interface.side_effect = [
+            interface_2,
+            None,
+            interface_1,
+            interface_2,
+            interface_3,
+        ]
 
         base_payload = b"9\x00\x00\x00x\x9c\xb3\xc9\xcc+I-JKLNU0\xb2\xd3O\xcdK)\xc8\x07\x8a\xe8\x17$\x96d\x18Y\xdb $\x8d\xd1$\x8d\x01P\xfd\x14t"
         device._DeviceMqtt__purge_server_properties(base_payload)
@@ -1606,9 +1736,27 @@ class UnitTests(unittest.TestCase):
         interface_3.name = "<interface 3 name>"
         interface_3.is_server_owned.return_value = True
         load_all_props_ret = [
-            (interface_1.name, "", "<endpoint 1>", mock.MagicMock()),
-            (interface_2.name, "", "<endpoint 2>", mock.MagicMock()),
-            (interface_3.name, "", "<endpoint 3>", mock.MagicMock()),
+            StoredProperty(
+                interface_1.name,
+                "<endpoint 1>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
+            StoredProperty(
+                interface_2.name,
+                "<endpoint 2>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
+            StoredProperty(
+                interface_3.name,
+                "<endpoint 3>",
+                0,
+                InterfaceOwnership.DEVICE,
+                mock.MagicMock(),
+            ),
         ]
         mock_load_all_props.side_effect = lambda: (
             (yield load_all_props_ret[0]),

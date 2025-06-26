@@ -44,9 +44,20 @@ from astarteplatform.msghub.astarte_data_pb2 import (
     AstarteStringArray,
 )
 from astarteplatform.msghub.astarte_message_pb2 import AstarteMessage, MessageHubEvent
-from astarteplatform.msghub.interface_pb2 import InterfacesJson, InterfacesName
+from astarteplatform.msghub.interface_pb2 import (
+    InterfaceName,
+    InterfacesJson,
+    InterfacesName,
+    Ownership,
+)
 from astarteplatform.msghub.message_hub_service_pb2_grpc import MessageHubStub
 from astarteplatform.msghub.node_pb2 import Node
+from astarteplatform.msghub.property_pb2 import (
+    Property,
+    PropertyFilter,
+    PropertyIdentifier,
+    StoredProperties,
+)
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -62,20 +73,17 @@ from grpc import (
 )
 from grpc._channel import _MultiThreadedRendezvous
 
-from astarte.device.device import (
-    ConnectionState,
-    Device,
-    TypeAstarteData,
-    TypeConvertedAstarteMessage,
-)
+from astarte.device.database import StoredProperty
+from astarte.device.device import ConnectionState, Device, TypeAstarteData
 from astarte.device.exceptions import (
     DeviceConnectingError,
     DeviceDisconnectedError,
     DeviceGrpcDecodeError,
     ValidationError,
 )
-from astarte.device.interface import Interface
+from astarte.device.interface import Interface, InterfaceOwnership
 from astarte.device.mapping import Mapping
+from astarte.device.types import TypeConvertedAstarteMessage
 
 # All the individual_data options that contain arrays.
 TypeProtobufAstarteDataVector: typing.TypeAlias = Union[
@@ -320,6 +328,118 @@ class DeviceGrpc(Device):
         """
         return self.__connection_state is ConnectionState.CONNECTED
 
+    def get_property(self, interface_name: str, path: str) -> TypeAstarteData | None:
+        """
+        Read the documentation of the base Device class.
+
+        Parameters
+        ----------
+        interface_name : str
+            Read the documentation of the base Device class.
+        path : str
+            Read the documentation of the base Device class.
+
+        Returns
+        -------
+        TypeAstarteData | None
+            Read the documentation of the base Device class.
+        """
+        if not self.is_connected():
+            logging.warning("Attempting to retrieve a property while not connected.")
+            return None
+
+        grpc_property: Property = self.__msghub_stub.GetProperty(
+            PropertyIdentifier(interface_name=interface_name, path=path)
+        )
+        astarte_data = _decode_astarte_data_type_individual(grpc_property.data)
+
+        return astarte_data
+
+    def get_interface_props(self, interface_name: str) -> list[StoredProperty]:
+        """
+        Read the documentation of the base Device class.
+
+        Parameters
+        ----------
+        interface_name : str
+            Read the documentation of the base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            Read the documentation of the base Device class.
+        """
+        if not self.is_connected():
+            logging.warning("Attempting to retrieve properties while not connected.")
+            return []
+
+        grpc_properties: StoredProperties = self.__msghub_stub.GetProperties(
+            InterfaceName(name=interface_name)
+        )
+
+        return _decode_stored_properties(grpc_properties)
+
+    def get_all_props(self) -> list[StoredProperty]:
+        """
+        Read the documentation of the base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            Read the documentation of the base Device class.
+
+        Raises
+        ------
+        NotImplementedError this method is currently not implemented for the grpc client
+        """
+        if not self.is_connected():
+            logging.warning("Attempting to retrieve properties while not connected.")
+            return []
+
+        grpc_properties: StoredProperties = self.__msghub_stub.GetAllProperties(
+            PropertyFilter(ownership=None)
+        )
+
+        return _decode_stored_properties(grpc_properties)
+
+    def get_device_props(self) -> list[StoredProperty]:
+        """
+        Read the documentation of the base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            Read the documentation of the base Device class.
+        """
+        if not self.is_connected():
+            logging.warning("Attempting to retrieve properties while not connected.")
+            return []
+
+        grpc_properties: StoredProperties = self.__msghub_stub.GetAllProperties(
+            PropertyFilter(ownership=Ownership.DEVICE)
+        )
+
+        return _decode_stored_properties(grpc_properties)
+
+    def get_server_props(self) -> list[StoredProperty]:
+        """
+        Read the documentation of the base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            Read the documentation of the base Device class.
+        """
+        if not self.is_connected():
+            logging.warning("Attempting to retrieve properties while not connected.")
+            return []
+
+        grpc_properties: StoredProperties = self.__msghub_stub.GetAllProperties(
+            PropertyFilter(ownership=Ownership.SERVER)
+        )
+
+        return _decode_stored_properties(grpc_properties)
+
     def _send_generic(
         self,
         interface: Interface,
@@ -379,6 +499,7 @@ class DeviceGrpc(Device):
     def _store_property(self, *args) -> None:
         """
         Empty implementation for a store property.
+        Properties are stored by the message hub server.
 
         Parameters
         ----------
@@ -447,6 +568,61 @@ def _encode_astarte_message(
         path=path,
         datastream_individual=AstarteDatastreamIndividual(timestamp=timestamp, data=astarte_data),
     )
+
+
+def _from_grpc_ownership(own: Ownership) -> InterfaceOwnership:
+    """
+    Decode protobuf ownership object.
+
+    Parameters
+    ----------
+    own : Ownership
+        The ownership in the grpc format.
+
+    Returns
+    -------
+    InterfaceOwnership
+        Ownership internal representation
+
+    Raises
+    -------
+    ValueError
+        The ownership does not match the expected types
+    """
+    if own == Ownership.DEVICE:
+        return InterfaceOwnership.DEVICE
+    if own == Ownership.SERVER:
+        return InterfaceOwnership.SERVER
+
+    raise ValueError("Unknown interface ownership type received from grpc endpoint")
+
+
+def _decode_stored_properties(
+    grpc_properties: StoredProperties,
+) -> list[StoredProperty]:
+    """
+    Decode stored properties.
+
+    Parameters
+    ----------
+    grpc_properties : StoredProperties
+        The stored properties in the grpc format.
+
+    Returns
+    -------
+    list[StoredProperty]
+        list of internal representation of stored properties
+    """
+    return [
+        StoredProperty(
+            p.interface_name,
+            p.path,
+            p.version_major,
+            _from_grpc_ownership(p.ownership),
+            _decode_astarte_data_type_individual(p.data),
+        )
+        for p in grpc_properties.properties
+    ]
 
 
 def _encode_astarte_data_type_individual(mapping: Mapping, payload: TypeAstarteData) -> AstarteData:

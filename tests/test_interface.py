@@ -73,7 +73,7 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(basic_interface.version_major, 0)
         self.assertEqual(basic_interface.version_minor, 1)
         self.assertEqual(basic_interface.type, "datastream")
-        self.assertEqual(basic_interface.ownership, "device")
+        self.assertEqual(basic_interface.ownership.value, "device")
         self.assertEqual(basic_interface.aggregation, "individual")
         self.assertEqual(basic_interface.mappings, [mock_instance1])
 
@@ -114,7 +114,7 @@ class UnitTests(unittest.TestCase):
         self.assertEqual(basic_interface.version_major, 0)
         self.assertEqual(basic_interface.version_minor, 1)
         self.assertEqual(basic_interface.type, "datastream")
-        self.assertEqual(basic_interface.ownership, "device")
+        self.assertEqual(basic_interface.ownership.value, "device")
         self.assertEqual(basic_interface.aggregation, "object")
         self.assertEqual(basic_interface.mappings, [mock_instance1, mock_instance2])
 
