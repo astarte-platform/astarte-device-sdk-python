@@ -466,7 +466,7 @@ class UnitTests(unittest.TestCase):
 
         # Defaults to individual when it misses the aggregation field
         interface_individual = Interface(basic_interface_dict)
-        assert not interface_individual.is_aggregation_object()
+        assert not interface_individual.is_datastream_object()
 
         mock_mapping.reset_mock()
 
@@ -478,7 +478,7 @@ class UnitTests(unittest.TestCase):
 
         basic_interface_dict["aggregation"] = "object"
         interface_aggregated = Interface(basic_interface_dict)
-        assert interface_aggregated.is_aggregation_object()
+        assert interface_aggregated.is_datastream_object()
 
     @mock.patch("astarte.device.interface.Mapping")
     def test_interface_is_server_owned(self, mock_mapping):
@@ -534,7 +534,7 @@ class UnitTests(unittest.TestCase):
         mock_mapping.side_effect = [mock_instance1]
 
         interface_datastream = Interface(basic_interface_dict)
-        assert not interface_datastream.is_type_properties()
+        assert not interface_datastream.is_property_individual()
 
         mock_mapping.reset_mock()
 
@@ -545,7 +545,7 @@ class UnitTests(unittest.TestCase):
 
         basic_interface_dict["type"] = "properties"
         interface_property = Interface(basic_interface_dict)
-        assert interface_property.is_type_properties()
+        assert interface_property.is_property_individual()
 
     @mock.patch("astarte.device.interface.Mapping")
     def test_interface_is_property_endpoint_resettable(self, mock_mapping):

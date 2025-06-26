@@ -126,7 +126,7 @@ def test_add_and_remove_interface_while_disconnected(device: DeviceMqtt, test_cf
 
     device_connect(device)
 
-    device.send(
+    device.send_individual(
         test_cfg.interface_device_data,
         "/booleanarray_endpoint",
         [False, True],
@@ -143,7 +143,7 @@ def test_add_and_remove_interface_while_disconnected(device: DeviceMqtt, test_cf
     device_connect(device)
 
     try:
-        device.send(
+        device.send_individual(
             test_cfg.interface_device_data,
             "/booleanarray_endpoint",
             [False, True],
@@ -153,7 +153,11 @@ def test_add_and_remove_interface_while_disconnected(device: DeviceMqtt, test_cf
         # Correct behaviour
         pass
     else:
-        cprint("Exception not raised for send on removed interface.", color="red", flush=True)
+        cprint(
+            "Exception not raised for send on removed interface.",
+            color="red",
+            flush=True,
+        )
         sys.exit(1)
 
     try:
@@ -162,7 +166,11 @@ def test_add_and_remove_interface_while_disconnected(device: DeviceMqtt, test_cf
         # Correct behaviour
         pass
     else:
-        cprint("Exception not raised for http get on removed interface.", color="red", flush=True)
+        cprint(
+            "Exception not raised for http get on removed interface.",
+            color="red",
+            flush=True,
+        )
         sys.exit(1)
 
     device_disconnect(device)
@@ -175,7 +183,7 @@ def test_add_and_remove_interface_while_disconnected(device: DeviceMqtt, test_cf
 
     device_connect(device)
 
-    device.send(
+    device.send_individual(
         test_cfg.interface_device_data,
         "/booleanarray_endpoint",
         [True, True],
@@ -199,7 +207,7 @@ def test_add_and_remove_interface_while_connected(device: DeviceMqtt, test_cfg: 
     time.sleep(0.5)
 
     try:
-        device.send(
+        device.send_individual(
             test_cfg.interface_device_data,
             "/booleanarray_endpoint",
             [False, True],
@@ -209,7 +217,11 @@ def test_add_and_remove_interface_while_connected(device: DeviceMqtt, test_cfg: 
         # Correct behaviour
         pass
     else:
-        cprint("Exception not raised for send on removed interface.", color="red", flush=True)
+        cprint(
+            "Exception not raised for send on removed interface.",
+            color="red",
+            flush=True,
+        )
         sys.exit(1)
 
     try:
@@ -218,7 +230,11 @@ def test_add_and_remove_interface_while_connected(device: DeviceMqtt, test_cfg: 
         # Correct behaviour
         pass
     else:
-        cprint("Exception not raised for http get on removed interface.", color="red", flush=True)
+        cprint(
+            "Exception not raised for http get on removed interface.",
+            color="red",
+            flush=True,
+        )
         sys.exit(1)
 
     time.sleep(0.5)
@@ -231,7 +247,7 @@ def test_add_and_remove_interface_while_connected(device: DeviceMqtt, test_cfg: 
 
     time.sleep(0.5)
 
-    device.send(
+    device.send_individual(
         test_cfg.interface_device_data,
         "/booleanarray_endpoint",
         [False, False],
@@ -268,13 +284,16 @@ def test_add_and_remove_property_interface_while_connected(
 
     The device should be connected when calling whis function.
     """
-    cprint("\nTesting add/remove property interface while connected.", color="cyan", flush=True)
+    cprint(
+        "\nTesting add/remove property interface while connected.",
+        color="cyan",
+        flush=True,
+    )
 
-    device.send(
+    device.set_property(
         test_cfg.interface_device_prop,
         "/s12/booleanarray_endpoint",
         [True, False],
-        None,
     )
 
     json_res = get_server_interface(test_cfg, test_cfg.interface_device_prop)
@@ -300,17 +319,20 @@ def test_add_and_remove_property_interface_while_connected(
     time.sleep(0.5)
 
     try:
-        device.send(
+        device.set_property(
             test_cfg.interface_device_prop,
             "/s12/booleanarray_endpoint",
             [False, True],
-            None,
         )
     except InterfaceNotFoundError:
         # Correct behaviour
         pass
     else:
-        cprint("Exception not raised for send on removed interface.", color="red", flush=True)
+        cprint(
+            "Exception not raised for send on removed interface.",
+            color="red",
+            flush=True,
+        )
         sys.exit(1)
 
     try:
@@ -319,7 +341,11 @@ def test_add_and_remove_property_interface_while_connected(
         # Correct behaviour
         pass
     else:
-        cprint("Exception not raised for http get on removed interface.", color="red", flush=True)
+        cprint(
+            "Exception not raised for http get on removed interface.",
+            color="red",
+            flush=True,
+        )
         sys.exit(1)
 
     prop_in_database = peek_database(
@@ -335,11 +361,10 @@ def test_add_and_remove_property_interface_while_connected(
 
     time.sleep(0.5)
 
-    device.send(
+    device.set_property(
         test_cfg.interface_device_prop,
         "/s12/booleanarray_endpoint",
         [False, False],
-        None,
     )
 
     json_res = get_server_interface(test_cfg, test_cfg.interface_device_prop)
@@ -378,7 +403,8 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
         )
     else:
         device = DeviceGrpc(
-            server_addr=f"localhost:{test_cfg.grpc_socket_port}", node_uuid=test_cfg.grpc_node_uuid
+            server_addr=f"localhost:{test_cfg.grpc_socket_port}",
+            node_uuid=test_cfg.grpc_node_uuid,
         )
 
     device.add_interfaces_from_dir(test_cfg.interfaces_fld)
@@ -423,7 +449,10 @@ if __name__ == "__main__":
     call_back_thread.start()
 
     try:
-        main(call_back_loop, TestCfg(device_n=args.device_n, mock_data_n=args.mock_data_n))
+        main(
+            call_back_loop,
+            TestCfg(device_n=args.device_n, mock_data_n=args.mock_data_n),
+        )
     except Exception as e:
         call_back_loop.stop()
         call_back_thread.join(timeout=1)

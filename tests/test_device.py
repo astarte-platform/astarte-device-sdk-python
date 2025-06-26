@@ -169,20 +169,19 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
-        mock_interface.is_aggregation_object.return_value = False
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_individual.return_value = True
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
         interface_path = "interface path"
         payload = 12
         timestamp = datetime.now()
-        device.send(interface_name, interface_path, payload, timestamp)
+        device.send_individual(interface_name, interface_path, payload, timestamp)
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_individual.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_called_once_with(
             interface_path, payload, timestamp
         )
@@ -203,7 +202,7 @@ class TestMyAbstract(unittest.TestCase):
         timestamp = datetime.now()
         self.assertRaises(
             InterfaceNotFoundError,
-            lambda: device.send(interface_name, interface_path, payload, timestamp),
+            lambda: device.send_individual(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with("interface name")
@@ -225,12 +224,13 @@ class TestMyAbstract(unittest.TestCase):
         payload = 12
         timestamp = datetime.now()
         self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
+            ValidationError,
+            lambda: device.send_individual(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with("interface name")
         mock_get_interface.return_value.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_aggregation_object.assert_not_called()
+        mock_get_interface.return_value.is_datastream_object.assert_not_called()
         _send_generic.assert_not_called()
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _send_generic=mock.DEFAULT)
@@ -242,7 +242,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
+        mock_interface.is_datastream_object.return_value = True
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -250,12 +250,13 @@ class TestMyAbstract(unittest.TestCase):
         payload = 12
         timestamp = datetime.now()
         self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
+            ValidationError,
+            lambda: device.send_object(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with("interface name")
         mock_interface.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_aggregation_object.assert_called_once_with()
+        mock_get_interface.return_value.is_datastream_object.assert_called_once()
         _send_generic.assert_not_called()
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _send_generic=mock.DEFAULT)
@@ -267,7 +268,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
+        mock_interface.is_datastream_individual.return_value = True
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -275,12 +276,13 @@ class TestMyAbstract(unittest.TestCase):
         payload = None
         timestamp = datetime.now()
         self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
+            ValidationError,
+            lambda: device.send_individual(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with("interface name")
         mock_interface.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_aggregation_object.assert_called_once()
+        mock_get_interface.return_value.is_datastream_individual.assert_called_once()
         _send_generic.assert_not_called()
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _send_generic=mock.DEFAULT)
@@ -292,7 +294,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
+        mock_interface.is_datastream_individual.return_value = False
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -300,12 +302,13 @@ class TestMyAbstract(unittest.TestCase):
         payload = {"something": 12}
         timestamp = datetime.now()
         self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
+            ValidationError,
+            lambda: device.send_individual(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with("interface name")
         mock_interface.is_server_owned.assert_called_once()
-        mock_get_interface.return_value.is_aggregation_object.assert_called_once()
+        mock_get_interface.return_value.is_datastream_individual.assert_called_once()
         _send_generic.assert_not_called()
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _send_generic=mock.DEFAULT)
@@ -318,7 +321,7 @@ class TestMyAbstract(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
+        mock_interface.is_datastream_individual.return_value = True
         mock_interface.validate_payload_and_timestamp.side_effect = ValidationError("Error msg")
         mock_get_interface.return_value = mock_interface
 
@@ -327,15 +330,40 @@ class TestMyAbstract(unittest.TestCase):
         payload = 12
         timestamp = datetime.now()
         self.assertRaises(
-            ValidationError, lambda: device.send(interface_name, interface_path, payload, timestamp)
+            ValidationError,
+            lambda: device.send_individual(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_individual.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_called_once_with(
             interface_path, payload, timestamp
         )
+        _send_generic.assert_not_called()
+
+    @mock.patch.multiple(Device, __abstractmethods__=set(), _send_generic=mock.DEFAULT)
+    @mock.patch.object(Introspection, "get_interface")
+    def test_device_set_property_not_property(self, mock_get_interface, _send_generic):
+        device = Device()
+
+        mock_interface = mock.MagicMock()
+        mock_interface.name = "interface name"
+        mock_interface.is_server_owned.return_value = False
+        mock_interface.is_property_individual.return_value = False
+        mock_get_interface.return_value = mock_interface
+
+        interface_name = "interface name"
+        interface_path = "interface path"
+        payload = 12
+        self.assertRaises(
+            ValidationError, lambda: device.set_property(interface_name, interface_path, payload)
+        )
+
+        mock_get_interface.assert_called_once_with(interface_name)
+        mock_interface.is_server_owned.assert_called_once()
+        mock_interface.is_property_individual.assert_called_once()
+        mock_interface.validate_payload_and_timestamp.assert_not_called()
         _send_generic.assert_not_called()
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _send_generic=mock.DEFAULT)
@@ -346,19 +374,18 @@ class TestMyAbstract(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_object.return_value = True
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
         interface_path = "interface path"
         payload = {"something": 12}
         timestamp = datetime.now()
-        device.send_aggregate(interface_name, interface_path, payload, timestamp)
+        device.send_object(interface_name, interface_path, payload, timestamp)
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_object.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_called_once_with(
             interface_path, payload, timestamp
         )
@@ -379,7 +406,7 @@ class TestMyAbstract(unittest.TestCase):
         timestamp = datetime.now()
         self.assertRaises(
             InterfaceNotFoundError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+            lambda: device.send_object(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with("interface name")
@@ -403,7 +430,7 @@ class TestMyAbstract(unittest.TestCase):
         timestamp = datetime.now()
         self.assertRaises(
             ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+            lambda: device.send_object(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with("interface name")
@@ -419,8 +446,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = False
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_object.return_value = False
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -429,12 +455,12 @@ class TestMyAbstract(unittest.TestCase):
         timestamp = datetime.now()
         self.assertRaises(
             ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+            lambda: device.send_object(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_object.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_not_called()
         _send_generic.assert_not_called()
 
@@ -447,8 +473,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_object.return_value = True
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -457,12 +482,12 @@ class TestMyAbstract(unittest.TestCase):
         timestamp = datetime.now()
         self.assertRaises(
             ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+            lambda: device.send_object(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_object.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_not_called()
         _send_generic.assert_not_called()
 
@@ -475,8 +500,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_interface = mock.MagicMock()
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_object.return_value = True
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -485,12 +509,12 @@ class TestMyAbstract(unittest.TestCase):
         timestamp = datetime.now()
         self.assertRaises(
             ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+            lambda: device.send_object(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_object.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_not_called()
         _send_generic.assert_not_called()
 
@@ -504,8 +528,7 @@ class TestMyAbstract(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_aggregation_object.return_value = True
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_datastream_object.return_value = True
         mock_interface.validate_payload_and_timestamp.side_effect = ValidationError("Error msg")
         mock_get_interface.return_value = mock_interface
 
@@ -515,12 +538,12 @@ class TestMyAbstract(unittest.TestCase):
         timestamp = datetime.now()
         self.assertRaises(
             ValidationError,
-            lambda: device.send_aggregate(interface_name, interface_path, payload, timestamp),
+            lambda: device.send_object(interface_name, interface_path, payload, timestamp),
         )
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_aggregation_object.assert_called_once()
+        mock_interface.is_datastream_object.assert_called_once()
         mock_interface.validate_payload_and_timestamp.assert_called_once_with(
             interface_path, payload, timestamp
         )
@@ -534,7 +557,7 @@ class TestMyAbstract(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = True
+        mock_interface.is_property_individual.return_value = True
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -543,7 +566,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_type_properties.assert_called_once()
+        mock_interface.is_property_individual.assert_called_once()
         _send_generic.assert_called_once_with(mock_interface, interface_path, None, None)
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _send_generic=mock.DEFAULT)
@@ -585,7 +608,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_type_properties.assert_not_called()
+        mock_interface.is_property_individual.assert_not_called()
         _send_generic.assert_not_called()
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _send_generic=mock.DEFAULT)
@@ -598,7 +621,7 @@ class TestMyAbstract(unittest.TestCase):
         mock_interface = mock.MagicMock()
         mock_interface.name = "interface name"
         mock_interface.is_server_owned.return_value = False
-        mock_interface.is_type_properties.return_value = False
+        mock_interface.is_property_individual.return_value = False
         mock_get_interface.return_value = mock_interface
 
         interface_name = "interface name"
@@ -609,7 +632,7 @@ class TestMyAbstract(unittest.TestCase):
 
         mock_get_interface.assert_called_once_with(interface_name)
         mock_interface.is_server_owned.assert_called_once()
-        mock_interface.is_type_properties.assert_called_once()
+        mock_interface.is_property_individual.assert_called_once()
         _send_generic.assert_not_called()
 
     @mock.patch.multiple(Device, __abstractmethods__=set(), _store_property=mock.DEFAULT)

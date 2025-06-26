@@ -198,7 +198,7 @@ class DeviceMqtt(Device):
             raise InterfaceNotFoundError(f"Interface {interface_name} not found in introspection.")
         self._introspection.remove_interface(interface_name)
         if self.__connection_state is ConnectionState.CONNECTED:
-            if interface.is_type_properties():
+            if interface.is_property_individual():
                 self.__prop_database.delete_props_from_interface(interface_name)
             self.__send_introspection()
             if interface.is_server_owned():
@@ -373,7 +373,7 @@ class DeviceMqtt(Device):
         elif not interface.get_mapping(path):
             raise ValidationError(f"Path {path} not in the {interface.name} interface.")
 
-        if interface.is_type_properties():
+        if interface.is_property_individual():
             self.__prop_database.store_prop(
                 interface.name,
                 interface.version_major,
@@ -544,7 +544,7 @@ class DeviceMqtt(Device):
         payload: object | collections.abc.Mapping | None
             Payload to store.
         """
-        if interface.is_type_properties():
+        if interface.is_property_individual():
             self.__prop_database.store_prop(interface.name, interface.version_major, path, payload)
 
     def __setup_subscriptions(self) -> None:

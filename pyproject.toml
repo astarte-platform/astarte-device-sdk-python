@@ -34,8 +34,7 @@ dependencies = [
     "cryptography>=42.0.0",
     "bson>=0.5.5",
     "PyJWT>=1.7.0",
-#    "astarte-message-hub-proto==0.7.0",
-    "astarte-message-hub-proto @ git+https://github.com/astarte-platform/astarte-message-hub-proto.git@87e9b3937cd563576de4bcb801a91c700bf196bb#subdirectory=python"
+    "astarte-message-hub-proto==0.8.0",
 ]
 requires-python = ">=3.9"
 authors = [

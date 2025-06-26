@@ -62,13 +62,13 @@ def stream_data(device: DeviceGrpc):
     """
 
     # Send the binary blob endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/binaryblob_endpoint",
         b"binblob",
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/binaryblobarray_endpoint",
         [b"bin", b"blob"],
@@ -76,13 +76,13 @@ def stream_data(device: DeviceGrpc):
     )
 
     # Send the boolean endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/boolean_endpoint",
         False,
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/booleanarray_endpoint",
         [False, True],
@@ -90,13 +90,13 @@ def stream_data(device: DeviceGrpc):
     )
 
     # Send the datetime endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/datetime_endpoint",
         datetime.now(tz=timezone.utc),
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/datetimearray_endpoint",
         [datetime.now(tz=timezone.utc), datetime.now(tz=timezone.utc)],
@@ -104,13 +104,13 @@ def stream_data(device: DeviceGrpc):
     )
 
     # Send the double endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/double_endpoint",
         21.3,
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/doublearray_endpoint",
         [1123.0, 12.232],
@@ -118,13 +118,13 @@ def stream_data(device: DeviceGrpc):
     )
 
     # Send the integer endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/integer_endpoint",
         11,
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/integerarray_endpoint",
         [452, 0],
@@ -132,13 +132,13 @@ def stream_data(device: DeviceGrpc):
     )
 
     # Send the long integer endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/longinteger_endpoint",
         2**34,
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/longintegerarray_endpoint",
         [2**34, 2**35 + 11],
@@ -146,13 +146,13 @@ def stream_data(device: DeviceGrpc):
     )
 
     # Send the string endpoints
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/string_endpoint",
         "Hello world!",
         datetime.now(tz=timezone.utc),
     )
-    device.send(
+    device.send_individual(
         "org.astarte-platform.python.examples.DeviceDatastream",
         "/stringarray_endpoint",
         ["Hello,", " world!"],
