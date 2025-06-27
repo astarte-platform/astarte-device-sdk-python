@@ -62,12 +62,8 @@ from grpc import (
 )
 from grpc._channel import _MultiThreadedRendezvous
 
-from astarte.device.device import (
-    ConnectionState,
-    Device,
-    TypeAstarteData,
-    TypeConvertedAstarteMessage,
-)
+from astarte.device.database import StoredProperty
+from astarte.device.device import ConnectionState, Device, TypeAstarteData
 from astarte.device.exceptions import (
     DeviceConnectingError,
     DeviceDisconnectedError,
@@ -76,6 +72,7 @@ from astarte.device.exceptions import (
 )
 from astarte.device.interface import Interface
 from astarte.device.mapping import Mapping
+from astarte.device.types import TypeConvertedAstarteMessage
 
 # All the individual_data options that contain arrays.
 TypeProtobufAstarteDataVector: typing.TypeAlias = Union[
@@ -319,6 +316,93 @@ class DeviceGrpc(Device):
             The device connection status.
         """
         return self.__connection_state is ConnectionState.CONNECTED
+
+    def get_property(self, interface_name: str, path: str) -> TypeAstarteData | None:
+        """
+        Read the documentation of the base Device class.
+
+        Parameters
+        ----------
+        interface_name : str
+            Read the documentation of the base Device class.
+        path : str
+            Read the documentation of the base Device class.
+
+        Returns
+        -------
+        Optional[TypeAstarteData]
+            Read the documentation of the base Device class.
+
+        Raises
+        ------
+        NotImplementedError this method is currently not implemented for the grpc client
+        """
+        raise NotImplementedError()
+
+    def get_interface_props(self, interface_name: str) -> list[StoredProperty]:
+        """
+        Read the documentation of the base Device class.
+
+        Parameters
+        ----------
+        interface_name : str
+            Read the documentation of the base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            Read the documentation of the base Device class.
+
+        Raises
+        ------
+        NotImplementedError this method is currently not implemented for the grpc client
+        """
+        raise NotImplementedError()
+
+    def get_all_props(self) -> list[StoredProperty]:
+        """
+        Read the documentation of the base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            Read the documentation of the base Device class.
+
+        Raises
+        ------
+        NotImplementedError this method is currently not implemented for the grpc client
+        """
+        raise NotImplementedError()
+
+    def get_device_props(self) -> list[StoredProperty]:
+        """
+        Read the documentation of the base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            Read the documentation of the base Device class.
+
+        Raises
+        ------
+        NotImplementedError this method is currently not implemented for the grpc client
+        """
+        raise NotImplementedError()
+
+    def get_server_props(self) -> list[StoredProperty]:
+        """
+        Read the documentation of the base Device class.
+
+        Returns
+        -------
+        list[StoredProperty]
+            Read the documentation of the base Device class.
+
+        Raises
+        ------
+        NotImplementedError this method is currently not implemented for the grpc client
+        """
+        raise NotImplementedError()
 
     def _send_generic(
         self,

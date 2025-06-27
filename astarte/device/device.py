@@ -19,17 +19,15 @@
 from __future__ import annotations
 
 import asyncio
-import collections.abc
 import json
 import logging
-import typing
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Tuple, Union
 
+from astarte.device.database import StoredProperty
 from astarte.device.exceptions import (
     InterfaceFileDecodeError,
     InterfaceFileNotFoundError,
@@ -38,17 +36,7 @@ from astarte.device.exceptions import (
 )
 from astarte.device.interface import Interface
 from astarte.device.introspection import Introspection
-
-TypeAstarteDataScalar: typing.TypeAlias = Union[float, bool, int, str, bytes, datetime]
-TypeAstarteDataVector: typing.TypeAlias = Union[
-    list[float], list[bool], list[int], list[str], list[bytes], list[datetime]
-]
-TypeAstarteData: typing.TypeAlias = Union[TypeAstarteDataScalar, TypeAstarteDataVector]
-
-TypeAstarteObject: typing.TypeAlias = dict[str, TypeAstarteData]
-TypeInputPayload: typing.TypeAlias = Union[TypeAstarteObject, TypeAstarteData, None]
-
-TypeConvertedAstarteMessage: typing.TypeAlias = Tuple[str, str, TypeInputPayload]
+from astarte.device.types import TypeAstarteData, TypeAstarteObject, TypeInputPayload
 
 
 class ConnectionState(Enum):
@@ -415,11 +403,79 @@ class Device(ABC):
         )
 
     @abstractmethod
+    def get_property(self, interface_name: str, path: str) -> TypeAstarteData | None:
+        """
+        Load a property from the database.
+
+        Parameters
+        ----------
+        interface_name : str
+            The interface name.
+        path : str
+            The path to the property endpoint.
+
+        Returns
+        -------
+        Optional[TypeAstarteData]
+            The property value if the property is present and the provided interface major
+            version matches the interface version stored in the database. None otherwise.
+        """
+
+    @abstractmethod
+    def get_interface_props(self, interface_name: str) -> list[StoredProperty]:
+        """
+        Load all the properties of an interface stored in the database.
+
+        Parameters
+        ----------
+        interface_name : str
+            The interface name.
+
+        Returns
+        -------
+        list[StoredProperty]
+            A list containing the propeties of the specified interface stored in the database.
+        """
+
+    @abstractmethod
+    def get_all_props(self) -> list[StoredProperty]:
+        """
+        Load all the properties stored in the database.
+
+        Returns
+        -------
+        list[StoredProperty]
+            A list containing all the propeties stored in the database.
+        """
+
+    @abstractmethod
+    def get_device_props(self) -> list[StoredProperty]:
+        """
+        Load all the device properties stored in the database.
+
+        Returns
+        -------
+        list[StoredProperty]
+            A list containing the device propeties stored in the database.
+        """
+
+    @abstractmethod
+    def get_server_props(self) -> list[StoredProperty]:
+        """
+        Load all the server properties stored in the database.
+
+        Returns
+        -------
+        list[StoredProperty]
+            A list containing the server propeties stored in the database.
+        """
+
+    @abstractmethod
     def _send_generic(
         self,
         interface: Interface,
         path: str,
-        payload: object | collections.abc.Mapping | None,
+        payload: TypeInputPayload,
         timestamp: datetime | None,
     ) -> None:
         """
@@ -509,7 +565,8 @@ class Device(ABC):
                 )
                 return
 
-        self._store_property(interface, path, payload)
+        if interface.is_property_individual():
+            self._store_property(interface, path, payload)
 
         if self._loop:
             # Use threadsafe, as we're in a different thread here
@@ -528,7 +585,7 @@ class Device(ABC):
         self,
         interface: Interface,
         path: str,
-        payload: object | collections.abc.Mapping | None,
+        payload: TypeAstarteData | None,
     ) -> None:
         """
         Store the property in the properties database.
@@ -539,6 +596,6 @@ class Device(ABC):
             Interface to use for property store.
         path: str
             Path to use for property store.
-        payload: object | collections.abc.Mapping | None
+        payload: TypeAstarteData | None
             Payload to store.
         """

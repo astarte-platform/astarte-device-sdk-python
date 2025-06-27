@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from enum import Enum
 
 from astarte.device.exceptions import (
     InterfaceFileDecodeError,
@@ -28,8 +29,15 @@ from astarte.device.exceptions import (
 )
 from astarte.device.mapping import Mapping
 
-DEVICE = "device"
-SERVER = "server"
+
+class InterfaceOwnership(Enum):
+    """
+    Class that represent an Interface ownership
+    """
+
+    DEVICE = "device"
+    SERVER = "server"
+
 
 name_regex = re.compile(
     r"^([a-zA-Z][a-zA-Z0-9]*\.([a-zA-Z0-9][a-zA-Z0-9-]*\.)*)?[a-zA-Z][a-zA-Z0-9]*$"
@@ -113,11 +121,12 @@ class Interface:
                 "Interface type can be one of 'datastream' and 'properties."
             )
 
-        self.ownership: str = interface_definition.get("ownership")
-        if self.ownership not in (DEVICE, SERVER):
-            raise InterfaceFileDecodeError(
-                f"Interface ownership can be one of '{DEVICE}' and '{SERVER}'."
+        try:
+            self.ownership: InterfaceOwnership = InterfaceOwnership(
+                interface_definition.get("ownership")
             )
+        except ValueError as ve:
+            raise InterfaceFileDecodeError("The interface ownership defined is not valid") from ve
 
         self.aggregation: str = interface_definition.get("aggregation", "individual")
         if self.aggregation not in {"individual", "object"}:
@@ -178,7 +187,7 @@ class Interface:
         bool
             True if ownership: server
         """
-        return self.ownership == SERVER
+        return self.ownership == InterfaceOwnership.SERVER
 
     def is_property_individual(self):
         """
