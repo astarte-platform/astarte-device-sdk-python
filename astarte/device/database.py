@@ -25,6 +25,53 @@ import pickle
 import sqlite3
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
+
+from grpc import logging
+
+from astarte.device.interface import InterfaceOwnership
+from astarte.device.types import TypeAstarteData
+
+
+def ownership_sqlite_set() -> str:
+    """
+    Construct a string representing the values stored in the InterfaceOwnership enum as an sqlite set.
+
+    Returns
+    -------
+    str
+        Representation of all the possible values of this enum as a sqlite set string.
+    """
+    return "(" + ",".join(["'" + e.value + "'" for e in InterfaceOwnership]) + ")"
+
+
+record_ownership_value_set: str = ownership_sqlite_set()
+
+
+class StoredProperty:
+    """
+    Allows access to data of a stored property, returned by the PropertyAccess class
+    """
+
+    interface: str
+    path: str
+    major: int
+    ownership: InterfaceOwnership
+    value: TypeAstarteData
+
+    def __init__(
+        self,
+        interface: str,
+        path: str,
+        major: int,
+        ownership: InterfaceOwnership,
+        value: TypeAstarteData,
+    ):
+        self.interface = interface
+        self.path = path
+        self.major = major
+        self.ownership = ownership
+        self.value = value
 
 
 class AstarteDatabase(ABC):
@@ -33,7 +80,14 @@ class AstarteDatabase(ABC):
     """
 
     @abstractmethod
-    def store_prop(self, interface: str, major: int, path: str, value: object) -> None:
+    def store_prop(
+        self,
+        interface: str,
+        major: int,
+        path: str,
+        ownership: InterfaceOwnership,
+        value: TypeAstarteData | None,
+    ):
         """
         Store a property value in the database. It will overwrite the previous value where present.
 
@@ -42,15 +96,17 @@ class AstarteDatabase(ABC):
         interface : str
             The interface name.
         major : int
-            The major version for the interface.
+            The path to the property endpoint.
         path : str
             The path to the property endpoint.
+        ownership : InterfaceOwnership
+            The ownership of the interface.
         value : object
             The new value for the property.
         """
 
     @abstractmethod
-    def load_prop(self, interface: str, major: int, path: str) -> object | None:
+    def load_prop(self, interface: str, major: int, path: str) -> StoredProperty | None:
         """
         Load a property from the database. If a property is found but the major version does not
         match, the property in the database will be deleted and None will be returned.
@@ -66,13 +122,13 @@ class AstarteDatabase(ABC):
 
         Returns
         -------
-        object | None
+        StoredProperty | None
             The property value if the property is present and the provided interface major
             version matches the interface version stored in the database. None otherwise.
         """
 
     @abstractmethod
-    def delete_prop(self, interface: str, path: str) -> None:
+    def delete_prop(self, interface: str, path: str):
         """
         Delete a property from the database.
 
@@ -85,7 +141,7 @@ class AstarteDatabase(ABC):
         """
 
     @abstractmethod
-    def delete_props_from_interface(self, interface: str) -> None:
+    def delete_props_from_interface(self, interface: str):
         """
         Delete all the properties from the database belonging to an interface.
 
@@ -102,16 +158,52 @@ class AstarteDatabase(ABC):
         """
 
     @abstractmethod
-    def load_all_props(self) -> list[tuple[str, int, str, object]]:
+    def load_interface_props(self, interface: str) -> list[StoredProperty]:
+        """
+        Load all the properties of an interface stored in the database.
+
+        Parameters
+        ----------
+        interface : str
+            The interface name.
+
+        Returns
+        -------
+        list[StoredProperty]
+            A list containing the propeties of the specified interface stored in the database.
+        """
+
+    @abstractmethod
+    def load_device_props(self) -> list[StoredProperty]:
+        """
+        Load all the device properties stored in the database.
+
+        Returns
+        -------
+        list[StoredProperty]
+            A list containing the device propeties stored in the database.
+        """
+
+    @abstractmethod
+    def load_server_props(self) -> list[StoredProperty]:
+        """
+        Load all the server properties stored in the database.
+
+        Returns
+        -------
+        list[StoredProperty]
+            A list containing the server propeties stored in the database.
+        """
+
+    @abstractmethod
+    def load_all_props(self) -> list[StoredProperty]:
         """
         Load all the properties stored in the database.
 
         Returns
         -------
-        list[tuple[str, int, str, object]]
+        list[StoredProperty]
             A list containing all the propeties stored in the database.
-            Each element of the list is a tuple in the format:
-            (interface, interface major version, path, value)
         """
 
 
@@ -131,12 +223,25 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         self.__database_path = database_path
         cursor = sqlite3.connect(self.__database_path).cursor()
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS properties "
-            "(interface TEXT NOT NULL, major INTEGER NOT NULL, "
-            "path TEXT NOT NULL, value BLOB NOT NULL, PRIMARY KEY (interface, path))"
+            "CREATE TABLE IF NOT EXISTS properties ("
+            "interface TEXT NOT NULL,"
+            "major INTEGER NOT NULL,"
+            "path TEXT NOT NULL,"
+            "ownership CHARACTER(6) CHECK(ownership IN "
+            + record_ownership_value_set
+            + ") NOT NULL,"
+            "value BLOB NOT NULL,"
+            "PRIMARY KEY (interface, path))"
         )
 
-    def store_prop(self, interface: str, major: int, path: str, value: object | None) -> None:
+    def store_prop(
+        self,
+        interface: str,
+        major: int,
+        path: str,
+        ownership: InterfaceOwnership,
+        value: TypeAstarteData | None,
+    ):
         """
         Store a property value in the database. It will overwrite the previous value where present.
 
@@ -148,6 +253,8 @@ class AstarteDatabaseSQLite(AstarteDatabase):
             See documentation in AstarteDatabase.
         path : str
             See documentation in AstarteDatabase.
+        ownership : InterfaceOwnership
+            See documentation in AstarteDatabase.
         value : object
             See documentation in AstarteDatabase.
         """
@@ -156,13 +263,19 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         else:
             connection = sqlite3.connect(self.__database_path)
             connection.cursor().execute(
-                "INSERT OR REPLACE INTO properties (interface, major, path, value) VALUES "
-                "(?, ?, ?, ?)",
-                (interface, major, path, pickle.dumps(value)),
+                "INSERT OR REPLACE INTO properties (interface, major, path, ownership, value) VALUES "
+                "(?, ?, ?, ?, ?)",
+                (
+                    interface,
+                    major,
+                    path,
+                    ownership.value,
+                    pickle.dumps(value),
+                ),
             )
             connection.commit()
 
-    def load_prop(self, interface: str, major: int, path: str) -> object | None:
+    def load_prop(self, interface: str, major: int, path: str) -> StoredProperty | None:
         """
         Load a property from the database. If a property is found but the major version does not
         match, the property in the database will be deleted and None will be returned.
@@ -178,27 +291,37 @@ class AstarteDatabaseSQLite(AstarteDatabase):
 
         Returns
         -------
-        object | None
+        TypeAstarteData | None
             See documentation in AstarteDatabase.
         """
-        value, stored_major = (
+        query_result = (
             sqlite3.connect(self.__database_path)
             .cursor()
             .execute(
-                "SELECT value, major FROM properties WHERE interface=? AND path=?",
+                "SELECT ownership, value, major FROM properties WHERE interface=? AND path=?",
                 (interface, path),
             )
             .fetchone()
         )
+
+        if query_result is None:
+            return None
+
+        ownership, value, stored_major = query_result
+
+        if value is None:
+            return None
 
         # if version mismatch, delete the old value
         if stored_major != major:
             self.delete_prop(interface, path)
             return None
 
-        return pickle.loads(value)
+        return StoredProperty(
+            interface, path, major, InterfaceOwnership(ownership), pickle.loads(value)
+        )
 
-    def delete_prop(self, interface: str, path: str) -> None:
+    def delete_prop(self, interface: str, path: str):
         """
         Delete a property from the database.
 
@@ -216,7 +339,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         )
         connection.commit()
 
-    def delete_props_from_interface(self, interface: str) -> None:
+    def delete_props_from_interface(self, interface: str):
         """
         Delete all the properties from the database belonging to an interface.
 
@@ -232,7 +355,7 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         )
         connection.commit()
 
-    def clear(self) -> None:
+    def clear(self):
         """
         Fully clear the database of all the properties.
         """
@@ -240,22 +363,118 @@ class AstarteDatabaseSQLite(AstarteDatabase):
         connection.cursor().execute("DELETE * FROM properties")
         connection.commit()
 
-    def load_all_props(self) -> list[tuple[str, int, str, object]]:
+    def load_interface_props(self, interface: str) -> list[StoredProperty]:
         """
-        Load all the properties stored in the database.
+        Parameters
+        ----------
+        interface : str
+            See documentation in AstarteDatabase.
 
         Returns
         -------
-        list[tuple[str, int, str, object]]
+        list[StoredProperty]
             See documentation in AstarteDatabase.
         """
         properties = (
             sqlite3.connect(self.__database_path)
             .cursor()
-            .execute("SELECT * FROM properties")
+            .execute(
+                "SELECT interface, major, path, ownership, value FROM properties WHERE interface = ?",
+                (interface,),
+            )
             .fetchall()
         )
-        parsed_properties = []
-        for interface, major, path, value in properties:
-            parsed_properties += [(interface, major, path, pickle.loads(value))]
-        return parsed_properties
+        return _to_property_data_list(properties)
+
+    def load_device_props(self) -> list[StoredProperty]:
+        """
+        Returns
+        -------
+        list[StoredProperty]
+            See documentation in AstarteDatabase.
+        """
+        properties = (
+            sqlite3.connect(self.__database_path)
+            .cursor()
+            .execute(
+                "SELECT interface, major, path, ownership, value FROM properties WHERE ownership = ?",
+                (InterfaceOwnership.DEVICE.value,),
+            )
+            .fetchall()
+        )
+        return _to_property_data_list(properties)
+
+    def load_server_props(self) -> list[StoredProperty]:
+        """
+        Returns
+        -------
+        list[StoredProperty]
+            See documentation in AstarteDatabase.
+        """
+        properties = (
+            sqlite3.connect(self.__database_path)
+            .cursor()
+            .execute(
+                "SELECT interface, major, path, ownership, value FROM properties WHERE ownership = ?",
+                (InterfaceOwnership.SERVER.value,),
+            )
+            .fetchall()
+        )
+        return _to_property_data_list(properties)
+
+    def load_all_props(self) -> list[StoredProperty]:
+        """
+        Load all the properties stored in the database.
+
+        Returns
+        -------
+        list[StoredProperty]
+            See documentation in AstarteDatabase.
+        """
+        properties = (
+            sqlite3.connect(self.__database_path)
+            .cursor()
+            .execute("SELECT interface, major, path, ownership, value FROM properties")
+            .fetchall()
+        )
+        return _to_property_data_list(properties)
+
+
+def _to_property_data_list(properties: list[Any]) -> list[StoredProperty]:
+    """
+    Maps the list of properties returned by the sqlite metho to a list of
+    StoredProperty.
+
+    Parameters
+    ----------
+    properties : list[Any]
+        List of properties as returned from the sqlite database
+
+    Returns
+    -------
+    list[StoredProperty]
+        Mapped list of properties.
+
+    Raises
+    ------
+    ValueError
+        The ownership stored in the record is not valid. A possible corrupted database state.
+    """
+    parsed_properties = []
+    for interface, major, path, ownership, value in properties:
+        try:
+            interface_ownership = InterfaceOwnership(ownership)
+        except ValueError as e:
+            logging.error(f"Incorrect value stored in the database: {ownership}")
+            raise e
+
+        parsed_properties += [
+            StoredProperty(
+                interface,
+                path,
+                major,
+                interface_ownership,
+                pickle.loads(value),
+            )
+        ]
+    return parsed_properties
