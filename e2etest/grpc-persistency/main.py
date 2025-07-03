@@ -176,6 +176,7 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     """
     Generate the device and run the end to end tests.
     """
+
     device = DeviceGrpc(
         server_addr=f"localhost:{test_cfg.grpc_socket_port}",
         node_uuid=test_cfg.grpc_node_uuid,

@@ -23,6 +23,7 @@ import asyncio
 import importlib.util
 import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 from threading import Lock, Thread
@@ -94,62 +95,60 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     """
     Generate the device and run the end to end tests.
     """
-    persistency_dir = Path.joinpath(Path.cwd(), "e2etest", "base", "build")
-    if not Path.is_dir(persistency_dir):
-        os.makedirs(persistency_dir)
+    with tempfile.TemporaryDirectory("astarte-sdk-python-e2e") as persistency_dir:
+        if test_cfg.grpc_socket_port is None:
+            device = DeviceMqtt(
+                device_id=test_cfg.device_id,
+                realm=test_cfg.realm,
+                credentials_secret=test_cfg.credentials_secret,
+                pairing_base_url=test_cfg.pairing_url,
+                persistency_dir=persistency_dir,
+                ignore_ssl_errors=False,
+            )
+        else:
+            device = DeviceGrpc(
+                server_addr=f"localhost:{test_cfg.grpc_socket_port}",
+                node_uuid=test_cfg.grpc_node_uuid,
+            )
 
-    if test_cfg.grpc_socket_port is None:
-        device = DeviceMqtt(
-            device_id=test_cfg.device_id,
-            realm=test_cfg.realm,
-            credentials_secret=test_cfg.credentials_secret,
-            pairing_base_url=test_cfg.pairing_url,
-            persistency_dir=persistency_dir,
-            ignore_ssl_errors=False,
+        device.add_interfaces_from_dir(test_cfg.interfaces_fld)
+        device.set_events_callbacks(
+            on_connected=on_connected_cbk,
+            on_data_received=on_data_received_cbk,
+            on_disconnected=on_disconnected_cbk,
+            loop=cb_loop,
         )
-    else:
-        device = DeviceGrpc(
-            server_addr=f"localhost:{test_cfg.grpc_socket_port}", node_uuid=test_cfg.grpc_node_uuid
-        )
+        device.connect()
 
-    device.add_interfaces_from_dir(test_cfg.interfaces_fld)
-    device.set_events_callbacks(
-        on_connected=on_connected_cbk,
-        on_data_received=on_data_received_cbk,
-        on_disconnected=on_disconnected_cbk,
-        loop=cb_loop,
-    )
-    device.connect()
+        time.sleep(1)
 
-    time.sleep(1)
+        if not device.is_connected():
+            print("Connection failed.", flush=True)
+            sys.exit(1)
 
-    if not device.is_connected():
-        print("Connection failed.", flush=True)
-        sys.exit(1)
+        test_datastream_from_device_to_server(device, test_cfg)
 
-    test_datastream_from_device_to_server(device, test_cfg)
+        time.sleep(1)
 
-    time.sleep(1)
+        test_datastream_from_server_to_device(test_cfg, rx_data_lock, rx_data)
 
-    test_datastream_from_server_to_device(test_cfg, rx_data_lock, rx_data)
+        time.sleep(1)
 
-    time.sleep(1)
+        test_aggregate_from_device_to_server(device, test_cfg)
 
-    test_aggregate_from_device_to_server(device, test_cfg)
+        time.sleep(1)
 
-    time.sleep(1)
+        test_aggregate_from_server_to_device(test_cfg, rx_data_lock, rx_data)
 
-    test_aggregate_from_server_to_device(test_cfg, rx_data_lock, rx_data)
+        time.sleep(1)
 
-    time.sleep(1)
+        test_properties_from_device_to_server(device, test_cfg)
 
-    test_properties_from_device_to_server(device, test_cfg)
+        time.sleep(1)
 
-    time.sleep(1)
+        test_properties_from_server_to_device(test_cfg, rx_data_lock, rx_data)
 
-    test_properties_from_server_to_device(test_cfg, rx_data_lock, rx_data)
-
-    device.disconnect()
+        device.disconnect()
 
 
 def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:
