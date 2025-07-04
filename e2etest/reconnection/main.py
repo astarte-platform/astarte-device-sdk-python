@@ -24,6 +24,7 @@ import asyncio
 import importlib.util
 import os
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -380,45 +381,46 @@ def main(cb_loop: asyncio.AbstractEventLoop, test_cfg: TestCfg):
     """
     Generate the device and run the end to end tests.
     """
-    persistency_dir = Path.joinpath(Path.cwd(), "e2etest", "reconnection", "build")
-    if not Path.is_dir(persistency_dir):
-        os.makedirs(persistency_dir)
+    with tempfile.TemporaryDirectory("astarte-sdk-python-e2e") as persistency_path:
+        persistency_dir = Path(persistency_path)
 
-    if test_cfg.grpc_socket_port is None:
-        device = DeviceMqtt(
-            device_id=test_cfg.device_id,
-            realm=test_cfg.realm,
-            credentials_secret=test_cfg.credentials_secret,
-            pairing_base_url=test_cfg.pairing_url,
-            persistency_dir=persistency_dir,
-            ignore_ssl_errors=False,
+        if test_cfg.grpc_socket_port is None:
+            device = DeviceMqtt(
+                device_id=test_cfg.device_id,
+                realm=test_cfg.realm,
+                credentials_secret=test_cfg.credentials_secret,
+                pairing_base_url=test_cfg.pairing_url,
+                persistency_dir=persistency_path,
+                ignore_ssl_errors=False,
+            )
+        else:
+            device = DeviceGrpc(
+                server_addr=f"localhost:{test_cfg.grpc_socket_port}",
+                node_uuid=test_cfg.grpc_node_uuid,
+            )
+
+        device.add_interfaces_from_dir(test_cfg.interfaces_fld)
+        device.set_events_callbacks(
+            on_connected=on_connected_cbk,
+            on_data_received=on_data_received_cbk,
+            on_disconnected=on_disconnected_cbk,
+            loop=cb_loop,
         )
-    else:
-        device = DeviceGrpc(
-            server_addr=f"localhost:{test_cfg.grpc_socket_port}",
-            node_uuid=test_cfg.grpc_node_uuid,
-        )
 
-    device.add_interfaces_from_dir(test_cfg.interfaces_fld)
-    device.set_events_callbacks(
-        on_connected=on_connected_cbk,
-        on_data_received=on_data_received_cbk,
-        on_disconnected=on_disconnected_cbk,
-        loop=cb_loop,
-    )
-
-    test_add_and_remove_interface_while_disconnected(device, test_cfg)
-
-    time.sleep(0.5)
-
-    test_add_and_remove_interface_while_connected(device, test_cfg)
-
-    time.sleep(0.5)
-
-    if test_cfg.grpc_socket_port is None:
-        test_add_and_remove_property_interface_while_connected(persistency_dir, device, test_cfg)
+        test_add_and_remove_interface_while_disconnected(device, test_cfg)
 
         time.sleep(0.5)
+
+        test_add_and_remove_interface_while_connected(device, test_cfg)
+
+        time.sleep(0.5)
+
+        if test_cfg.grpc_socket_port is None:
+            test_add_and_remove_property_interface_while_connected(
+                persistency_dir, device, test_cfg
+            )
+
+            time.sleep(0.5)
 
 
 def start_call_back_loop(loop: asyncio.AbstractEventLoop) -> None:

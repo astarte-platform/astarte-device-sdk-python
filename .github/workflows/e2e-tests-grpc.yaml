@@ -138,3 +138,8 @@ jobs:
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
           python3 ./e2etest/reconnection/main.py --device_n 1
         working-directory: ./astarte-device-sdk-python
+      - name: Run test for message-hub persistency
+        run: |
+          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+          python3 ./e2etest/grpc-persistency/main.py --device_n 1
+        working-directory: ./astarte-device-sdk-python
