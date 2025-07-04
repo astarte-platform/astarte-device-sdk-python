@@ -2,6 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 Sphinx==7.4.7
-setuptools==75.1.0
+setuptools==78.1.1
 m2r2==0.3.3.post2
 sphinx_rtd_theme==2.0.0
