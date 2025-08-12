@@ -35,11 +35,11 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout astarte-device-sdk-python
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: astarte-device-sdk-python
       - name: Checkout astarte-message-hub
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: astarte-platform/astarte-message-hub
           path: astarte-message-hub

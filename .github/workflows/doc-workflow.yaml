@@ -29,11 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout the source
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: astarte-device-sdk-python
       # Checkout the docs repository
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: astarte-platform/docs
           ssh-key: ${{ secrets.DOCS_DEPLOY_KEY }}
@@ -74,12 +74,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout the source
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: astarte-device-sdk-python
           fetch-depth: 0
       # Checkout the sdk-doc repository
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: astarte-platform/sdk-doc
           ssh-key: ${{ secrets.SDK_DOC_DEPLOY_KEY }}

@@ -30,7 +30,7 @@ jobs:
       group: build-${{ matrix.python-version }}-${{ github.ref }}
       cancel-in-progress: true
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -50,7 +50,7 @@ jobs:
       group: tests-${{ matrix.python-version }}-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -67,7 +67,7 @@ jobs:
       group: coverage-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
